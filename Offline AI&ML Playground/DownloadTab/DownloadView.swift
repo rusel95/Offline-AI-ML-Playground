@@ -13,14 +13,79 @@ struct SimpleDownloadView: View {
     @StateObject private var downloadManager = ModelDownloadManager()
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Header with storage info
+        NavigationSplitView {
+            // Sidebar with categories and storage info
+            VStack(spacing: 20) {
                 StorageHeaderView(downloadManager: downloadManager)
                 
-                // Available models list
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Categories")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    ForEach(ModelType.allCases, id: \.self) { type in
+                        HStack {
+                            Circle()
+                                .fill(type.color)
+                                .frame(width: 8, height: 8)
+                            Text(type.displayName)
+                                .font(.subheadline)
+                            Spacer()
+                            Text("\(downloadManager.availableModels.filter { $0.type == type }.count)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+                .padding()
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                
+                Spacer()
+            }
+            .padding()
+            .frame(minWidth: 250, idealWidth: 280)
+            
+        } detail: {
+            // Main content area
+            VStack(spacing: 0) {
+                // Header with title and refresh button
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Available Models")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                        Text("Download AI models for offline use")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        downloadManager.refreshAvailableModels()
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Refresh")
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+                .padding(.bottom, 16)
+                
+                Divider()
+                
+                // Models grid
                 ScrollView {
-                    LazyVStack(spacing: 12) {
+                    LazyVGrid(columns: [
+                        GridItem(.adaptive(minimum: 400, maximum: 500), spacing: 20)
+                    ], spacing: 20) {
                         ForEach(downloadManager.availableModels, id: \.id) { model in
                             ModelCardView(
                                 model: model,
@@ -28,18 +93,12 @@ struct SimpleDownloadView: View {
                             )
                         }
                     }
-                    .padding()
-                }
-            }
-            .navigationTitle("Download Models")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Refresh") {
-                        downloadManager.refreshAvailableModels()
-                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 20)
                 }
             }
         }
+        .navigationSplitViewStyle(.balanced)
         .onAppear {
             downloadManager.loadDownloadedModels()
             if downloadManager.availableModels.isEmpty {
@@ -54,23 +113,28 @@ struct StorageHeaderView: View {
     @ObservedObject var downloadManager: ModelDownloadManager
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             HStack {
                 Image(systemName: "externaldrive.fill")
                     .foregroundColor(.blue)
-                Text("Local Storage")
-                    .font(.headline)
+                    .font(.title2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Local Storage")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    Text(downloadManager.formattedStorageUsed)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 Spacer()
-                Text(downloadManager.formattedStorageUsed)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
             
             ProgressView(value: downloadManager.storageUsed, total: downloadManager.totalStorage)
-                .progressViewStyle(LinearProgressViewStyle(tint: .blue))
+                .progressViewStyle(.linear)
+                .tint(.blue)
         }
         .padding()
-        .background(Color(UIColor.systemGray6))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
 }
 
@@ -80,48 +144,61 @@ struct ModelCardView: View {
     @ObservedObject var downloadManager: ModelDownloadManager
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             // Model header
-            HStack {
+            HStack(alignment: .top, spacing: 12) {
+                // Model type icon
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(model.type.color.opacity(0.2))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Image(systemName: model.type.iconName)
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(model.type.color)
+                    )
+                
                 VStack(alignment: .leading, spacing: 4) {
                     Text(model.name)
-                        .font(.headline)
+                        .font(.title3)
+                        .fontWeight(.semibold)
                         .lineLimit(1)
                     
                     Text(model.description)
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundColor(.secondary)
                         .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                 }
                 
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(model.formattedSize)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
                     
                     Text(model.type.displayName)
-                        .font(.caption2)
+                        .font(.caption)
                         .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(model.type.color.opacity(0.2))
+                        .padding(.vertical, 3)
+                        .background(model.type.color.opacity(0.15))
                         .foregroundColor(model.type.color)
-                        .cornerRadius(8)
+                        .cornerRadius(6)
                 }
             }
             
             // Tags
             if !model.tags.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         ForEach(model.tags, id: \.self) { tag in
                             Text(tag)
-                                .font(.caption2)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.gray.opacity(0.2))
-                                .cornerRadius(4)
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.quaternary)
+                                .cornerRadius(6)
                         }
                     }
                     .padding(.horizontal, 1)
@@ -131,10 +208,9 @@ struct ModelCardView: View {
             // Download status and action
             ModelActionView(model: model, downloadManager: downloadManager)
         }
-        .padding()
-        .background(Color(UIColor.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .padding(20)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -146,25 +222,28 @@ struct ModelActionView: View {
     var body: some View {
         if let download = downloadManager.activeDownloads[model.id] {
             // Currently downloading
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 HStack {
                     Text("Downloading...")
-                        .font(.caption)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
                         .foregroundColor(.blue)
                     
                     Spacer()
                     
                     Text("\(Int(download.progress * 100))%")
-                        .font(.caption)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
                         .foregroundColor(.blue)
                 }
                 
                 ProgressView(value: download.progress)
-                    .progressViewStyle(LinearProgressViewStyle(tint: .blue))
+                    .progressViewStyle(.linear)
+                    .tint(.blue)
                 
                 HStack {
                     Text(download.formattedSpeed)
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundColor(.secondary)
                     
                     Spacer()
@@ -174,6 +253,7 @@ struct ModelActionView: View {
                     }
                     .font(.caption)
                     .foregroundColor(.red)
+                    .buttonStyle(.plain)
                 }
             }
         } else if downloadManager.isModelDownloaded(model.id) {
@@ -181,8 +261,10 @@ struct ModelActionView: View {
             HStack {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.green)
+                    .font(.title3)
                 Text("Downloaded")
-                    .font(.caption)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
                     .foregroundColor(.green)
                 
                 Spacer()
@@ -190,24 +272,29 @@ struct ModelActionView: View {
                 Button("Delete") {
                     downloadManager.deleteModel(model.id)
                 }
-                .font(.caption)
+                .font(.subheadline)
                 .foregroundColor(.red)
+                .buttonStyle(.plain)
             }
         } else {
             // Available for download
             Button(action: {
                 downloadManager.downloadModel(model)
             }) {
-                HStack {
-                    Image(systemName: "arrow.down.circle")
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.title3)
                     Text("Download")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(Color.blue)
+                .padding(.vertical, 12)
+                .background(.blue)
                 .foregroundColor(.white)
-                .cornerRadius(8)
+                .cornerRadius(10)
             }
+            .buttonStyle(.plain)
         }
     }
 }
@@ -250,6 +337,15 @@ enum ModelType: String, CaseIterable {
         case .whisper: return .purple
         case .stable_diffusion: return .pink
         case .general: return .blue
+        }
+    }
+    
+    var iconName: String {
+        switch self {
+        case .llama: return "🐑"
+        case .whisper: return "🎤"
+        case .stable_diffusion: return "🎨"
+        case .general: return "🤖"
         }
     }
 }
