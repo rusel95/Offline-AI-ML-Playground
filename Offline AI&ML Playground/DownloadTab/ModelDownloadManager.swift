@@ -43,6 +43,10 @@ class ModelDownloadManager: NSObject, ObservableObject {
     
     // MARK: - Public Methods
     
+    func getDownloadedModels() -> [AIModel] {
+        return availableModels.filter { downloadedModels.contains($0.id) }
+    }
+    
     func refreshAvailableModels() {
         // iPhone-compatible, lightweight models for mobile deployment
         availableModels = [
@@ -249,7 +253,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
             let (_, response) = try await URLSession.shared.data(for: request)
             
             if let httpResponse = response as? HTTPURLResponse {
-                print("📊 Status Code: \(httpResponse.statusCode)")
+                print("Status Code: \(httpResponse.statusCode)")
                 print("📏 Content-Length: \(httpResponse.value(forHTTPHeaderField: "Content-Length") ?? "Unknown")")
                 print("📋 Content-Type: \(httpResponse.value(forHTTPHeaderField: "Content-Type") ?? "Unknown")")
                 
