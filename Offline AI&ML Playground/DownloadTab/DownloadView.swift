@@ -28,290 +28,199 @@ struct SimpleDownloadView: View {
     // MARK: - iPhone Layout
     private var iPhoneLayout: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // Active Downloads Section (prominently displayed)
-                if !downloadManager.activeDownloads.isEmpty {
-                    VStack(spacing: 0) {
-                        HStack {
-                            Text("Downloading")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Text("\(downloadManager.activeDownloads.count)")
-                                .font(.caption)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(.blue, in: Capsule())
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 12)
-                        .padding(.bottom, 8)
-                        
-                        ForEach(Array(downloadManager.activeDownloads.keys), id: \.self) { modelId in
-                            if let download = downloadManager.activeDownloads[modelId],
-                               let model = downloadManager.availableModels.first(where: { $0.id == modelId }) {
-                                DownloadProgressView(model: model, download: download)
-                                    .padding(.horizontal, 16)
-                                    .padding(.bottom, 8)
-                            }
-                        }
-                        
-                        Divider()
-                            .padding(.top, 8)
-                    }
-                    .background(.regularMaterial)
-                }
-                
-                // Storage Info Header (compact for iPhone)
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Available Models")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        Text(downloadManager.formattedStorageUsed)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        downloadManager.refreshAvailableModels()
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.title3)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                
-                Divider()
-                
-                // Models List (iPhone-optimized)
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(downloadManager.availableModels, id: \.id) { model in
-                            iPhoneModelCard(model: model)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 16)
-                }
-            }
-            .navigationTitle("AI Models")
-            .onAppear {
-                downloadManager.loadDownloadedModels()
-                if downloadManager.availableModels.isEmpty {
-                    downloadManager.refreshAvailableModels()
-                }
+            mainContentList
+        }
+    }
+    
+    private var mainContentList: some View {
+        List {
+            storageSection
+            activeDownloadsSection
+            availableModelsSection
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("AI Models")
+        .refreshable {
+            downloadManager.refreshAvailableModels()
+        }
+    }
+    
+    private var storageSection: some View {
+        Section {
+            StorageHeaderView(downloadManager: downloadManager)
+                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                .listRowBackground(Color.clear)
+        } header: {
+            Text("Storage")
+                .font(.headline)
+                .foregroundStyle(.primary)
+        }
+    }
+    
+    @ViewBuilder
+    private var activeDownloadsSection: some View {
+        if !downloadManager.activeDownloads.isEmpty {
+            Section {
+                activeDownloadsList
+            } header: {
+                Text("Downloading")
+                    .font(.headline)
+                    .foregroundStyle(.blue)
             }
         }
+    }
+    
+    private var activeDownloadsList: some View {
+        ForEach(Array(downloadManager.activeDownloads.values), id: \.modelId) { download in
+            if let model = downloadManager.availableModels.first(where: { $0.id == download.modelId }) {
+                activeDownloadRow(model: model, download: download)
+            }
+        }
+    }
+    
+    private func activeDownloadRow(model: AIModel, download: ModelDownload) -> some View {
+        DownloadProgressCard(model: model, download: download, downloadManager: downloadManager)
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            .listRowBackground(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.blue.opacity(0.05))
+            )
+    }
+    
+    private var availableModelsSection: some View {
+        Section {
+            availableModelsList
+        } header: {
+            Text("Available Models")
+                .font(.headline)
+                .foregroundStyle(.primary)
+        }
+    }
+    
+    private var availableModelsList: some View {
+        ForEach(downloadManager.availableModels, id: \.id) { model in
+            availableModelRow(model: model)
+        }
+    }
+    
+    private func availableModelRow(model: AIModel) -> some View {
+        ModelCardView(
+            model: model,
+            downloadManager: downloadManager
+        )
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        .listRowBackground(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.regularMaterial)
+        )
     }
     
     // MARK: - macOS Layout
     private var macOSLayout: some View {
         NavigationSplitView {
-            // Sidebar with categories and storage info
-            VStack(spacing: 20) {
-                StorageHeaderView(downloadManager: downloadManager)
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Categories")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    ForEach(ModelType.allCases, id: \.self) { type in
-                        HStack {
-                            Circle()
-                                .fill(type.color)
-                                .frame(width: 8, height: 8)
-                            Text(type.displayName)
-                                .font(.subheadline)
-                            Spacer()
-                            Text("\(downloadManager.availableModels.filter { $0.type == type }.count)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-                .padding()
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-                
-                Spacer()
-            }
-            .padding()
-            .frame(minWidth: 250, idealWidth: 280)
-            
+            macOSSidebar
         } detail: {
-            // Main content area
-            VStack(spacing: 0) {
-                // Header with title and refresh button
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Available Models")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        Text("Download AI models for offline use")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        downloadManager.refreshAvailableModels()
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "arrow.clockwise")
-                            Text("Refresh")
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 20)
-                .padding(.bottom, 16)
-                
-                Divider()
-                
-                // Models grid
-                ScrollView {
-                    LazyVGrid(columns: [
-                        GridItem(.adaptive(minimum: 400, maximum: 500), spacing: 20)
-                    ], spacing: 20) {
-                        ForEach(downloadManager.availableModels, id: \.id) { model in
-                            ModelCardView(
-                                model: model,
-                                downloadManager: downloadManager
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 20)
-                }
-            }
+            macOSDetailView
         }
         .navigationSplitViewStyle(.balanced)
-        .onAppear {
-            downloadManager.loadDownloadedModels()
-            if downloadManager.availableModels.isEmpty {
-                downloadManager.refreshAvailableModels()
-            }
+    }
+    
+    private var macOSSidebar: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            sidebarStorageHeader
+            modelCategoriesSection
+            Spacer()
+        }
+        .padding(.vertical, 20)
+        .frame(minWidth: 250, idealWidth: 300)
+        .background(.thickMaterial)
+    }
+    
+    private var sidebarStorageHeader: some View {
+        StorageHeaderView(downloadManager: downloadManager)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private var modelCategoriesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Model Categories")
+                .font(.headline)
+                .foregroundStyle(.primary)
+            
+            modelCategoriesList
+        }
+        .padding(.horizontal, 20)
+    }
+    
+    private var modelCategoriesList: some View {
+        ForEach(ModelType.allCases, id: \.self) { type in
+            modelCategoryRow(for: type)
         }
     }
     
-    // MARK: - iPhone Model Card
-    @ViewBuilder
-    private func iPhoneModelCard(model: AIModel) -> some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                // Model icon and type
-                ZStack {
-                    Circle()
-                        .fill(model.type.color.opacity(0.1))
-                        .frame(width: 40, height: 40)
-                    Image(systemName: model.type.iconName)
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(model.type.color)
-                }
-                
-                // Model info
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(model.name)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-                    
-                    Text(model.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                    
-                    HStack(spacing: 8) {
-                        Text(model.formattedSize)
-                            .font(.caption2)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.gray, in: Capsule())
-                        
-                        Text(model.type.displayName)
-                            .font(.caption2)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(model.type.color, in: Capsule())
-                    }
-                }
-                
-                Spacer()
-                
-                // Action button
-                ModelActionView(
-                    model: model,
-                    downloadManager: downloadManager
-                )
-            }
-            .padding(12)
+    private func modelCategoryRow(for type: ModelType) -> some View {
+        HStack {
+            Image(systemName: type.iconName)
+                .foregroundStyle(type.color)
+                .frame(width: 20, height: 20)
             
-            // Download progress (if downloading)
-            if let download = downloadManager.activeDownloads[model.id] {
-                ProgressView(value: download.progress)
-                    .progressViewStyle(LinearProgressViewStyle())
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 8)
-            }
+            Text(type.displayName)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+            
+            Spacer()
+            
+            modelCountBadge(for: type)
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-// MARK: - Download Progress View
-struct DownloadProgressView: View {
-    let model: AIModel
-    let download: ModelDownload
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Text(model.name)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Spacer()
-                Text("\(Int(download.progress * 100))%")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            ProgressView(value: download.progress)
-                .progressViewStyle(LinearProgressViewStyle(tint: .blue))
-            
-            HStack {
-                if let speed = formatDownloadSpeed(task: download.task) {
-                    Text(speed)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
-                Text("Downloading...")
-                    .font(.caption2)
-                    .foregroundColor(.blue)
-            }
-        }
-        .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.vertical, 8)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
     }
     
-    private func formatDownloadSpeed(task: URLSessionDownloadTask) -> String? {
-        // This is a placeholder - you'd need to implement speed calculation
-        return "1.2 MB/s"
+    private func modelCountBadge(for type: ModelType) -> some View {
+        Text("\(downloadManager.availableModels.filter { $0.type == type }.count)")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.quaternary, in: Capsule())
     }
+    
+    private var macOSDetailView: some View {
+        ScrollView {
+            macOSModelsGrid
+        }
+        .background(.ultraThinMaterial)
+        .navigationTitle("AI Models")
+    }
+    
+    private var macOSModelsGrid: some View {
+        LazyVGrid(columns: macOSGridColumns, spacing: 20) {
+            ForEach(downloadManager.availableModels, id: \.id) { model in
+                macOSModelCard(for: model)
+            }
+        }
+        .padding(20)
+    }
+    
+    private var macOSGridColumns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: 20),
+            GridItem(.flexible(), spacing: 20)
+        ]
+    }
+    
+    private func macOSModelCard(for model: AIModel) -> some View {
+        ModelCardView(
+            model: model,
+            downloadManager: downloadManager
+        )
+        .frame(maxWidth: 400, minHeight: 180)
+    }
+    
+
 }
 
 // MARK: - Preview

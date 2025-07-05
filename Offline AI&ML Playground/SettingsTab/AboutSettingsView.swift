@@ -24,7 +24,7 @@ struct AboutSettingsView: View {
             HStack {
                 Image(systemName: "heart.fill")
                     .foregroundColor(.pink)
-                Text("Made with love by Ruslan Popesku")
+                Text("Made with ❤️ by Ruslan Popesku")
                     .font(.caption)
                 Spacer()
             }
