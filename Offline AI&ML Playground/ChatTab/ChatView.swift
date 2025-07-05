@@ -60,7 +60,6 @@ class SimpleChatViewModel: ObservableObject {
     @Published var isGenerating = false
     @Published var selectedModel: AIModel?
     @Published var generationError: String?
-    @Published var showingSessionPicker = false
     @Published var showingModelPicker = false
     
     // Reference to download manager to get available models
@@ -243,15 +242,7 @@ struct ChatView: View {
             }
             .navigationTitle("Chat")
             .toolbar {
-                ToolbarItem(placement: .automatic) {
-                    Button {
-                        viewModel.showingSessionPicker.toggle()
-                    } label: {
-                        Image(systemName: "list.bullet")
-                    }
-                }
-                
-                ToolbarItem(placement: .automatic) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button {
                             viewModel.newSession()

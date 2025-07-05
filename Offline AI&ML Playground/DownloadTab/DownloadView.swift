@@ -40,6 +40,9 @@ struct SimpleDownloadView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("AI Models")
+        .onAppear {
+            downloadManager.refreshAvailableModels()
+        }
         .refreshable {
             downloadManager.refreshAvailableModels()
         }
@@ -194,6 +197,9 @@ struct SimpleDownloadView: View {
         }
         .background(.ultraThinMaterial)
         .navigationTitle("AI Models")
+        .onAppear {
+            downloadManager.refreshAvailableModels()
+        }
     }
     
     private var macOSModelsGrid: some View {
