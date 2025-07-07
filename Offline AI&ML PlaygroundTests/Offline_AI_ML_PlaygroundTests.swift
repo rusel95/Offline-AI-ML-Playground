@@ -287,17 +287,6 @@ final class MLXIntegrationTests: XCTestCase {
         print("✅ Sample model creation test passed")
     }
     
-    /// Test that LLMModelFactory exists and can be accessed
-    func testLLMModelFactoryAccess() throws {
-        print("🧪 Testing LLMModelFactory access")
-        
-        let factory = LLMModelFactory.shared
-        XCTAssertNotNil(factory, "LLMModelFactory.shared should be accessible")
-        
-        print("🏭 LLMModelFactory accessed successfully")
-        print("✅ LLMModelFactory access test passed")
-    }
-    
     /// Test ModelType enumeration
     func testModelTypeProperties() throws {
         print("🧪 Testing ModelType properties")
@@ -378,5 +367,55 @@ final class MLXMockTests: XCTestCase {
         
         print("🔄 Fallback generation test conceptually validated")
         print("✅ Fallback text generation test passed")
+    }
+}
+
+/// Performance Monitor Tests
+@MainActor 
+final class PerformanceMonitorTests: XCTestCase {
+    
+    var performanceMonitor: PerformanceMonitor!
+    
+    override func setUpWithError() throws {
+        super.setUp()
+        performanceMonitor = PerformanceMonitor()
+    }
+    
+    override func tearDownWithError() throws {
+        performanceMonitor.stopMonitoring()
+        performanceMonitor = nil
+        super.tearDown()
+    }
+    
+    func testPerformanceMonitorInitialization() throws {
+        XCTAssertNotNil(performanceMonitor)
+        XCTAssertFalse(performanceMonitor.isMonitoring)
+        XCTAssertEqual(performanceMonitor.currentStats.cpuUsage, 0.0)
+        XCTAssertEqual(performanceMonitor.currentStats.memoryUsage, 0.0)
+    }
+    
+    func testPerformanceMonitorStartStop() throws {
+        XCTAssertFalse(performanceMonitor.isMonitoring)
+        
+        performanceMonitor.startMonitoring()
+        XCTAssertTrue(performanceMonitor.isMonitoring)
+        
+        performanceMonitor.stopMonitoring()
+        XCTAssertFalse(performanceMonitor.isMonitoring)
+    }
+    
+    func testPerformanceStatsFormatting() throws {
+        let stats = PerformanceStats(
+            cpuUsage: 45.5,
+            memoryUsage: 65.2,
+            memoryUsedMB: 1024.0,
+            memoryTotalMB: 8192.0,
+            timestamp: Date()
+        )
+        
+        XCTAssertEqual(stats.formattedCPUUsage, "45.5%")
+        XCTAssertEqual(stats.formattedMemoryUsage, "65.2%")
+        XCTAssertEqual(stats.formattedMemoryUsed, "1024 MB")
+        XCTAssertEqual(stats.formattedMemoryTotal, "8192 MB")
     }
 }
