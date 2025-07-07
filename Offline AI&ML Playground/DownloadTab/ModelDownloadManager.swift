@@ -37,8 +37,15 @@ class ModelDownloadManager: NSObject, ObservableObject {
         // Create models directory
         createModelsDirectoryIfNeeded()
         
+        // Synchronize downloaded models with files on disk
+        synchronizeDownloadedModels()
+        
         // Calculate initial storage
         calculateStorageUsed()
+        
+        print("📱 ModelDownloadManager initialized")
+        print("📁 Models directory: \(modelsDirectory.path)")
+        print("📊 Found \(downloadedModels.count) downloaded models")
     }
     
     // MARK: - Public Methods
@@ -219,7 +226,81 @@ class ModelDownloadManager: NSObject, ObservableObject {
     }
     
     func isModelDownloaded(_ modelId: String) -> Bool {
-        downloadedModels.contains(modelId)
+        // First check our in-memory set
+        if downloadedModels.contains(modelId) {
+            // Verify the file actually exists on disk
+            let modelPath = modelsDirectory.appendingPathComponent(modelId)
+            let fileExists = FileManager.default.fileExists(atPath: modelPath.path)
+            
+            if !fileExists {
+                // File was deleted externally, update our tracking
+                print("⚠️ Model \(modelId) was in downloaded set but file missing, removing from set")
+                downloadedModels.remove(modelId)
+                return false
+            }
+            return true
+        }
+        
+        // If not in set, check if file exists on disk (user might have copied it manually)
+        let modelPath = modelsDirectory.appendingPathComponent(modelId)
+        let fileExists = FileManager.default.fileExists(atPath: modelPath.path)
+        
+        if fileExists {
+            // File exists but wasn't tracked, add it to our set
+            print("✅ Found untracked model \(modelId) on disk, adding to downloaded set")
+            downloadedModels.insert(modelId)
+            return true
+        }
+        
+        return false
+    }
+    
+    /// Get the local path for a downloaded model
+    func getLocalModelPath(modelId: String) -> URL? {
+        guard isModelDownloaded(modelId) else { return nil }
+        return modelsDirectory.appendingPathComponent(modelId)
+    }
+    
+    /// Synchronize downloaded models with actual files on disk
+    func synchronizeDownloadedModels() {
+        print("🔄 Synchronizing downloaded models with file system...")
+        
+        guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
+            downloadedModels.removeAll()
+            return
+        }
+        
+        do {
+            // Get all files in models directory
+            let contents = try FileManager.default.contentsOfDirectory(at: modelsDirectory, includingPropertiesForKeys: [.fileSizeKey])
+            let filesOnDisk = Set(contents.map { $0.lastPathComponent })
+            
+            // Remove models from set that don't exist on disk
+            let modelsToRemove = downloadedModels.subtracting(filesOnDisk)
+            for modelId in modelsToRemove {
+                print("🗑️ Removing missing model from tracking: \(modelId)")
+                downloadedModels.remove(modelId)
+            }
+            
+            // Add models found on disk that aren't tracked
+            let modelsToAdd = filesOnDisk.subtracting(downloadedModels)
+            for modelId in modelsToAdd {
+                let modelPath = modelsDirectory.appendingPathComponent(modelId)
+                
+                // Verify it's a reasonable model file (not a temporary file)
+                if let attributes = try? FileManager.default.attributesOfItem(atPath: modelPath.path),
+                   let fileSize = attributes[.size] as? Int64,
+                   fileSize > 1024 * 1024 { // At least 1MB
+                    print("✅ Adding found model to tracking: \(modelId)")
+                    downloadedModels.insert(modelId)
+                }
+            }
+            
+            print("📊 Synchronized: \(downloadedModels.count) models tracked")
+            
+        } catch {
+            print("❌ Error synchronizing downloaded models: \(error)")
+        }
     }
     
     func loadDownloadedModels() {

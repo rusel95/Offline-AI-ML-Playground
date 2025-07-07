@@ -188,6 +188,7 @@ class SimpleChatViewModel: ObservableObject {
                 maxTokens: 512,
                 temperature: 0.7
             ) {
+                // Since we fixed the streaming to only send new tokens, just append
                 fullResponse += chunk
                 
                 // Update the message content in real-time

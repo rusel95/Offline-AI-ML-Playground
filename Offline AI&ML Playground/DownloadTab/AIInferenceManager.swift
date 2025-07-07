@@ -33,27 +33,43 @@ class AIInferenceManager: ObservableObject {
         print("🔧 MLX Swift availability: \(isMLXSwiftAvailable ? "✅ Available" : "❌ Not Available")")
     }
     
-    /// Load a model for inference
-    /// - Parameter model: The AI model to load
+    /// Load a specific AI model
+    /// - Parameter model: The model to load
     func loadModel(_ model: AIModel) async throws {
-        print("📥 Starting model load process for: \(model.name)")
         
-        loadingStatus = "Initializing..."
-        loadingProgress = 0.0
-        lastError = nil
-        isModelLoaded = false
+        print("🚀 Starting model loading process")
+        print("📋 Model: \(model.name) (\(model.id))")
+        print("📦 Type: \(model.type)")
+        print("💾 Size: \(model.formattedSize)")
+        print("🏠 Repository: \(model.huggingFaceRepo)")
+        print("📄 Filename: \(model.filename)")
+        
+        // Check if model exists locally first
+        let localModelPath = getLocalModelPath(for: model)
+        let isLocallyAvailable = FileManager.default.fileExists(atPath: localModelPath.path)
+        
+        print("📁 Local model path: \(localModelPath.path)")
+        print("🔍 Model exists locally: \(isLocallyAvailable)")
+        
+        guard isModelLoaded == false else {
+            print("⚠️ A model is already loaded, unloading first")
+            unloadModel()
+            return // Exit early if model already loaded
+        }
+        
+        await MainActor.run {
+            loadingProgress = 0.0
+            loadingStatus = "Initializing..."
+            lastError = nil
+        }
         
         do {
-            // Update progress
             await MainActor.run {
                 loadingProgress = 0.1
-                loadingStatus = "Checking model availability..."
+                loadingStatus = "Creating model configuration..."
             }
-            print("🔍 Checking if model exists: \(model.name)")
             
-            // Create model configuration
             let config = createModelConfiguration(for: model)
-            modelConfiguration = config
             print("⚙️ Created model configuration: \(config.id)")
             
             await MainActor.run {
@@ -61,13 +77,23 @@ class AIInferenceManager: ObservableObject {
                 loadingStatus = "Preparing model container..."
             }
             
-            // Create Hub API for custom download location if needed
+            // Create Hub API for custom download location - only download if not available locally
             let hub = HubApi(downloadBase: getModelDownloadDirectory())
             print("📁 Using download directory: \(getModelDownloadDirectory().path)")
             
-            await MainActor.run {
-                loadingProgress = 0.3
-                loadingStatus = "Loading model weights..."
+            // If model exists locally, inform Hub API to use local files
+            if isLocallyAvailable {
+                print("✅ Using locally cached model files")
+                await MainActor.run {
+                    loadingProgress = 0.5
+                    loadingStatus = "Loading from local cache..."
+                }
+            } else {
+                print("⬇️ Model not found locally, will download from repository")
+                await MainActor.run {
+                    loadingProgress = 0.3
+                    loadingStatus = "Downloading model weights..."
+                }
             }
             
             // Load model container
@@ -76,10 +102,14 @@ class AIInferenceManager: ObservableObject {
                 hub: hub,
                 configuration: config
             ) { progress in
-                print("📊 Model download progress: \(progress.fractionCompleted * 100)%")
+                let progressStatus = isLocallyAvailable ? "Loading" : "Downloading"
+                let baseProgress = isLocallyAvailable ? 0.5 : 0.3
+                let progressRange = isLocallyAvailable ? 0.4 : 0.6
+                
+                print("📊 Model \(progressStatus.lowercased()) progress: \(progress.fractionCompleted * 100)%")
                 Task { @MainActor in
-                    self.loadingProgress = 0.3 + (Float(progress.fractionCompleted) * 0.6)
-                    self.loadingStatus = "Downloading: \(Int(progress.fractionCompleted * 100))%"
+                    self.loadingProgress = Float(baseProgress + (progress.fractionCompleted * progressRange))
+                    self.loadingStatus = "\(progressStatus): \(Int(progress.fractionCompleted * 100))%"
                 }
             }
             
@@ -88,6 +118,11 @@ class AIInferenceManager: ObservableObject {
                 loadingStatus = "Finalizing model initialization..."
             }
             print("✅ Model container loaded successfully")
+            
+            // If we downloaded the model, mark it as downloaded
+            if !isLocallyAvailable {
+                markModelAsDownloaded(model)
+            }
             
             // Small delay to ensure everything is properly initialized
             try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
@@ -100,6 +135,7 @@ class AIInferenceManager: ObservableObject {
             }
             
             print("🎉 Model loaded successfully: \(model.name)")
+            print("🔗 Source: \(isLocallyAvailable ? "Local Cache" : "Downloaded")")
             print("📈 Final memory usage: \(getMemoryUsage()) bytes")
             
         } catch {
@@ -126,10 +162,10 @@ class AIInferenceManager: ObservableObject {
         temperature: Float = 0.7
     ) async throws -> String {
         
-                        guard isModelLoaded, let _ = currentModel else {
-                    print("❌ Cannot generate text: Model not loaded")
-                    throw AIInferenceError.modelNotLoaded
-                }
+        guard isModelLoaded, let _ = currentModel else {
+            print("❌ Cannot generate text: Model not loaded")
+            throw AIInferenceError.modelNotLoaded
+        }
         
         print("🔮 Starting text generation")
         print("📝 Prompt: \(String(prompt.prefix(100)))")
@@ -160,7 +196,7 @@ class AIInferenceManager: ObservableObject {
                     temperature: temperature,
                     topP: 0.9
                 )
-                print("⚙️ Generation parameters set: maxTokens=\(parameters.maxTokens), temp=\(parameters.temperature), topP=\(parameters.topP)")
+                print("⚙️ Generation parameters set: maxTokens=\(parameters.maxTokens), temp=\(String(describing: parameters.temperature)), topP=\(String(describing: parameters.topP))")
                 
                 // Generate text using MLX
                 var generatedText = ""
@@ -240,14 +276,22 @@ class AIInferenceManager: ObservableObject {
                         )
                         
                         // Generate text with streaming using MLX
+                        var previousLength = 0
                         let _ = try MLXLMCommon.generate(
                             input: input,
                             parameters: parameters,
                             context: context
                         ) { tokens in
-                            let text = context.tokenizer.decode(tokens: tokens)
-                            print("🌊 Streaming chunk: \(String(text.prefix(20)))")
-                            continuation.yield(text)
+                            let fullText = context.tokenizer.decode(tokens: tokens)
+                            
+                            // Only yield the new part since last time
+                            let newText = String(fullText.dropFirst(previousLength))
+                            previousLength = fullText.count
+                            
+                            if !newText.isEmpty {
+                                print("🌊 Streaming new chunk: \(String(newText.prefix(20)))")
+                                continuation.yield(newText)
+                            }
                             return .more
                         }
                         
@@ -348,6 +392,107 @@ class AIInferenceManager: ObservableObject {
         print("📁 Models directory: \(modelsDir.path)")
         
         return modelsDir
+    }
+    
+    /// Get the local path for a specific model
+    private func getLocalModelPath(for model: AIModel) -> URL {
+        let modelsDir = getModelDownloadDirectory()
+        
+        // Create a more comprehensive path structure for the model
+        let modelDirectory = modelsDir.appendingPathComponent(model.id, isDirectory: true)
+        
+        // Check if it's a directory-based model (MLX style) or single file
+        if model.filename.hasSuffix(".gguf") || model.filename.hasSuffix(".bin") {
+            // Single file model
+            return modelsDir.appendingPathComponent("\(model.id)-\(model.filename)")
+        } else {
+            // Multi-file model - check for standard MLX files
+            let configPath = modelDirectory.appendingPathComponent("config.json")
+            let modelPath = modelDirectory.appendingPathComponent("model.safetensors")
+            let tokenizerPath = modelDirectory.appendingPathComponent("tokenizer.json")
+            
+            // Return the directory if any of the key files exist
+            if FileManager.default.fileExists(atPath: configPath.path) ||
+               FileManager.default.fileExists(atPath: modelPath.path) ||
+               FileManager.default.fileExists(atPath: tokenizerPath.path) {
+                return modelDirectory
+            }
+            
+            // Fallback to single file approach
+            return modelsDir.appendingPathComponent(model.filename)
+        }
+    }
+    
+    /// Check if a model is downloaded and available locally
+    private func isModelDownloadedLocally(_ model: AIModel) -> Bool {
+        let localPath = getLocalModelPath(for: model)
+        
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: localPath.path, isDirectory: &isDirectory)
+        
+        if exists {
+            if isDirectory.boolValue {
+                // Directory-based model - check for essential files
+                let modelDir = localPath
+                let configExists = FileManager.default.fileExists(atPath: modelDir.appendingPathComponent("config.json").path)
+                let modelExists = FileManager.default.fileExists(atPath: modelDir.appendingPathComponent("model.safetensors").path) ||
+                                 FileManager.default.fileExists(atPath: modelDir.appendingPathComponent("pytorch_model.bin").path) ||
+                                 FileManager.default.fileExists(atPath: modelDir.appendingPathComponent("model.bin").path)
+                
+                print("📁 Directory model check - Config: \(configExists), Model: \(modelExists)")
+                return configExists || modelExists
+            } else {
+                // Single file model
+                do {
+                    let attributes = try FileManager.default.attributesOfItem(atPath: localPath.path)
+                    let fileSize = attributes[.size] as? Int64 ?? 0
+                    let expectedSize = model.sizeInBytes
+                    
+                    // Check if file size is reasonable (at least 50% of expected size to account for compression)
+                    let isValidSize = fileSize > expectedSize / 2
+                    print("📄 Single file model check - Size: \(fileSize) vs Expected: \(expectedSize), Valid: \(isValidSize)")
+                    return isValidSize
+                } catch {
+                    print("❌ Error checking file size: \(error)")
+                    return false
+                }
+            }
+        }
+        
+        return false
+    }
+    
+    /// Mark a model as downloaded
+    private func markModelAsDownloaded(_ model: AIModel) {
+        print("✅ Marking model as downloaded: \(model.id)")
+        // Since we use file system as source of truth, we don't need to maintain a separate list
+        // The isModelDownloadedLocally method will check the actual files
+    }
+    
+    /// Clean up any incomplete or corrupted model downloads
+    func cleanupIncompleteDownloads() {
+        let modelsDir = getModelDownloadDirectory()
+        
+        do {
+            let contents = try FileManager.default.contentsOfDirectory(at: modelsDir, includingPropertiesForKeys: [.fileSizeKey, .creationDateKey])
+            
+            for fileURL in contents {
+                let attributes = try fileURL.resourceValues(forKeys: [.fileSizeKey, .creationDateKey])
+                let fileSize = attributes.fileSize ?? 0
+                let creationDate = attributes.creationDate ?? Date()
+                
+                // Remove files that are very small (likely incomplete downloads) and old
+                let isOldFile = Date().timeIntervalSince(creationDate) > 24 * 60 * 60 // Older than 24 hours
+                let isTooSmall = fileSize < 1024 * 1024 // Smaller than 1MB
+                
+                if isOldFile && isTooSmall {
+                    print("🧹 Removing incomplete download: \(fileURL.lastPathComponent)")
+                    try? FileManager.default.removeItem(at: fileURL)
+                }
+            }
+        } catch {
+            print("⚠️ Error during cleanup: \(error)")
+        }
     }
     
     /// Get current memory usage
