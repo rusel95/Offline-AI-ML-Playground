@@ -30,30 +30,6 @@ struct SimpleSettingsView: View {
                     AdvancedSettingsView(settingsManager: settingsManager)
                     AboutSettingsView()
                 }
-                
-                // Version Footer
-                VStack(spacing: 4) {
-                    Divider()
-                    
-                    VStack(spacing: 2) {
-                        HStack {
-                            Image(systemName: "gearshape.2")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                            Text("Offline AI&ML Playground")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.primary)
-                        }
-                        
-                        Text("Version \(appVersion) (\(buildNumber))")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .fontDesign(.monospaced)
-                    }
-                }
-                .padding(.vertical, 8)
-                .background(.ultraThinMaterial)
             }
         }
     }

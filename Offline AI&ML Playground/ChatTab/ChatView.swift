@@ -8,6 +8,19 @@
 
 import SwiftUI
 import SwiftData
+import Combine
+
+// MARK: - UserDefaults Extension for Model Persistence
+extension UserDefaults {
+    private enum Keys {
+        static let lastSelectedModelID = "lastSelectedModelID"
+    }
+    
+    var lastSelectedModelID: String? {
+        get { string(forKey: Keys.lastSelectedModelID) }
+        set { set(newValue, forKey: Keys.lastSelectedModelID) }
+    }
+}
 
 // MARK: - Chat Message
 struct ChatMessage: Identifiable, Codable {
@@ -29,13 +42,20 @@ struct ChatMessage: Identifiable, Codable {
 @MainActor
 class SimpleChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
-    @Published var selectedModel: AIModel?
+    @Published var selectedModel: AIModel? {
+        didSet {
+            // Save the selected model ID to UserDefaults whenever it changes
+            UserDefaults.standard.lastSelectedModelID = selectedModel?.id
+            print("💾 Saved selected model: \(selectedModel?.name ?? "None")")
+        }
+    }
     @Published var generationError: String?
     @Published var showingModelPicker = false
     @Published var showingChatHistory = false
     @Published var isGenerating = false
     @Published var currentConversation: Conversation?
     @Published var conversationTitle: String = "New Conversation"
+    @Published var isModelLoading = false
     
     // Reference to download manager to get available models
     let downloadManager = ModelDownloadManager()
@@ -46,18 +66,36 @@ class SimpleChatViewModel: ObservableObject {
     // Chat History Manager
     var historyManager: ChatHistoryManager?
     
+    private var cancellables = Set<AnyCancellable>()
+    
     init() {
         downloadManager.loadDownloadedModels()
         downloadManager.refreshAvailableModels()
         
-        // Set the first downloaded model as default if available
+        // Try to restore the last selected model
         let downloadedModels = downloadManager.getDownloadedModels()
-        if let firstModel = downloadedModels.first {
+        let lastSelectedModelID = UserDefaults.standard.lastSelectedModelID
+        
+        var modelToLoad: AIModel?
+        
+        // First priority: Try to find the previously selected model
+        if let savedModelID = lastSelectedModelID,
+           let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
+            selectedModel = savedModel
+            modelToLoad = savedModel
+            print("🔄 Restored last selected model: \(savedModel.name)")
+        }
+        // Fallback: Use the first available model if no saved model found
+        else if let firstModel = downloadedModels.first {
             selectedModel = firstModel
-            
-            // Load the model for inference
+            modelToLoad = firstModel
+            print("🔄 No saved model found, using first available: \(firstModel.name)")
+        }
+        
+        // Load the selected model for inference
+        if let model = modelToLoad {
             Task {
-                await loadModelForInference(firstModel)
+                await loadModelForInference(model)
             }
         }
     }
@@ -74,30 +112,60 @@ class SimpleChatViewModel: ObservableObject {
         downloadManager.getDownloadedModels()
     }
     
-    func selectModel(_ model: AIModel) {
-        selectedModel = model
-        showingModelPicker = false
-        
-        // Load the new model for inference
-        Task {
-            await loadModelForInference(model)
-        }
-    }
-    
-    /// Load a model for inference
-    /// - Parameter model: The AI model to load
+    /// Load a model for inference with proper error handling and race condition prevention
     func loadModelForInference(_ model: AIModel) async {
+        // Prevent concurrent model loading
+        guard !isGenerating && !isModelLoading else {
+            print("⚠️ Cannot load model: already generating or loading")
+            return
+        }
+        
+        await MainActor.run {
+            isModelLoading = true
+            generationError = nil
+        }
+        
         print("🔄 Loading model for inference: \(model.name)")
         
         do {
             try await aiInferenceManager.loadModel(model)
-            print("✅ Model loaded successfully for inference")
-        } catch {
-            print("❌ Failed to load model for inference: \(error)")
             await MainActor.run {
-                generationError = "Failed to load model: \(error.localizedDescription)"
+                isModelLoading = false
+                generationError = nil
             }
+            print("✅ Model loaded successfully for inference: \(model.name)")
+        } catch {
+            await MainActor.run {
+                isModelLoading = false
+                generationError = "Failed to load model: \(error.localizedDescription)"
+                selectedModel = nil
+            }
+            print("❌ Failed to load model for inference: \(error.localizedDescription)")
         }
+    }
+    
+    /// Select a model with proper memory management
+    func selectModel(_ model: AIModel) async {
+        // Prevent model switching during generation
+        guard !isGenerating else {
+            print("⚠️ Cannot switch models while generating text")
+            return
+        }
+        
+        // Check if it's the same model
+        if selectedModel?.id == model.id {
+            print("ℹ️ Model \(model.name) is already selected")
+            return
+        }
+        
+        print("🔄 Switching to model: \(model.name)")
+        
+        await MainActor.run {
+            selectedModel = model
+        }
+        
+        // Load the new model
+        await loadModelForInference(model)
     }
     
     func refreshDownloadedModels() {
@@ -105,31 +173,70 @@ class SimpleChatViewModel: ObservableObject {
         downloadManager.refreshAvailableModels()
         
         let downloadedModels = downloadManager.getDownloadedModels()
+        let lastSelectedModelID = UserDefaults.standard.lastSelectedModelID
         
-        // If currently selected model is no longer available, clear selection
+        // Check if currently selected model is still available
         if let selectedModel = selectedModel,
            !downloadedModels.contains(where: { $0.id == selectedModel.id }) {
-            self.selectedModel = downloadedModels.first
-            
-            // Load the new model for inference
-            if let newModel = self.selectedModel {
+            // Current model no longer available, try to restore from UserDefaults
+            if let savedModelID = lastSelectedModelID,
+               let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
+                self.selectedModel = savedModel
+                print("🔄 Current model unavailable, restored saved model: \(savedModel.name)")
+                
                 Task {
-                    await loadModelForInference(newModel)
+                    await loadModelForInference(savedModel)
+                }
+            }
+            // Fallback to first available model
+            else {
+                self.selectedModel = downloadedModels.first
+                print("🔄 No saved model available, using first model")
+                
+                if let newModel = self.selectedModel {
+                    Task {
+                        await loadModelForInference(newModel)
+                    }
                 }
             }
         }
         
-        // If no model selected but models are available, select first one
+        // If no model selected but models are available, try to restore preference
         if selectedModel == nil && !downloadedModels.isEmpty {
-            selectedModel = downloadedModels.first
+            if let savedModelID = lastSelectedModelID,
+               let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
+                selectedModel = savedModel
+                print("🔄 Restored saved model on refresh: \(savedModel.name)")
+            } else {
+                selectedModel = downloadedModels.first
+                print("🔄 No saved preference, using first available model")
+            }
             
-            // Load the model for inference
+            // Load the selected model for inference
             if let newModel = selectedModel {
                 Task {
                     await loadModelForInference(newModel)
                 }
             }
         }
+    }
+    
+    // MARK: - Model Persistence Methods
+    
+    /// Check if there's a saved model preference
+    var hasSavedModelPreference: Bool {
+        return UserDefaults.standard.lastSelectedModelID != nil
+    }
+    
+    /// Clear the saved model preference
+    func clearSavedModelPreference() {
+        UserDefaults.standard.lastSelectedModelID = nil
+        print("🗑️ Cleared saved model preference")
+    }
+    
+    /// Get the saved model ID
+    var savedModelID: String? {
+        return UserDefaults.standard.lastSelectedModelID
     }
     
     // MARK: - Chat History Methods
@@ -182,10 +289,12 @@ class SimpleChatViewModel: ObservableObject {
         currentConversation = conversation
         conversationTitle = conversation.title
         
-        // Set the model used in this conversation if available
+        // Set the model used in this conversation if available and different from current
         if let modelName = conversation.modelUsed,
-           let model = availableModels.first(where: { $0.name == modelName }) {
+           let model = availableModels.first(where: { $0.name == modelName }),
+           selectedModel?.name != modelName {
             selectedModel = model
+            print("🔄 Switched to conversation's model: \(modelName)")
             Task {
                 await loadModelForInference(model)
             }
@@ -481,11 +590,11 @@ struct SimpleChatView: View {
             // Input area
             ChatInputView(
                 text: $inputText,
-                canSend: !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isGenerating && viewModel.selectedModel != nil,
-                isGenerating: viewModel.isGenerating,
+                canSend: !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isGenerating && !viewModel.isModelLoading && viewModel.selectedModel != nil,
+                isGenerating: viewModel.isGenerating || viewModel.isModelLoading,
                 onSend: {
                     let message = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !message.isEmpty {
+                    if !message.isEmpty && !viewModel.isModelLoading {
                         viewModel.sendMessage(message)
                         inputText = ""
                         hideKeyboard()
@@ -509,22 +618,31 @@ struct SimpleChatView: View {
                     .font(.subheadline)
                     .foregroundStyle(Color.accentColor)
                 }
-                .disabled(viewModel.isGenerating)
+                .disabled(viewModel.isGenerating || viewModel.isModelLoading)
             }
             
-            // New Chat button
+            // Model Status/Picker button
             ToolbarItem(placement: .automatic) {
                 Button {
-                    viewModel.startNewConversation()
+                    if !viewModel.isModelLoading {
+                        viewModel.showingModelPicker = true
+                    }
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "plus.message")
-                        Text("New Chat")
+                        if viewModel.isModelLoading {
+                            ProgressView()
+                                .controlSize(.mini)
+                            Text("Loading...")
+                        } else {
+                            Image(systemName: "cpu")
+                            Text("\(viewModel.selectedModel?.name ?? "No Model")")
+                                .lineLimit(1)
+                        }
                     }
-                    .font(.subheadline)
-                    .foregroundStyle(Color.accentColor)
+                    .font(.caption)
+                    .foregroundStyle(viewModel.isModelLoading ? .secondary : Color.accentColor)
                 }
-                .disabled(viewModel.isGenerating)
+                .disabled(viewModel.isGenerating || viewModel.isModelLoading)
             }
             
             // Secondary actions menu
@@ -535,12 +653,23 @@ struct SimpleChatView: View {
                     } label: {
                         Label("New Conversation", systemImage: "plus.message")
                     }
+                    .disabled(viewModel.isModelLoading)
                     
                     Button {
                         viewModel.showingChatHistory = true
                     } label: {
                         Label("Chat History", systemImage: "clock.arrow.circlepath")
                     }
+                    .disabled(viewModel.isModelLoading)
+                    
+                    Button {
+                        if !viewModel.isModelLoading {
+                            viewModel.showingModelPicker = true
+                        }
+                    } label: {
+                        Label("Select Model", systemImage: "cpu")
+                    }
+                    .disabled(viewModel.isModelLoading)
                     
                     Divider()
                     
@@ -549,18 +678,25 @@ struct SimpleChatView: View {
                     } label: {
                         Label("Clear Conversation", systemImage: "trash")
                     }
+                    .disabled(viewModel.isModelLoading)
                     
                     Divider()
                     
                     Button {
                         viewModel.refreshDownloadedModels()
                     } label: {
-                        Label("Refresh Models", systemImage: "arrow.clockwise")
+                        if viewModel.isModelLoading {
+                            Label("Loading Models...", systemImage: "arrow.triangle.2.circlepath")
+                        } else {
+                            Label("Refresh Models", systemImage: "arrow.clockwise")
+                        }
                     }
+                    .disabled(viewModel.isModelLoading)
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Image(systemName: viewModel.isModelLoading ? "gearshape.2" : "ellipsis.circle")
                         .font(.title2)
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(viewModel.isModelLoading ? .secondary : Color.accentColor)
+                        .symbolEffect(.rotate, isActive: viewModel.isModelLoading)
                 }
             }
         }

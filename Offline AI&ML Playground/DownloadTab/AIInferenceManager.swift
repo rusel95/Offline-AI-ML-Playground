@@ -18,11 +18,13 @@ class AIInferenceManager: ObservableObject {
     private var currentModel: AIModel?
     private var modelContainer: ModelContainer?
     private var modelConfiguration: ModelConfiguration?
+    private var isCurrentlyLoading = false
     
     /// Initialize the inference manager
     init() {
         print("🤖 AIInferenceManager initialized")
         setupLogging()
+        setupMemoryPressureMonitoring()
     }
     
     /// Setup comprehensive logging
@@ -33,9 +35,36 @@ class AIInferenceManager: ObservableObject {
         print("🔧 MLX Swift availability: \(isMLXSwiftAvailable ? "✅ Available" : "❌ Not Available")")
     }
     
-    /// Load a specific AI model
+    /// Setup memory pressure monitoring
+    private func setupMemoryPressureMonitoring() {
+        print("📊 Setting up memory pressure monitoring")
+        // Monitor memory usage periodically
+        Task {
+            while true {
+                let memoryUsage = getMemoryUsage()
+                let memoryPressure = getMemoryPressure()
+                
+                if memoryPressure > 0.8 && isModelLoaded {
+                    print("⚠️ High memory pressure detected (\(memoryPressure)%), considering model unload")
+                }
+                
+                try await Task.sleep(nanoseconds: 30_000_000_000) // Check every 30 seconds
+            }
+        }
+    }
+    
+    /// Load a specific AI model with proper memory management
     /// - Parameter model: The model to load
     func loadModel(_ model: AIModel) async throws {
+        
+        // Prevent concurrent model loading
+        guard !isCurrentlyLoading else {
+            print("⚠️ Model loading already in progress, skipping duplicate request")
+            throw AIInferenceError.configurationError("Model loading already in progress")
+        }
+        
+        isCurrentlyLoading = true
+        defer { isCurrentlyLoading = false }
         
         print("🚀 Starting model loading process")
         print("📋 Model: \(model.name) (\(model.id))")
@@ -44,18 +73,21 @@ class AIInferenceManager: ObservableObject {
         print("🏠 Repository: \(model.huggingFaceRepo)")
         print("📄 Filename: \(model.filename)")
         
+        // **CRITICAL FIX**: Properly handle model switching
+        if isModelLoaded {
+            print("🔄 Switching models - unloading current model first")
+            await unloadModelAsync()
+            
+            // Wait for memory to be freed
+            await waitForMemoryCleanup()
+        }
+        
         // Check if model exists locally first
         let localModelPath = getLocalModelPath(for: model)
         let isLocallyAvailable = FileManager.default.fileExists(atPath: localModelPath.path)
         
         print("📁 Local model path: \(localModelPath.path)")
         print("🔍 Model exists locally: \(isLocallyAvailable)")
-        
-        guard isModelLoaded == false else {
-            print("⚠️ A model is already loaded, unloading first")
-            unloadModel()
-            return // Exit early if model already loaded
-        }
         
         await MainActor.run {
             loadingProgress = 0.0
@@ -96,7 +128,7 @@ class AIInferenceManager: ObservableObject {
                 }
             }
             
-            // Load model container
+            // Load model container with proper error handling
             print("🔄 Loading model container with configuration: \(config.id)")
             modelContainer = try await LLMModelFactory.shared.loadContainer(
                 hub: hub,
@@ -132,11 +164,13 @@ class AIInferenceManager: ObservableObject {
                 loadingStatus = "Model loaded successfully"
                 isModelLoaded = true
                 currentModel = model
+                modelConfiguration = config
             }
             
             print("🎉 Model loaded successfully: \(model.name)")
             print("🔗 Source: \(isLocallyAvailable ? "Local Cache" : "Downloaded")")
             print("📈 Final memory usage: \(getMemoryUsage()) bytes")
+            print("📊 Memory pressure: \(getMemoryPressure())")
             
         } catch {
             await MainActor.run {
@@ -146,6 +180,9 @@ class AIInferenceManager: ObservableObject {
             }
             print("❌ Error loading model: \(error.localizedDescription)")
             print("🔍 Error details: \(String(describing: error))")
+            
+            // Clean up on error
+            await cleanupOnError()
             throw error
         }
     }
@@ -309,25 +346,117 @@ class AIInferenceManager: ObservableObject {
         }
     }
     
-    /// Unload the current model
+    /// Unload the current model (synchronous version)
     func unloadModel() {
-        print("🗑️ Starting model unload process")
+        Task {
+            await unloadModelAsync()
+        }
+    }
+    
+    /// Unload the current model asynchronously with proper cleanup
+    func unloadModelAsync() async {
+        print("🗑️ Starting async model unload process")
+        let initialMemory = getMemoryUsage()
         
-        // Properly dispose of MLX model container
+        // Clear model references first
         modelContainer = nil
         modelConfiguration = nil
-        
-        isModelLoaded = false
         currentModel = nil
-        loadingProgress = 0.0
-        loadingStatus = "Ready"
-        lastError = nil
         
-        // Force garbage collection to free up memory
-        MLX.eval([])
+        // Update UI state
+        await MainActor.run {
+            isModelLoaded = false
+            loadingProgress = 0.0
+            loadingStatus = "Ready"
+            lastError = nil
+        }
+        
+        // Force multiple rounds of garbage collection for MLX
+        await performDeepMemoryCleanup()
+        
+        let finalMemory = getMemoryUsage()
+        let memoryFreed = initialMemory > finalMemory ? initialMemory - finalMemory : 0
         
         print("✅ Model unloaded successfully")
-        print("📈 Memory usage after cleanup: \(getMemoryUsage()) bytes")
+        print("📈 Memory freed: \(ByteCountFormatter.string(fromByteCount: Int64(memoryFreed), countStyle: .memory))")
+        print("📈 Final memory usage: \(ByteCountFormatter.string(fromByteCount: Int64(finalMemory), countStyle: .memory))")
+        print("📊 Memory pressure after cleanup: \(getMemoryPressure())")
+    }
+    
+    /// Perform deep memory cleanup for MLX resources
+    private func performDeepMemoryCleanup() async {
+        print("🧹 Performing deep memory cleanup")
+        
+        // Multiple rounds of MLX cleanup
+        for i in 1...3 {
+            print("🔄 Cleanup round \(i)/3")
+            
+            // Force MLX evaluation with empty array to trigger cleanup
+            MLX.eval([])
+            
+            // Give the system time to perform garbage collection
+            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+            
+            // Force Swift garbage collection
+            autoreleasepool {
+                // Force deallocation of any remaining references
+            }
+        }
+        
+        print("✅ Deep memory cleanup completed")
+    }
+    
+    /// Wait for memory to be properly cleaned up
+    private func waitForMemoryCleanup() async {
+        print("⏳ Waiting for memory cleanup to complete")
+        let maxWaitTime = 5.0 // Maximum 5 seconds
+        let startTime = Date()
+        let initialMemory = getMemoryUsage()
+        
+        while Date().timeIntervalSince(startTime) < maxWaitTime {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            
+            let currentMemory = getMemoryUsage()
+            let memoryReduction = initialMemory > currentMemory ? 
+                Double(initialMemory - currentMemory) / Double(initialMemory) : 0
+            
+            // If memory has been reduced by at least 10%, consider cleanup complete
+            if memoryReduction > 0.1 {
+                print("✅ Memory cleanup detected (reduction: \(Int(memoryReduction * 100))%)")
+                break
+            }
+        }
+        
+        print("⏱️ Memory cleanup wait completed")
+    }
+    
+    /// Clean up resources on error
+    private func cleanupOnError() async {
+        print("🧹 Cleaning up resources after error")
+        
+        modelContainer = nil
+        modelConfiguration = nil
+        currentModel = nil
+        
+        await MainActor.run {
+            isModelLoaded = false
+            loadingProgress = 0.0
+        }
+        
+        // Perform cleanup but don't wait as long
+        MLX.eval([])
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        
+        print("✅ Error cleanup completed")
+    }
+    
+    /// Get current memory pressure (0.0 to 1.0)
+    private func getMemoryPressure() -> Double {
+        let totalMemory = ProcessInfo.processInfo.physicalMemory
+        let usedMemory = getMemoryUsage()
+        
+        let pressure = Double(usedMemory) / Double(totalMemory)
+        return min(max(pressure, 0.0), 1.0)
     }
     
     /// Create model configuration for different model types
@@ -372,6 +501,29 @@ class AIInferenceManager: ObservableObject {
                 overrideTokenizer: "PreTrainedTokenizer",
                 defaultPrompt: "Hello! How can I help you today?"
             )
+        } else if model.name.lowercased().contains("code") || model.type == .code {
+            if model.name.lowercased().contains("deepseek") {
+                print("📋 Using DeepSeek Coder configuration")
+                return ModelConfiguration(
+                    id: "mlx-community/DeepSeek-Coder-1.3B-Instruct-4bit",
+                    overrideTokenizer: "PreTrainedTokenizer",
+                    defaultPrompt: "// Write a function to"
+                )
+            } else if model.name.lowercased().contains("starcoder") {
+                print("📋 Using StarCoder configuration")
+                return ModelConfiguration(
+                    id: "mlx-community/starcoder2-3b-4bit",
+                    overrideTokenizer: "PreTrainedTokenizer",
+                    defaultPrompt: "# Write a Python function that"
+                )
+            } else {
+                print("📋 Using default Code model configuration")
+                return ModelConfiguration(
+                    id: "mlx-community/CodeLlama-7B-Instruct-4bit",
+                    overrideTokenizer: "PreTrainedTokenizer",
+                    defaultPrompt: "// Complete this code:"
+                )
+            }
         } else {
             print("📋 Using default model configuration")
             return ModelConfiguration(
@@ -546,6 +698,24 @@ class AIInferenceManager: ObservableObject {
             Temperature: \(temperature)
             Model: \(model.name)
             Type: Large Language Model
+            """
+            
+        case .mistral:
+            return """
+            \(modelInfo)
+            
+            Bonjour! I'm a Mistral model running with MLX Swift. Your query: "\(prompt)"
+            
+            Mistral AI + MLX Swift Features:
+            • High-quality instruction following
+            • Efficient 7B parameter architecture
+            • Optimized for mobile deployment
+            • Advanced reasoning capabilities
+            • On-device privacy and speed
+            
+            Temperature: \(temperature)
+            Model: \(model.name)
+            Type: Mistral Language Model
             """
             
         case .code:

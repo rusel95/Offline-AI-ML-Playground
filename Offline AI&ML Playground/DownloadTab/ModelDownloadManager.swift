@@ -144,6 +144,68 @@ class ModelDownloadManager: NSObject, ObservableObject {
                 type: .general,
                 tags: ["vision", "mobile", "apple", "efficient"],
                 isGated: false
+            ),
+            
+            // MISTRAL MODELS (Mobile-optimized)
+            AIModel(
+                id: "mistral-7b-instruct-v0.1-q4-k-m",
+                name: "Mistral 7B Instruct Q4",
+                description: "High-quality instruction-following model from Mistral AI",
+                huggingFaceRepo: "TheBloke/Mistral-7B-Instruct-v0.1-GGUF",
+                filename: "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
+                sizeInBytes: 4_368_439_296, // ~4.07GB
+                type: .mistral,
+                tags: ["mistral", "instruct", "chat", "7b"],
+                isGated: false
+            ),
+            
+            AIModel(
+                id: "mistral-7b-openorca-q4-k-m",
+                name: "Mistral 7B OpenOrca Q4",
+                description: "Mistral model fine-tuned on OpenOrca dataset",
+                huggingFaceRepo: "TheBloke/Mistral-7B-OpenOrca-GGUF",
+                filename: "mistral-7b-openorca.Q4_K_M.gguf",
+                sizeInBytes: 4_368_439_296, // ~4.07GB
+                type: .mistral,
+                tags: ["mistral", "openorca", "fine-tuned", "7b"],
+                isGated: false
+            ),
+            
+            // CODE MODELS (Mobile-friendly)
+            AIModel(
+                id: "deepseek-coder-1.3b-instruct-q4-k-m",
+                name: "DeepSeek Coder 1.3B",
+                description: "Lightweight code generation model optimized for mobile",
+                huggingFaceRepo: "TheBloke/deepseek-coder-1.3b-instruct-GGUF",
+                filename: "deepseek-coder-1.3b-instruct.Q4_K_M.gguf",
+                sizeInBytes: 783_741_952, // ~747MB
+                type: .code,
+                tags: ["code", "programming", "mobile", "1.3b"],
+                isGated: false
+            ),
+            
+            AIModel(
+                id: "codellama-7b-instruct-q4-k-m",
+                name: "Code Llama 7B Instruct",
+                description: "Meta's specialized code generation and understanding model",
+                huggingFaceRepo: "TheBloke/CodeLlama-7B-Instruct-GGUF",
+                filename: "codellama-7b-instruct.Q4_K_M.gguf",
+                sizeInBytes: 4_081_004_544, // ~3.8GB
+                type: .code,
+                tags: ["codellama", "meta", "programming", "7b"],
+                isGated: false
+            ),
+            
+            AIModel(
+                id: "starcoder2-3b-q4-k-m",
+                name: "StarCoder2 3B",
+                description: "Advanced code model supporting 600+ programming languages",
+                huggingFaceRepo: "TheBloke/starcoder2-3b-GGUF",
+                filename: "starcoder2-3b.Q4_K_M.gguf",
+                sizeInBytes: 1_714_126_848, // ~1.6GB
+                type: .code,
+                tags: ["starcoder", "multilingual", "programming", "3b"],
+                isGated: false
             )
         ]
     }

@@ -16,7 +16,7 @@ This app leverages **Apple's MLX Swift framework** for high-performance, on-devi
 ### 🤖 **Real AI Chat with MLX Swift**
 - ✅ **Production-grade AI inference** using MLX Swift
 - ✅ **Streaming text generation** - Watch responses appear word-by-word
-- ✅ **Multiple model support** - Llama, Mistral, Code models, and more
+- ✅ **Multiple model support** - Llama, Mistral, Code (DeepSeek, StarCoder, CodeLlama), Whisper, and more
 - ✅ **Zero network dependency** - Chat completely offline
 - ✅ **Apple Silicon optimized** - Blazing fast performance
 
@@ -93,6 +93,24 @@ This app leverages **Apple's MLX Swift framework** for high-performance, on-devi
 3. **Download Models** - Use Download tab to get AI models locally
 4. **Start Chatting** - Chat with real AI models completely offline!
 
+## 🤖 Available AI Models
+
+### **Language Models**
+- **🦙 Llama Models** - TinyLlama 1.1B Chat (lightweight, mobile-optimized)
+- **🌪️ Mistral Models** - Mistral 7B Instruct, Mistral 7B OpenOrca (high-quality instruction following)
+- **🧠 General Models** - DistilBERT, MobileViT, sentence embeddings
+
+### **Code Models** 
+- **💻 DeepSeek Coder 1.3B** - Lightweight code generation (747MB)
+- **⭐ StarCoder2 3B** - Advanced coding with 600+ languages (1.6GB)
+- **🦙 CodeLlama 7B** - Meta's specialized code model (3.8GB)
+
+### **Specialized Models**
+- **🎤 Whisper Models** - Tiny (37MB), Base (141MB) for speech recognition
+- **📐 Embedding Models** - All-MiniLM-L6-v2 for semantic search
+
+All models are **quantized and optimized** for mobile deployment with MLX Swift!
+
 ## 🎮 Usage Examples
 
 ### Chat with Local AI
@@ -136,7 +154,7 @@ if isLocal {
 - 💬 **Streaming Chat Interface** - Smooth word-by-word generation  
 - 📥 **Local Model Caching** - Intelligent file system management
 - 🔄 **Model Download System** - Progress tracking & verification
-- 🧠 **Multi-model Support** - Llama, Code, General models
+- 🧠 **Multi-model Support** - Llama, Mistral, Code models (DeepSeek, StarCoder, CodeLlama), Whisper, General models
 - 📊 **Comprehensive Logging** - Track every operation
 - 🧪 **Testing Framework** - Verify MLX functionality
 - 🔧 **Memory Management** - Efficient cleanup & optimization

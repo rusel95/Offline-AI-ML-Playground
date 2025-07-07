@@ -51,7 +51,10 @@ struct ModelPickerView: View {
                                 model: model,
                                 isSelected: viewModel.selectedModel?.id == model.id,
                                 onSelect: {
-                                    viewModel.selectModel(model)
+                                    Task {
+                                        await viewModel.selectModel(model)
+                                        dismiss()
+                                    }
                                 }
                             )
                         }

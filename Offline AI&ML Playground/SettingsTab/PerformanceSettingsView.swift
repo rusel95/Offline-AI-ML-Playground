@@ -17,7 +17,7 @@ struct PerformanceSettingsView: View {
         Group {
             // Real-time Performance Statistics Section
             Section("System Performance") {
-                VStack(spacing: 12) {
+                VStack(spacing: 8) {
                     // Performance monitoring toggle
                     HStack {
                         Image(systemName: performanceMonitor.isMonitoring ? "play.circle.fill" : "play.circle")
@@ -46,7 +46,6 @@ struct PerformanceSettingsView: View {
                         ))
                         .toggleStyle(SwitchToggleStyle())
                     }
-                    .padding(.vertical, 4)
                     
                     // CPU Usage
                     HStack {
@@ -78,7 +77,7 @@ struct PerformanceSettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 6)
                     .padding(.horizontal, 12)
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(12)
@@ -119,7 +118,7 @@ struct PerformanceSettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 6)
                     .padding(.horizontal, 12)
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(12)
@@ -132,10 +131,8 @@ struct PerformanceSettingsView: View {
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
-                        .padding(.top, 4)
                     }
                 }
-                .padding(.vertical, 8)
             }
             
             // Model Configuration Section

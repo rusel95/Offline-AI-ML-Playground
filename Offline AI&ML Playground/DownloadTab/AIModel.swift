@@ -29,6 +29,7 @@ struct AIModel: Identifiable {
 // MARK: - Model Type
 enum ModelType: String, CaseIterable {
     case llama = "llama"
+    case mistral = "mistral"
     case whisper = "whisper"
     case stable_diffusion = "stable_diffusion"
     case code = "code"
@@ -37,6 +38,7 @@ enum ModelType: String, CaseIterable {
     var displayName: String {
         switch self {
         case .llama: return "Llama"
+        case .mistral: return "Mistral"
         case .whisper: return "Whisper"
         case .stable_diffusion: return "Stable Diffusion"
         case .code: return "Code"
@@ -47,6 +49,7 @@ enum ModelType: String, CaseIterable {
     var color: Color {
         switch self {
         case .llama: return .orange
+        case .mistral: return .red
         case .whisper: return .purple
         case .stable_diffusion: return .pink
         case .code: return .green
@@ -57,6 +60,7 @@ enum ModelType: String, CaseIterable {
     var iconName: String {
         switch self {
         case .llama: return "brain.head.profile"
+        case .mistral: return "wind"
         case .whisper: return "waveform"
         case .stable_diffusion: return "photo.artframe"
         case .code: return "curlybraces"
