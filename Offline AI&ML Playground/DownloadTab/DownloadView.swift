@@ -71,11 +71,16 @@ struct SimpleDownloadView: View {
     }
     
     private var activeDownloadsList: some View {
-        ForEach(Array(downloadManager.activeDownloads.values), id: \.modelId) { download in
-            if let model = downloadManager.availableModels.first(where: { $0.id == download.modelId }) {
-                activeDownloadRow(model: model, download: download)
+        VStack(spacing: 8) {
+            ForEach(Array(downloadManager.activeDownloads.values), id: \.modelId) { download in
+                if let model = downloadManager.availableModels.first(where: { $0.id == download.modelId }) {
+                    activeDownloadRow(model: model, download: download)
+                        .padding(.horizontal, 8)
+                }
             }
         }
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
     }
     
     private func activeDownloadRow(model: AIModel, download: ModelDownload) -> some View {
@@ -98,9 +103,14 @@ struct SimpleDownloadView: View {
     }
     
     private var availableModelsList: some View {
-        ForEach(downloadManager.availableModels, id: \.id) { model in
-            availableModelRow(model: model)
+        VStack(spacing: 8) {
+            ForEach(downloadManager.availableModels, id: \.id) { model in
+                availableModelRow(model: model)
+                    .padding(.horizontal, 8)
+            }
         }
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
     }
     
     private func availableModelRow(model: AIModel) -> some View {

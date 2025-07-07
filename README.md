@@ -6,11 +6,11 @@
 
 ## **🧑‍💻 The Ultimate Playground to Compare and Choose Your AI Model (Apple Platforms Only)**
 
-**Easily compare, test, and evaluate a wide range of open-source AI models locally on your Apple device (iOS, iPadOS, or macOS) to help you choose the best model for your own project.**
+**Easily compare, test, and evaluate a wide range of open-source AI models locally on your Apple device (iOS or macOS) to help you choose the best model for your own project.**
 
 ---
 
-### **A production-ready on-device AI playground for Apple platforms (iOS, iPadOS, macOS) that runs real open-source LLMs locally using MLX Swift. Chat with AI models completely offline with zero network dependency after download.**
+### **A production-ready on-device AI playground for Apple platforms (iOS, macOS) that runs real open-source LLMs locally using MLX Swift. Chat with AI models completely offline with zero network dependency after download.**
 
 ## 📱 App in Action
 
@@ -53,7 +53,7 @@
 
 ### 🎨 **Native Apple Experience**
 - ✅ **SwiftUI throughout** - Modern, responsive interface
-- ✅ **Cross-platform compatibility** - iOS, iPadOS, macOS
+- ✅ **Cross-platform compatibility** - iOS, macOS
 - ✅ **Real-time UI updates** - Smooth streaming text display
 - ✅ **Native performance** - No web views or hybrid solutions
 
@@ -138,7 +138,6 @@ if isLocal {
 |----------|--------|-------------|
 | 🍎 **macOS** | ✅ Full Support | ⚡ Excellent (Apple Silicon) |
 | 📱 **iOS** | ✅ Full Support | ⚡ Great (A-series chips) |
-| 📟 **iPadOS** | ✅ Full Support | ⚡ Excellent (M-series iPads) |
 
 ## 🎯 Current Status
 
@@ -160,12 +159,12 @@ if isLocal {
 
 ## 🎯 Why This Implementation Rocks
 
-**1. 🚀 Real AI, Not Simulated — Uses actual MLX Swift for inference**
-**2. ⚡ Blazing Fast — Apple Silicon optimized performance**
-**3. 💾 Smart Caching — Download once, use forever**
-**4. 🔒 Privacy First — Everything happens on-device**
-**5. 🛠️ Production Ready — Comprehensive error handling & logging**
-**6. 🧪 Well Tested — Extensive test coverage for reliability**
+1. **🚀 Real AI, Not Simulated — Uses actual MLX Swift for inference**
+2. **⚡ Blazing Fast — Apple Silicon optimized performance**
+3. **💾 Smart Caching — Download once, use forever**
+4. **🔒 Privacy First — Everything happens on-device**
+5. **🛠️ Production Ready — Comprehensive error handling & logging**
+6. **🧪 Well Tested — Extensive test coverage for reliability**
 
 ---
 
