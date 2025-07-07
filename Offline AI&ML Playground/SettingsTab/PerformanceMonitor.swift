@@ -13,25 +13,42 @@ import os.log
 // MARK: - Performance Statistics
 struct PerformanceStats {
     let cpuUsage: Double
-    let memoryUsage: Double
-    let memoryUsedMB: Double
-    let memoryTotalMB: Double
+    
+    // App-specific memory
+    let appMemoryUsedMB: Double
+    let appMemoryPercentage: Double
+    
+    // System-wide memory
+    let systemMemoryUsedMB: Double
+    let systemMemoryTotalMB: Double
+    let systemMemoryPercentage: Double
+    
     let timestamp: Date
     
     var formattedCPUUsage: String {
         String(format: "%.1f%%", cpuUsage)
     }
     
-    var formattedMemoryUsage: String {
-        String(format: "%.1f%%", memoryUsage)
+    // App memory formatting
+    var formattedAppMemoryUsed: String {
+        String(format: "%.0f MB", appMemoryUsedMB)
     }
     
-    var formattedMemoryUsed: String {
-        String(format: "%.0f MB", memoryUsedMB)
+    var formattedAppMemoryPercentage: String {
+        String(format: "%.1f%%", appMemoryPercentage)
     }
     
-    var formattedMemoryTotal: String {
-        String(format: "%.0f MB", memoryTotalMB)
+    // System memory formatting
+    var formattedSystemMemoryUsed: String {
+        String(format: "%.0f MB", systemMemoryUsedMB)
+    }
+    
+    var formattedSystemMemoryTotal: String {
+        String(format: "%.0f MB", systemMemoryTotalMB)
+    }
+    
+    var formattedSystemMemoryPercentage: String {
+        String(format: "%.1f%%", systemMemoryPercentage)
     }
 }
 
@@ -40,9 +57,11 @@ struct PerformanceStats {
 class PerformanceMonitor: ObservableObject {
     @Published var currentStats = PerformanceStats(
         cpuUsage: 0.0,
-        memoryUsage: 0.0,
-        memoryUsedMB: 0.0,
-        memoryTotalMB: 0.0,
+        appMemoryUsedMB: 0.0,
+        appMemoryPercentage: 0.0,
+        systemMemoryUsedMB: 0.0,
+        systemMemoryTotalMB: 0.0,
+        systemMemoryPercentage: 0.0,
         timestamp: Date()
     )
     
@@ -83,20 +102,23 @@ class PerformanceMonitor: ObservableObject {
     
     private func updatePerformanceStats() {
         let cpuUsage = getCPUUsage()
-        let (memoryUsed, memoryTotal, memoryPercentage) = getMemoryUsage()
+        let (appMemoryMB, appMemoryPercentage) = getAppMemoryUsage()
+        let (systemMemoryUsedMB, systemMemoryTotalMB, systemMemoryPercentage) = getSystemMemoryUsage()
         
         let stats = PerformanceStats(
             cpuUsage: cpuUsage,
-            memoryUsage: memoryPercentage,
-            memoryUsedMB: memoryUsed,
-            memoryTotalMB: memoryTotal,
+            appMemoryUsedMB: appMemoryMB,
+            appMemoryPercentage: appMemoryPercentage,
+            systemMemoryUsedMB: systemMemoryUsedMB,
+            systemMemoryTotalMB: systemMemoryTotalMB,
+            systemMemoryPercentage: systemMemoryPercentage,
             timestamp: Date()
         )
         
         currentStats = stats
         
         // Log performance data for debugging
-        logger.debug("📊 CPU: \(stats.formattedCPUUsage), Memory: \(stats.formattedMemoryUsage) (\(stats.formattedMemoryUsed)/\(stats.formattedMemoryTotal))")
+        logger.debug("📊 CPU: \(stats.formattedCPUUsage), App Memory: \(stats.formattedAppMemoryUsed) (\(stats.formattedAppMemoryPercentage)), System Memory: \(stats.formattedSystemMemoryUsed)/\(stats.formattedSystemMemoryTotal) (\(stats.formattedSystemMemoryPercentage))")
     }
     
     // MARK: - CPU Usage
@@ -151,7 +173,7 @@ class PerformanceMonitor: ObservableObject {
     
     // MARK: - Memory Usage
     
-    private func getMemoryUsage() -> (used: Double, total: Double, percentage: Double) {
+    private func getAppMemoryUsage() -> (usedMB: Double, percentage: Double) {
         var info = mach_task_basic_info()
         var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
         
@@ -162,17 +184,50 @@ class PerformanceMonitor: ObservableObject {
         }
         
         guard kerr == KERN_SUCCESS else {
-            logger.error("❌ Failed to get memory usage: kern_return_t = \(kerr)")
-            return (0.0, 0.0, 0.0)
+            logger.error("❌ Failed to get app memory usage: kern_return_t = \(kerr)")
+            return (0.0, 0.0)
         }
         
-        // Get physical memory info
         let physicalMemory = Double(ProcessInfo.processInfo.physicalMemory)
         let residentSize = Double(info.resident_size)
         
         let usedMB = residentSize / (1024 * 1024)
-        let totalMB = physicalMemory / (1024 * 1024)
         let percentage = (residentSize / physicalMemory) * 100.0
+        
+        return (usedMB, percentage)
+    }
+    
+    private func getSystemMemoryUsage() -> (usedMB: Double, totalMB: Double, percentage: Double) {
+        // Get system memory statistics using vm_stat
+        var vmStats = vm_statistics64()
+        var infoCount = mach_msg_type_number_t(MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size)
+        
+        let hostPort = mach_host_self()
+        let result = withUnsafeMutablePointer(to: &vmStats) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+                host_statistics64(hostPort, HOST_VM_INFO64, $0, &infoCount)
+            }
+        }
+        
+        guard result == KERN_SUCCESS else {
+            logger.error("❌ Failed to get system memory statistics: kern_return_t = \(result)")
+            // Fallback to basic physical memory info
+            let physicalMemory = Double(ProcessInfo.processInfo.physicalMemory)
+            let totalMB = physicalMemory / (1024 * 1024)
+            return (totalMB * 0.5, totalMB, 50.0) // Estimate 50% usage
+        }
+        
+        // Calculate memory usage from vm_statistics
+        let pageSize = vm_kernel_page_size
+        let totalMemory = Double(ProcessInfo.processInfo.physicalMemory)
+        
+        // Memory in use = active + inactive + wired + compressed
+        let usedPages = vmStats.active_count + vmStats.inactive_count + vmStats.wire_count + vmStats.compressor_page_count
+        
+        let usedMemory = Double(UInt64(usedPages) * UInt64(pageSize))
+        let usedMB = usedMemory / (1024 * 1024)
+        let totalMB = totalMemory / (1024 * 1024)
+        let percentage = (usedMemory / totalMemory) * 100.0
         
         return (usedMB, totalMB, percentage)
     }

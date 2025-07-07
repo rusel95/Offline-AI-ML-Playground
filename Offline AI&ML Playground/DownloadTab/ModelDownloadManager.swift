@@ -57,19 +57,6 @@ class ModelDownloadManager: NSObject, ObservableObject {
     func refreshAvailableModels() {
         // iPhone-compatible, lightweight models for mobile deployment
         availableModels = [
-            // TINY TEST FILE (for connectivity testing)
-            AIModel(
-                id: "tiny-bert-config",
-                name: "TinyBERT Config (Test)",
-                description: "Small config file to test HuggingFace connectivity",
-                huggingFaceRepo: "huawei-noah/TinyBERT_General_4L_312D",
-                filename: "config.json",
-                sizeInBytes: 1_500, // ~1.5KB
-                type: .general,
-                tags: ["test", "config", "bert"],
-                isGated: false
-            ),
-            
             // MOBILE-OPTIMIZED LANGUAGE MODELS
             AIModel(
                 id: "tinyllama-1.1b-chat-q4-k-m",
@@ -92,31 +79,6 @@ class ModelDownloadManager: NSObject, ObservableObject {
                 sizeInBytes: 267_967_963, // ~255MB
                 type: .general,
                 tags: ["nlp", "mobile", "bert", "distilled"],
-                isGated: false
-            ),
-            
-            // SPEECH RECOGNITION (Mobile-friendly)
-            AIModel(
-                id: "whisper-tiny-ggml",
-                name: "Whisper Tiny",
-                description: "Ultra-fast speech recognition, perfect for mobile",
-                huggingFaceRepo: "ggerganov/whisper.cpp",
-                filename: "ggml-tiny.bin",
-                sizeInBytes: 39_047_680, // ~37.2MB
-                type: .whisper,
-                tags: ["speech-to-text", "mobile", "fast", "lightweight"],
-                isGated: false
-            ),
-            
-            AIModel(
-                id: "whisper-base-ggml",
-                name: "Whisper Base",
-                description: "Balanced speech model for mobile devices",
-                huggingFaceRepo: "ggerganov/whisper.cpp",
-                filename: "ggml-base.bin",
-                sizeInBytes: 147_964_211, // ~141MB
-                type: .whisper,
-                tags: ["speech-to-text", "mobile", "balanced"],
                 isGated: false
             ),
             

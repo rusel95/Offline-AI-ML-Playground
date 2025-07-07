@@ -35,16 +35,6 @@ struct AboutSettingsView: View {
             }
             
             HStack {
-                Image(systemName: "app.badge")
-                    .foregroundColor(.green)
-                Text("Bundle Identifier")
-                Spacer()
-                Text(Bundle.main.bundleIdentifier ?? "Unknown")
-                    .foregroundColor(.secondary)
-                    .font(.system(.caption, design: .monospaced))
-            }
-            
-            HStack {
                 Image(systemName: "heart.fill")
                     .foregroundColor(.pink)
                 Text("Made with ❤️ by Ruslan Popesku")

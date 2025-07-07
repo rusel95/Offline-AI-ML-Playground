@@ -82,7 +82,42 @@ struct PerformanceSettingsView: View {
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(12)
                     
-                    // Memory Usage
+                    // App Memory Usage
+                    HStack {
+                        Image(systemName: "app.badge")
+                            .foregroundStyle(.blue)
+                            .font(.title2)
+                            .frame(width: 24)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("App Memory")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            ProgressView(value: performanceMonitor.currentStats.appMemoryPercentage, total: 5.0)
+                                .progressViewStyle(LinearProgressViewStyle(tint: appMemoryUsageColor(performanceMonitor.currentStats.appMemoryPercentage)))
+                                .scaleEffect(y: 0.8)
+                        }
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(performanceMonitor.currentStats.formattedAppMemoryUsed)
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(appMemoryUsageColor(performanceMonitor.currentStats.appMemoryPercentage))
+                            
+                            Text(appMemoryUsageStatus(performanceMonitor.currentStats.appMemoryUsedMB))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 12)
+                    .background(Color.blue.opacity(0.05))
+                    .cornerRadius(12)
+                    
+                    // System Memory Usage
                     HStack {
                         Image(systemName: "memorychip")
                             .foregroundStyle(.purple)
@@ -90,12 +125,12 @@ struct PerformanceSettingsView: View {
                             .frame(width: 24)
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Memory Usage")
+                            Text("System Memory")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                             
-                            ProgressView(value: performanceMonitor.currentStats.memoryUsage, total: 100)
-                                .progressViewStyle(LinearProgressViewStyle(tint: memoryUsageColor(performanceMonitor.currentStats.memoryUsage)))
+                            ProgressView(value: performanceMonitor.currentStats.systemMemoryPercentage, total: 100)
+                                .progressViewStyle(LinearProgressViewStyle(tint: systemMemoryUsageColor(performanceMonitor.currentStats.systemMemoryPercentage)))
                                 .scaleEffect(y: 0.8)
                         }
                         
@@ -103,24 +138,24 @@ struct PerformanceSettingsView: View {
                         
                         VStack(alignment: .trailing, spacing: 2) {
                             HStack(spacing: 4) {
-                                Text(performanceMonitor.currentStats.formattedMemoryUsed)
+                                Text(performanceMonitor.currentStats.formattedSystemMemoryUsed)
                                     .font(.headline)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(memoryUsageColor(performanceMonitor.currentStats.memoryUsage))
+                                    .foregroundStyle(systemMemoryUsageColor(performanceMonitor.currentStats.systemMemoryPercentage))
                                 
-                                Text("(\(performanceMonitor.currentStats.formattedMemoryUsage))")
+                                Text("(\(performanceMonitor.currentStats.formattedSystemMemoryPercentage))")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                             
-                            Text(memoryUsageStatus(performanceMonitor.currentStats.memoryUsage))
+                            Text(systemMemoryUsageStatus(performanceMonitor.currentStats.systemMemoryPercentage))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
                     }
                     .padding(.vertical, 6)
                     .padding(.horizontal, 12)
-                    .background(Color.secondary.opacity(0.1))
+                    .background(Color.purple.opacity(0.05))
                     .cornerRadius(12)
                     
                     // Last updated timestamp
@@ -207,11 +242,22 @@ struct PerformanceSettingsView: View {
         }
     }
     
-    private func memoryUsageColor(_ usage: Double) -> Color {
+    private func appMemoryUsageColor(_ usage: Double) -> Color {
         switch usage {
-        case 0..<50:
+        case 0..<1.0:  // Under 1% of total system memory
             return .green
-        case 50..<80:
+        case 1.0..<3.0:  // 1-3% of total system memory
+            return .orange
+        default:  // Over 3% of total system memory
+            return .red
+        }
+    }
+    
+    private func systemMemoryUsageColor(_ usage: Double) -> Color {
+        switch usage {
+        case 0..<60:
+            return .green
+        case 60..<80:
             return .orange
         default:
             return .red
@@ -229,14 +275,27 @@ struct PerformanceSettingsView: View {
         }
     }
     
-    private func memoryUsageStatus(_ usage: Double) -> String {
-        switch usage {
-        case 0..<50:
-            return "Normal"
-        case 50..<80:
-            return "Elevated"
+    private func appMemoryUsageStatus(_ usedMB: Double) -> String {
+        switch usedMB {
+        case 0..<100:
+            return "Efficient"
+        case 100..<500:
+            return "Moderate"
+        case 500..<1000:
+            return "Heavy"
         default:
-            return "High"
+            return "Very Heavy"
+        }
+    }
+    
+    private func systemMemoryUsageStatus(_ usage: Double) -> String {
+        switch usage {
+        case 0..<60:
+            return "Good"
+        case 60..<80:
+            return "Moderate"
+        default:
+            return "High Pressure"
         }
     }
     
