@@ -356,20 +356,20 @@ struct SimpleChatView: View {
             if let error = viewModel.generationError {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
+                        .foregroundStyle(.orange)
                     Text(error)
                         .font(.caption)
-                        .foregroundColor(.orange)
+                        .foregroundStyle(.orange)
                     Spacer()
                     Button("Dismiss") {
                         viewModel.generationError = nil
                     }
                     .font(.caption)
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Color.accentColor)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Color.orange.opacity(0.1))
+                .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
             }
             
             // Input area
@@ -386,16 +386,25 @@ struct SimpleChatView: View {
                 }
             )
         }
-        .navigationTitle("Chat")
         .toolbar {
+            // New Chat button - positioned on the leading side
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    viewModel.clearConversation()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus.message")
+                        Text("New Chat")
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(Color.accentColor)
+                }
+                .disabled(viewModel.isGenerating)
+            }
+            
+            // Secondary actions menu
             ToolbarItem(placement: .primaryAction) {
                 Menu {
-                    Button {
-                        viewModel.clearConversation()
-                    } label: {
-                        Label("New Chat", systemImage: "plus.message")
-                    }
-                    
                     Button {
                         viewModel.clearConversation()
                     } label: {
@@ -412,6 +421,7 @@ struct SimpleChatView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.title2)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
         }

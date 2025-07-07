@@ -86,7 +86,7 @@ struct SimpleDownloadView: View {
             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             .listRowBackground(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.blue.opacity(0.05))
+                    .fill(Color.accentColor.opacity(0.05))
             )
     }
     
@@ -202,7 +202,7 @@ struct SimpleDownloadView: View {
                     }
                 }
                 .padding()
-                .background(Color.green.opacity(0.1))
+                .background(.green.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
                 .cornerRadius(8)
                 
                 macOSModelsGrid

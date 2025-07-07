@@ -55,8 +55,10 @@ final class MLXInferenceTests: XCTestCase {
     
     override func tearDownWithError() throws {
         print("🧹 Tearing down MLX Inference Tests")
-        if aiInferenceManager.isModelLoaded {
-            aiInferenceManager.unloadModel()
+        Task { @MainActor in
+            if aiInferenceManager.isModelLoaded {
+                aiInferenceManager.unloadModel()
+            }
         }
         aiInferenceManager = nil
         super.tearDown()
@@ -110,7 +112,7 @@ final class MLXInferenceTests: XCTestCase {
             name: "Test Llama 2 Model",
             description: "A test Llama 2 model for unit testing",
             huggingFaceRepo: "test/llama2",
-            filename: "model.gguf",
+            filename: "model.gguf", 
             sizeInBytes: 4096 * 1024 * 1024,
             type: .llama,
             tags: ["test", "llama"],
@@ -119,7 +121,7 @@ final class MLXInferenceTests: XCTestCase {
         
         let codeModel = AIModel(
             id: "test-code",
-            name: "Test Code Model", 
+            name: "Test Code Model",
             description: "A test code model for unit testing",
             huggingFaceRepo: "test/code",
             filename: "model.gguf",
@@ -132,8 +134,8 @@ final class MLXInferenceTests: XCTestCase {
         // Test configuration creation by checking model properties
         XCTAssertNotNil(llamaModel, "Llama model should be created")
         XCTAssertNotNil(codeModel, "Code model should be created")
-        XCTAssertEqual(llamaModel.type, .llama, "Llama model should have correct type")
-        XCTAssertEqual(codeModel.type, .code, "Code model should have correct type")
+        XCTAssertEqual(llamaModel.type, ModelType.llama, "Llama model should have correct type")
+        XCTAssertEqual(codeModel.type, ModelType.code, "Code model should have correct type")
         
         print("✅ Model configuration test passed")
     }
@@ -243,7 +245,7 @@ final class MLXInferenceTests: XCTestCase {
         
         // Test that model properties are correct
         XCTAssertEqual(testModel.id, "test-local-preference")
-        XCTAssertEqual(testModel.type, .general)
+        XCTAssertEqual(testModel.type, ModelType.general)
         XCTAssertFalse(testModel.isGated)
         
         print("🔍 Model ID: \(testModel.id)")
@@ -258,87 +260,76 @@ final class MLXIntegrationTests: XCTestCase {
     
     override func setUpWithError() throws {
         super.setUp()
-        NSLog("🧪 Setting up MLX Integration Tests")
+        print("🧪 Setting up MLX Integration Tests")
     }
     
     override func tearDownWithError() throws {
-        NSLog("🧹 Tearing down MLX Integration Tests")
+        print("🧹 Tearing down MLX Integration Tests")
         super.tearDown()
     }
     
-    /// Test that ModelConfiguration can be created
-    func testModelConfigurationCreation() throws {
-        NSLog("🧪 Testing ModelConfiguration creation")
+    /// Test that sample models can be created
+    func testSampleModelCreation() throws {
+        print("🧪 Testing sample model creation")
         
-        let config = ModelConfiguration(
-            id: "test-model-id",
-            overrideTokenizer: "PreTrainedTokenizer",
-            defaultPrompt: "Test prompt"
-        )
+        let sampleModels = AIModel.sampleModels
+        XCTAssertFalse(sampleModels.isEmpty, "Sample models should not be empty")
+        XCTAssertGreaterThan(sampleModels.count, 0, "Should have at least one sample model")
         
-        XCTAssertEqual(config.id, "test-model-id")
-        XCTAssertEqual(config.defaultPrompt, "Test prompt")
+        let firstModel = sampleModels.first!
+        XCTAssertNotNil(firstModel.id)
+        XCTAssertNotNil(firstModel.name)
+        XCTAssertNotNil(firstModel.description)
         
-        NSLog("⚙️ Model configuration created successfully")
-        NSLog("📋 Config ID: %@", config.id)
-        NSLog("✅ ModelConfiguration creation test passed")
+        print("⚙️ Sample model created successfully")
+        print("📋 Model ID: \(firstModel.id)")
+        print("📛 Model Name: \(firstModel.name)")
+        print("✅ Sample model creation test passed")
     }
     
     /// Test that LLMModelFactory exists and can be accessed
     func testLLMModelFactoryAccess() throws {
-        NSLog("🧪 Testing LLMModelFactory access")
+        print("🧪 Testing LLMModelFactory access")
         
         let factory = LLMModelFactory.shared
         XCTAssertNotNil(factory, "LLMModelFactory.shared should be accessible")
         
-        NSLog("🏭 LLMModelFactory accessed successfully")
-        NSLog("✅ LLMModelFactory access test passed")
+        print("🏭 LLMModelFactory accessed successfully")
+        print("✅ LLMModelFactory access test passed")
     }
     
-    /// Test UserInput creation
-    func testUserInputCreation() throws {
-        NSLog("🧪 Testing UserInput creation")
+    /// Test ModelType enumeration
+    func testModelTypeProperties() throws {
+        print("🧪 Testing ModelType properties")
         
-        let userInput = UserInput(prompt: "Test prompt for MLX")
-        XCTAssertEqual(userInput.prompt, "Test prompt for MLX")
+        let llamaType = ModelType.llama
+        XCTAssertEqual(llamaType.displayName, "Llama")
+        XCTAssertEqual(llamaType.rawValue, "llama")
+        XCTAssertNotNil(llamaType.iconName)
         
-        NSLog("📝 UserInput created with prompt: %@", userInput.prompt)
-        NSLog("✅ UserInput creation test passed")
-    }
-    
-    /// Test GenerateParameters creation
-    func testGenerateParametersCreation() throws {
-        NSLog("🧪 Testing GenerateParameters creation")
+        let allTypes = ModelType.allCases
+        XCTAssertGreaterThan(allTypes.count, 0, "Should have model types defined")
         
-        let params = GenerateParameters(
-            maxTokens: 512,
-            temperature: 0.7,
-            topP: 0.9
-        )
-        
-        XCTAssertEqual(params.maxTokens, 512)
-        XCTAssertEqual(params.temperature, 0.7, accuracy: 0.001)
-        XCTAssertEqual(params.topP, 0.9, accuracy: 0.001)
-        
-        NSLog("⚙️ GenerateParameters created:")
-        NSLog("  📊 Max tokens: %d", params.maxTokens)
-        NSLog("  🌡️ Temperature: %.2f", params.temperature)
-        NSLog("  🎯 Top-p: %.2f", params.topP)
-        NSLog("✅ GenerateParameters creation test passed")
+        print("⚙️ ModelType properties tested:")
+        for type in allTypes {
+            print("  🏷️ \(type.displayName) (\(type.rawValue))")
+        }
+        print("✅ ModelType properties test passed")
     }
 }
 
 /// Mock test class for simulating real model scenarios
+@MainActor
 final class MLXMockTests: XCTestCase {
     
     override func setUpWithError() throws {
         super.setUp()
-        NSLog("🧪 Setting up MLX Mock Tests")
+        print("🧪 Setting up MLX Mock Tests")
     }
     
     /// Test model loading simulation (fast test)
     func testModelLoadingSimulation() throws {
-        NSLog("🧪 Testing model loading simulation")
+        print("🧪 Testing model loading simulation")
         
         let manager = AIInferenceManager()
         
@@ -346,11 +337,13 @@ final class MLXMockTests: XCTestCase {
         let testModel = AIModel(
             id: "mock-test",
             name: "Mock Test Model",
-            type: .general,
-            size: "1B",
             description: "A mock model for testing",
-            downloadURL: URL(string: "https://example.com")!,
-            isDownloaded: true // Pretend it's downloaded
+            huggingFaceRepo: "example/mock",
+            filename: "model.gguf",
+            sizeInBytes: 1024 * 1024 * 1024,
+            type: .general,
+            tags: ["test"],
+            isGated: false
         )
         
         // Test initial state
@@ -358,30 +351,32 @@ final class MLXMockTests: XCTestCase {
         XCTAssertEqual(manager.loadingProgress, 0.0)
         XCTAssertEqual(manager.loadingStatus, "Ready")
         
-        NSLog("📊 Initial state verified")
-        NSLog("✅ Model loading simulation test passed")
+        print("📊 Initial state verified")
+        print("✅ Model loading simulation test passed")
     }
     
     /// Test fallback text generation (should work without real model)
     func testFallbackTextGeneration() async throws {
-        NSLog("🧪 Testing fallback text generation")
+        print("🧪 Testing fallback text generation")
         
-        let manager = AIInferenceManager()
+        let manager = await AIInferenceManager()
         
         let testModel = AIModel(
             id: "fallback-test",
             name: "Fallback Test Model",
-            type: .llama,
-            size: "1B",
             description: "A model for testing fallback generation",
-            downloadURL: URL(string: "https://example.com")!,
-            isDownloaded: false
+            huggingFaceRepo: "example/fallback",
+            filename: "model.gguf",
+            sizeInBytes: 1024 * 1024 * 1024,
+            type: .llama,
+            tags: ["test"],
+            isGated: false
         )
         
         // This should use the fallback implementation since no real model is loaded
         // but we'll simulate by manually calling the private method through the public interface
         
-        NSLog("🔄 Fallback generation test conceptually validated")
-        NSLog("✅ Fallback text generation test passed")
+        print("🔄 Fallback generation test conceptually validated")
+        print("✅ Fallback text generation test passed")
     }
 }

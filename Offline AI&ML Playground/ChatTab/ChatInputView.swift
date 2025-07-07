@@ -28,7 +28,7 @@ struct ChatInputView: View {
                 } else {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.title2)
-                        .foregroundColor(canSend ? .blue : .gray)
+                        .foregroundStyle(canSend ? Color.accentColor : Color.secondary)
                 }
             }
             .disabled(!canSend)

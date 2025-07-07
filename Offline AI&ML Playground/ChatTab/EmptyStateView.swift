@@ -18,11 +18,11 @@ struct EmptyStateView: View {
             if viewModel.selectedModel != nil {
                 Image(systemName: "message")
                     .font(.system(size: 60))
-                    .foregroundColor(.blue.opacity(0.3))
+                    .foregroundStyle(Color.accentColor.opacity(0.3))
             } else {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 60))
-                    .foregroundColor(.orange.opacity(0.3))
+                    .foregroundStyle(.orange.opacity(0.3))
             }
             
             VStack(spacing: 8) {
@@ -33,7 +33,7 @@ struct EmptyStateView: View {
                     
                     Text("Using \(viewModel.modelDisplayName)")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                 } else {
                     Text("No Model Selected")
                         .font(.title2)
@@ -41,14 +41,14 @@ struct EmptyStateView: View {
                     
                     Text("Download and select a model to start chatting")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                     
                     Button {
                         viewModel.showingModelPicker = true
                     } label: {
                         Text("Select Model")
-                            .foregroundColor(.blue)
+                            .foregroundStyle(Color.accentColor)
                     }
                     .padding(.top, 8)
                 }

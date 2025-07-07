@@ -21,7 +21,7 @@ struct ModelPickerView: View {
                     VStack(spacing: 16) {
                         Image(systemName: "externaldrive.badge.questionmark")
                             .font(.system(size: 48))
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                         
                         VStack(spacing: 8) {
                             Text("No Models Downloaded")
@@ -30,7 +30,7 @@ struct ModelPickerView: View {
                             
                             Text("Download models from the Download tab to start chatting")
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                         }
                         
@@ -38,7 +38,7 @@ struct ModelPickerView: View {
                             dismiss()
                         } label: {
                             Text("Go to Downloads")
-                                .foregroundColor(.blue)
+                                .foregroundStyle(Color.accentColor)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
