@@ -1,5 +1,10 @@
 # 🚀 Offline AI & ML Playground
 
+![Version](https://img.shields.io/badge/version-0.0.4-blue.svg)
+![Build](https://img.shields.io/badge/build-4-green.svg)
+![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20macOS-lightgrey.svg)
+![MLX](https://img.shields.io/badge/MLX%20Swift-optimized-orange.svg)
+
 A **production-ready on-device AI playground** for Apple platforms (iOS, iPadOS, macOS) that runs **real open-source LLMs locally** using **MLX Swift**. Chat with AI models completely offline with zero network dependency after download.
 
 ## ⚡ Powered by MLX Swift

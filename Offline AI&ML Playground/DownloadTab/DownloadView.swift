@@ -39,7 +39,6 @@ struct SimpleDownloadView: View {
             availableModelsSection
         }
         .listStyle(.automatic)
-        .navigationTitle("AI Models")
         .onAppear {
             downloadManager.refreshAvailableModels()
         }

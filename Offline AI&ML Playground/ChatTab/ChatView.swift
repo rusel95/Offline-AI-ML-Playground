@@ -7,8 +7,7 @@
 //
 
 import SwiftUI
-
-
+import SwiftData
 
 // MARK: - Chat Message
 struct ChatMessage: Identifiable, Codable {
@@ -33,13 +32,19 @@ class SimpleChatViewModel: ObservableObject {
     @Published var selectedModel: AIModel?
     @Published var generationError: String?
     @Published var showingModelPicker = false
+    @Published var showingChatHistory = false
     @Published var isGenerating = false
+    @Published var currentConversation: Conversation?
+    @Published var conversationTitle: String = "New Conversation"
     
     // Reference to download manager to get available models
     let downloadManager = ModelDownloadManager()
     
     // AI Inference Manager for real on-device inference
     let aiInferenceManager = AIInferenceManager()
+    
+    // Chat History Manager
+    var historyManager: ChatHistoryManager?
     
     init() {
         downloadManager.loadDownloadedModels()
@@ -55,6 +60,10 @@ class SimpleChatViewModel: ObservableObject {
                 await loadModelForInference(firstModel)
             }
         }
+    }
+    
+    func setupHistoryManager(_ modelContext: ModelContext) {
+        historyManager = ChatHistoryManager(modelContext: modelContext)
     }
     
     var modelDisplayName: String {
@@ -123,9 +132,70 @@ class SimpleChatViewModel: ObservableObject {
         }
     }
     
-    func clearConversation() {
+    // MARK: - Chat History Methods
+    
+    func startNewConversation() {
+        // Save current conversation if it has messages
+        if !messages.isEmpty {
+            saveCurrentConversation()
+        }
+        
+        // Reset for new conversation
         messages.removeAll()
+        currentConversation = nil
+        conversationTitle = "New Conversation"
         generationError = nil
+    }
+    
+    func saveCurrentConversation() {
+        guard let historyManager = historyManager, !messages.isEmpty else { return }
+        
+        if let existing = currentConversation {
+            // Update existing conversation
+            currentConversation = historyManager.saveConversation(
+                messages,
+                title: conversationTitle,
+                existingConversation: existing
+            )
+        } else {
+            // Create new conversation
+            currentConversation = historyManager.saveConversation(
+                messages,
+                title: nil // Let it auto-generate from first message
+            )
+            conversationTitle = currentConversation?.title ?? "New Conversation"
+        }
+        
+        print("💾 Conversation saved: \(conversationTitle)")
+    }
+    
+    func loadConversation(_ conversation: Conversation) {
+        guard let historyManager = historyManager else { return }
+        
+        // Save current conversation if it has unsaved changes
+        if !messages.isEmpty && currentConversation?.id != conversation.id {
+            saveCurrentConversation()
+        }
+        
+        // Load the selected conversation
+        messages = historyManager.loadConversation(conversation)
+        currentConversation = conversation
+        conversationTitle = conversation.title
+        
+        // Set the model used in this conversation if available
+        if let modelName = conversation.modelUsed,
+           let model = availableModels.first(where: { $0.name == modelName }) {
+            selectedModel = model
+            Task {
+                await loadModelForInference(model)
+            }
+        }
+        
+        print("📂 Conversation loaded: \(conversationTitle)")
+    }
+    
+    func clearConversation() {
+        startNewConversation()
     }
     
     // MARK: - Chat Functions
@@ -144,6 +214,13 @@ class SimpleChatViewModel: ObservableObject {
             modelUsed: nil
         )
         messages.append(userMessage)
+        
+        // Auto-save after each message exchange
+        defer {
+            if messages.count >= 2 { // At least one user and one assistant message
+                saveCurrentConversation()
+            }
+        }
         
         // Generate response using AI Inference Manager
         Task {
@@ -203,6 +280,9 @@ class SimpleChatViewModel: ObservableObject {
             }
             
             print("✅ AI response generated successfully")
+            
+            // Auto-save conversation after response
+            saveCurrentConversation()
             
         } catch {
             print("❌ Error generating AI response: \(error)")
@@ -304,15 +384,18 @@ class SimpleChatViewModel: ObservableObject {
         // Default response for other model types
         return "Using \(model.name) (\(model.type.rawValue)) to respond: I understand you're asking about \"\(message)\". This is a \(model.type.rawValue) model, so my response is tailored accordingly."
     }
-    
-
 }
 
 // MARK: - Main Chat View
 
 struct SimpleChatView: View {
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = SimpleChatViewModel()
     @State private var inputText = ""
+    @State private var isKeyboardVisible = false
+    @State private var lastScrollPosition: CGFloat = 0
+    @State private var scrollPosition: CGFloat = 0
+    @FocusState private var isInputFocused: Bool
     
     var body: some View {
         VStack(spacing: 0) {
@@ -342,11 +425,34 @@ struct SimpleChatView: View {
                         }
                     }
                     .padding(.vertical, 8)
+                    .background(
+                        GeometryReader { geometry in
+                            Color.clear
+                                .preference(
+                                    key: ScrollOffsetPreferenceKey.self,
+                                    value: geometry.frame(in: .named("scrollView")).minY
+                                )
+                        }
+                    )
+                }
+                .coordinateSpace(name: "scrollView")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    handleScrollPositionChange(value)
+                }
+                .onTapGesture {
+                    // Tap anywhere in chat to hide keyboard
+                    hideKeyboard()
                 }
                 .onChange(of: viewModel.messages.count) { _, _ in
                     if let lastMessage = viewModel.messages.last {
                         withAnimation(.easeInOut(duration: 0.5)) {
                             proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                        }
+                        
+                        // Reset scroll position when scrolling to bottom
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                            lastScrollPosition = 0
+                            scrollPosition = 0
                         }
                     }
                 }
@@ -382,15 +488,34 @@ struct SimpleChatView: View {
                     if !message.isEmpty {
                         viewModel.sendMessage(message)
                         inputText = ""
+                        hideKeyboard()
                     }
+                },
+                onFocusChanged: { focused in
+                    isKeyboardVisible = focused
                 }
             )
         }
         .toolbar {
-            // New Chat button - positioned on the leading side
+            // Chat History button
+            ToolbarItem(placement: .cancellationAction) {
+                Button {
+                    viewModel.showingChatHistory = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock.arrow.circlepath")
+                        Text("History")
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(Color.accentColor)
+                }
+                .disabled(viewModel.isGenerating)
+            }
+            
+            // New Chat button
             ToolbarItem(placement: .automatic) {
                 Button {
-                    viewModel.clearConversation()
+                    viewModel.startNewConversation()
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "plus.message")
@@ -405,6 +530,20 @@ struct SimpleChatView: View {
             // Secondary actions menu
             ToolbarItem(placement: .primaryAction) {
                 Menu {
+                    Button {
+                        viewModel.startNewConversation()
+                    } label: {
+                        Label("New Conversation", systemImage: "plus.message")
+                    }
+                    
+                    Button {
+                        viewModel.showingChatHistory = true
+                    } label: {
+                        Label("Chat History", systemImage: "clock.arrow.circlepath")
+                    }
+                    
+                    Divider()
+                    
                     Button {
                         viewModel.clearConversation()
                     } label: {
@@ -428,12 +567,71 @@ struct SimpleChatView: View {
         .sheet(isPresented: $viewModel.showingModelPicker) {
             ModelPickerView(viewModel: viewModel)
         }
+        .sheet(isPresented: $viewModel.showingChatHistory) {
+            ChatHistoryView(modelContext: modelContext) { conversation in
+                viewModel.loadConversation(conversation)
+            }
+        }
         .onAppear {
+            viewModel.setupHistoryManager(modelContext)
             viewModel.refreshDownloadedModels()
         }
+        .onDisappear {
+            // Auto-save when leaving the view
+            viewModel.saveCurrentConversation()
+        }
+        .onChange(of: inputText) { _, newText in
+            // Show keyboard when user starts typing
+            if !newText.isEmpty && !isKeyboardVisible {
+                showKeyboard()
+            }
+        }
+        .navigationTitle(viewModel.conversationTitle)
+    }
+    
+    // MARK: - Keyboard Management Methods
+    
+    private func handleScrollPositionChange(_ value: CGFloat) {
+        let currentPosition = value
+        
+        // Detect scroll direction
+        let isScrollingUp = currentPosition > lastScrollPosition
+        
+        // Hide keyboard when scrolling up (viewing history)
+        if isScrollingUp && abs(currentPosition - lastScrollPosition) > 5 {
+            hideKeyboard()
+        }
+        
+        // Update positions
+        lastScrollPosition = currentPosition
+        scrollPosition = currentPosition
+    }
+    
+    private func hideKeyboard() {
+        isInputFocused = false
+        isKeyboardVisible = false
+    }
+    
+    private func showKeyboard() {
+        isInputFocused = true
+        isKeyboardVisible = true
+    }
+}
+
+// MARK: - ScrollOffsetPreferenceKey
+
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
 #Preview {
-    SimpleChatView()
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Conversation.self, StoredChatMessage.self, configurations: config)
+    
+    return SimpleChatView()
+        .modelContainer(container)
 } 

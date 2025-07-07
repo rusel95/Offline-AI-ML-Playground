@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct Offline_AI_ML_PlaygroundApp: App {
@@ -14,5 +15,6 @@ struct Offline_AI_ML_PlaygroundApp: App {
         WindowGroup {
             AppView()
         }
+        .modelContainer(for: [Conversation.self, StoredChatMessage.self])
     }
 }

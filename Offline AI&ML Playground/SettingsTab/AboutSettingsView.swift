@@ -10,6 +10,18 @@ import SwiftUI
 
 // MARK: - About Settings View
 struct AboutSettingsView: View {
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    }
+    
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+    }
+    
+    private var versionText: String {
+        "\(appVersion) (\(buildNumber))"
+    }
+    
     var body: some View {
         Section("About") {
             HStack {
@@ -17,14 +29,33 @@ struct AboutSettingsView: View {
                     .foregroundColor(.blue)
                 Text("Version")
                 Spacer()
-                Text("1.0.0 (1)")
+                Text(versionText)
                     .foregroundColor(.secondary)
+                    .font(.system(.body, design: .monospaced))
+            }
+            
+            HStack {
+                Image(systemName: "app.badge")
+                    .foregroundColor(.green)
+                Text("Bundle Identifier")
+                Spacer()
+                Text(Bundle.main.bundleIdentifier ?? "Unknown")
+                    .foregroundColor(.secondary)
+                    .font(.system(.caption, design: .monospaced))
             }
             
             HStack {
                 Image(systemName: "heart.fill")
                     .foregroundColor(.pink)
                 Text("Made with ❤️ by Ruslan Popesku")
+                    .font(.caption)
+                Spacer()
+            }
+            
+            HStack {
+                Image(systemName: "cpu")
+                    .foregroundColor(.orange)
+                Text("Built with MLX Swift")
                     .font(.caption)
                 Spacer()
             }
