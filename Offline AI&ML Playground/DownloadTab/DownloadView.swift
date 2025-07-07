@@ -38,7 +38,7 @@ struct SimpleDownloadView: View {
             activeDownloadsSection
             availableModelsSection
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.automatic)
         .navigationTitle("AI Models")
         .onAppear {
             downloadManager.refreshAvailableModels()
@@ -193,7 +193,21 @@ struct SimpleDownloadView: View {
     
     private var macOSDetailView: some View {
         ScrollView {
-            macOSModelsGrid
+            VStack(spacing: 20) {
+                // MLX Test Button
+                Button("🧪 Run MLX Tests") {
+                    Task {
+                        print("🚀 Running MLX Tests from UI")
+                        TestMLXFunctionality.runAllTests()
+                    }
+                }
+                .padding()
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(8)
+                
+                macOSModelsGrid
+            }
+            .padding()
         }
         .background(.ultraThinMaterial)
         .navigationTitle("AI Models")

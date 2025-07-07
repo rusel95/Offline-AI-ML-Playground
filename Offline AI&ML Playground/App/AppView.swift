@@ -11,23 +11,26 @@ import SwiftUI
 struct AppView: View {
     var body: some View {
         TabView {
-            ChatView()
-                .tabItem {
-                    Image(systemName: "bubble.left.and.bubble.right")
-                    Text("Chat")
-                }
+            NavigationView {
+                SimpleChatView()
+            }
+            .tabItem {
+                Label("Chat", systemImage: "bubble.left.and.bubble.right")
+            }
             
-            SimpleDownloadView()
-                .tabItem {
-                    Image(systemName: "arrow.down.circle")
-                    Text("Download")
-                }
+            NavigationView {
+                SimpleDownloadView()
+            }
+            .tabItem {
+                Label("Download", systemImage: "arrow.down.circle")
+            }
             
-            SimpleSettingsView()
-                .tabItem {
-                    Image(systemName: "gear")
-                    Text("Settings")
-                }
+            NavigationView {
+                SimpleSettingsView()
+            }
+            .tabItem {
+                Label("Settings", systemImage: "gear")
+            }
         }
     }
 }

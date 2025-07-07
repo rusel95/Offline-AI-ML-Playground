@@ -8,45 +8,20 @@
 
 import SwiftUI
 
-// MARK: - Simple Chat Models
 
-struct SimpleChatMessage: Identifiable {
-    let id: UUID
+
+// MARK: - Chat Message
+struct ChatMessage: Identifiable, Codable {
+    var id = UUID()
     let content: String
-    let isUser: Bool
+    let role: MessageRole
     let timestamp: Date
+    let modelUsed: String?
     
-    init(content: String, isUser: Bool, timestamp: Date = Date()) {
-        self.id = UUID()
-        self.content = content
-        self.isUser = isUser
-        self.timestamp = timestamp
-    }
-}
-
-struct SimpleChatSession: Identifiable {
-    let id: UUID
-    var title: String
-    var messages: [SimpleChatMessage]
-    let createdAt: Date
-    var updatedAt: Date
-    
-    init(title: String = "New Chat") {
-        self.id = UUID()
-        self.title = title
-        self.messages = []
-        self.createdAt = Date()
-        self.updatedAt = Date()
-    }
-    
-    mutating func addMessage(_ message: SimpleChatMessage) {
-        messages.append(message)
-        updatedAt = Date()
-        
-        // Update title from first user message
-        if title == "New Chat" && message.isUser && !message.content.isEmpty {
-            title = String(message.content.prefix(30)) + (message.content.count > 30 ? "..." : "")
-        }
+    enum MessageRole: String, Codable, CaseIterable {
+        case user = "user"
+        case assistant = "assistant"
+        case system = "system"
     }
 }
 
@@ -54,16 +29,17 @@ struct SimpleChatSession: Identifiable {
 
 @MainActor
 class SimpleChatViewModel: ObservableObject {
-    @Published var currentSession = SimpleChatSession()
-    @Published var sessions: [SimpleChatSession] = []
-    @Published var messageInput = ""
-    @Published var isGenerating = false
+    @Published var messages: [ChatMessage] = []
     @Published var selectedModel: AIModel?
     @Published var generationError: String?
     @Published var showingModelPicker = false
+    @Published var isGenerating = false
     
     // Reference to download manager to get available models
     let downloadManager = ModelDownloadManager()
+    
+    // AI Inference Manager for real on-device inference
+    let aiInferenceManager = AIInferenceManager()
     
     init() {
         downloadManager.loadDownloadedModels()
@@ -73,21 +49,16 @@ class SimpleChatViewModel: ObservableObject {
         let downloadedModels = downloadManager.getDownloadedModels()
         if let firstModel = downloadedModels.first {
             selectedModel = firstModel
+            
+            // Load the model for inference
+            Task {
+                await loadModelForInference(firstModel)
+            }
         }
-    }
-    
-    var canSendMessage: Bool {
-        !messageInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !isGenerating &&
-        selectedModel != nil
     }
     
     var modelDisplayName: String {
         selectedModel?.name ?? "No model loaded"
-    }
-    
-    var hasMessages: Bool {
-        !currentSession.messages.isEmpty
     }
     
     var availableModels: [AIModel] {
@@ -97,6 +68,27 @@ class SimpleChatViewModel: ObservableObject {
     func selectModel(_ model: AIModel) {
         selectedModel = model
         showingModelPicker = false
+        
+        // Load the new model for inference
+        Task {
+            await loadModelForInference(model)
+        }
+    }
+    
+    /// Load a model for inference
+    /// - Parameter model: The AI model to load
+    func loadModelForInference(_ model: AIModel) async {
+        print("🔄 Loading model for inference: \(model.name)")
+        
+        do {
+            try await aiInferenceManager.loadModel(model)
+            print("✅ Model loaded successfully for inference")
+        } catch {
+            print("❌ Failed to load model for inference: \(error)")
+            await MainActor.run {
+                generationError = "Failed to load model: \(error.localizedDescription)"
+            }
+        }
     }
     
     func refreshDownloadedModels() {
@@ -109,190 +101,328 @@ class SimpleChatViewModel: ObservableObject {
         if let selectedModel = selectedModel,
            !downloadedModels.contains(where: { $0.id == selectedModel.id }) {
             self.selectedModel = downloadedModels.first
+            
+            // Load the new model for inference
+            if let newModel = self.selectedModel {
+                Task {
+                    await loadModelForInference(newModel)
+                }
+            }
         }
         
         // If no model selected but models are available, select first one
         if selectedModel == nil && !downloadedModels.isEmpty {
             selectedModel = downloadedModels.first
-        }
-    }
-    
-    func sendMessage() {
-        Task {
-            let messageContent = messageInput.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !messageContent.isEmpty else { return }
             
-            // Create user message
-            let userMessage = SimpleChatMessage(
-                content: messageContent,
-                isUser: true,
-                timestamp: Date()
-            )
-            
-            // Update state
-            currentSession.addMessage(userMessage)
-            messageInput = ""
-            isGenerating = true
-            generationError = nil
-            
-            do {
-                // Simulate AI response with model-specific behavior
-                try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
-                
-                let response = generateModelSpecificResponse(for: messageContent)
-                
-                let assistantMessage = SimpleChatMessage(
-                    content: response,
-                    isUser: false,
-                    timestamp: Date()
-                )
-                
-                currentSession.addMessage(assistantMessage)
-                isGenerating = false
-                
-            } catch {
-                isGenerating = false
-                generationError = error.localizedDescription
+            // Load the model for inference
+            if let newModel = selectedModel {
+                Task {
+                    await loadModelForInference(newModel)
+                }
             }
         }
     }
     
-    func newSession() {
-        currentSession = SimpleChatSession()
-        generationError = nil
-    }
-    
     func clearConversation() {
-        currentSession = SimpleChatSession()
+        messages.removeAll()
         generationError = nil
     }
     
-    private func generateModelSpecificResponse(for prompt: String) -> String {
+    // MARK: - Chat Functions
+    func sendMessage(_ content: String) {
+        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         guard let model = selectedModel else {
-            return "No model selected."
+            generationError = "No model selected. Please select a model first."
+            return
         }
         
-        let modelName = model.name
+        // Add user message
+        let userMessage = ChatMessage(
+            content: content,
+            role: .user,
+            timestamp: Date(),
+            modelUsed: nil
+        )
+        messages.append(userMessage)
         
-        if prompt.lowercased().contains("hello") || prompt.lowercased().contains("hi") {
-            return "Hello! I'm \(modelName). How can I help you today?"
-        } else if prompt.lowercased().contains("how are you") {
-            return "I'm \(modelName), and I'm doing well! How can I assist you?"
-        } else if prompt.lowercased().contains("code") && model.type == .code {
-            return "I'm \(modelName), specialized for coding tasks. I can help you with programming questions, code review, and software development. What would you like to work on?"
-        } else if prompt.lowercased().contains("whisper") && model.type == .whisper {
-            return "I'm \(modelName), designed for speech recognition and audio processing. How can I assist you with audio-related tasks?"
-        } else {
-            return "I'm \(modelName). Thank you for your message: \"\(prompt)\". This is a simulated response. In a real implementation, this would be generated by the actual \(modelName) model."
+        // Generate response using AI Inference Manager
+        Task {
+            await generateRealAIResponse(for: content, using: model)
         }
     }
+    
+    /// Generate AI response using the AI Inference Manager
+    /// - Parameters:
+    ///   - userMessage: The user's message
+    ///   - model: The AI model to use for generation
+    @MainActor
+    private func generateRealAIResponse(for userMessage: String, using model: AIModel) async {
+        print("🤖 Generating real AI response with model: \(model.name)")
+        
+        isGenerating = true
+        generationError = nil
+        
+        do {
+            // Check if the inference manager has the model loaded
+            if !aiInferenceManager.isModelLoaded {
+                print("📥 Model not loaded, loading now...")
+                try await aiInferenceManager.loadModel(model)
+            }
+            
+            // Create placeholder assistant message for streaming
+            let assistantMessage = ChatMessage(
+                content: "",
+                role: .assistant,
+                timestamp: Date(),
+                modelUsed: model.name
+            )
+            
+            messages.append(assistantMessage)
+            let messageIndex = messages.count - 1
+            
+            // Generate response using streaming for better UX
+            var fullResponse = ""
+            
+            for await chunk in aiInferenceManager.generateStreamingText(
+                prompt: userMessage,
+                maxTokens: 512,
+                temperature: 0.7
+            ) {
+                fullResponse += chunk
+                
+                // Update the message content in real-time
+                if messageIndex < messages.count {
+                    messages[messageIndex] = ChatMessage(
+                        content: fullResponse,
+                        role: .assistant,
+                        timestamp: assistantMessage.timestamp,
+                        modelUsed: model.name
+                    )
+                }
+            }
+            
+            print("✅ AI response generated successfully")
+            
+        } catch {
+            print("❌ Error generating AI response: \(error)")
+            
+            // Create error message
+            let errorMessage = ChatMessage(
+                content: "Sorry, I encountered an error while generating a response: \(error.localizedDescription)",
+                role: .assistant,
+                timestamp: Date(),
+                modelUsed: model.name
+            )
+            
+            messages.append(errorMessage)
+            generationError = error.localizedDescription
+        }
+        
+        isGenerating = false
+    }
+    
+    @MainActor
+    private func generateResponse(for userMessage: String, using model: AIModel) async {
+        isGenerating = true
+        generationError = nil
+        
+        do {
+            let response = try await generateModelResponse(userMessage: userMessage, model: model)
+            
+            let assistantMessage = ChatMessage(
+                content: response,
+                role: .assistant,
+                timestamp: Date(),
+                modelUsed: model.name
+            )
+            messages.append(assistantMessage)
+            
+        } catch {
+            generationError = "Failed to generate response: \(error.localizedDescription)"
+        }
+        
+        isGenerating = false
+    }
+    
+    private func generateModelResponse(userMessage: String, model: AIModel) async throws -> String {
+        // Simulate AI model response generation
+        // In a real implementation, this would interface with the actual AI model
+        
+        // Add a realistic delay to simulate model processing
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        
+        // Generate a response based on the model type
+        let response = switch model.type {
+        case .llama:
+            generateLlamaResponse(for: userMessage, model: model)
+        case .code:
+            generateCodeResponse(for: userMessage, model: model)
+        case .general:
+            generateGeneralResponse(for: userMessage, model: model)
+        default:
+            generateDefaultResponse(for: userMessage, model: model)
+        }
+        
+        return response
+    }
+    
+    private func generateLlamaResponse(for message: String, model: AIModel) -> String {
+        // Llama-style response
+        let responses = [
+            "🦙 As a Llama model, I understand you're asking about \"\(message)\". Let me provide a thoughtful response based on my training.",
+            "🦙 That's an interesting question about \"\(message)\". From my understanding, I can share these insights...",
+            "🦙 I'm processing your message about \"\(message)\" using my language model capabilities. Here's what I think...",
+            "🦙 Your question regarding \"\(message)\" is fascinating. Let me break this down for you..."
+        ]
+        return responses.randomElement() ?? "🦙 I'm thinking about your message..."
+    }
+    
+    private func generateCodeResponse(for message: String, model: AIModel) -> String {
+        // Code model response
+        let responses = [
+            "💻 As a code-focused model, I can help you with \"\(message)\". Here's my analysis:\n\n```\n// Code example related to your query\nfunction example() {\n    // Implementation here\n}\n```",
+            "💻 Looking at your code-related question about \"\(message)\", I suggest the following approach...",
+            "💻 I can help you with \"\(message)\". Let me provide a technical solution:\n\n```swift\n// Swift example\nfunc solution() {\n    // Your implementation\n}\n```",
+            "💻 Your programming question about \"\(message)\" is interesting. Here's how I'd approach it..."
+        ]
+        return responses.randomElement() ?? "💻 Let me analyze your code question..."
+    }
+    
+    private func generateGeneralResponse(for message: String, model: AIModel) -> String {
+        // General model response
+        let responses = [
+            "I understand you're asking about \"\(message)\". This is a broad topic that I can help explain...",
+            "That's a great question about \"\(message)\". Let me provide a comprehensive answer...",
+            "Regarding \"\(message)\", there are several important aspects to consider...",
+            "I'd be happy to help you understand \"\(message)\". Here's my perspective..."
+        ]
+        return responses.randomElement() ?? "I'm processing your question..."
+    }
+    
+    private func generateDefaultResponse(for message: String, model: AIModel) -> String {
+        // Default response for other model types
+        return "Using \(model.name) (\(model.type.rawValue)) to respond: I understand you're asking about \"\(message)\". This is a \(model.type.rawValue) model, so my response is tailored accordingly."
+    }
+    
+
 }
 
 // MARK: - Main Chat View
 
-struct ChatView: View {
+struct SimpleChatView: View {
     @StateObject private var viewModel = SimpleChatViewModel()
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var inputText = ""
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Model selection header
+        VStack(spacing: 0) {
+            // Model selection header
+            if viewModel.selectedModel != nil {
                 ModelSelectionHeader(viewModel: viewModel)
-                
-                // Messages list
-                if viewModel.hasMessages {
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(spacing: 12) {
-                                ForEach(viewModel.currentSession.messages) { message in
-                                    ChatMessageView(message: message)
-                                        .id(message.id)
-                                }
-                                
-                                // Typing indicator
-                                if viewModel.isGenerating {
-                                    TypingIndicatorView(modelName: viewModel.modelDisplayName)
-                                }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
+            
+            // Chat messages
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        if viewModel.messages.isEmpty {
+                            EmptyStateView(viewModel: viewModel)
+                        } else {
+                            ForEach(viewModel.messages) { message in
+                                ChatMessageView(message: message)
+                                    .id(message.id)
                             }
-                            .padding()
-                        }
-                        .onChange(of: viewModel.currentSession.messages.count) { oldValue, newValue in
-                            if let lastMessage = viewModel.currentSession.messages.last {
-                                withAnimation(.easeOut(duration: 0.3)) {
-                                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                                }
+                            
+                            if viewModel.isGenerating {
+                                TypingIndicatorView(modelName: viewModel.selectedModel?.name ?? "AI Model")
+                                    .padding(.horizontal, 16)
                             }
                         }
                     }
-                } else {
-                    // Empty state
-                    EmptyStateView(viewModel: viewModel)
+                    .padding(.vertical, 8)
                 }
-                
-                Divider()
-                
-                // Input area
-                ChatInputView(
-                    text: $viewModel.messageInput,
-                    canSend: viewModel.canSendMessage,
-                    isGenerating: viewModel.isGenerating,
-                    onSend: { viewModel.sendMessage() }
-                )
+                .onChange(of: viewModel.messages.count) { _, _ in
+                    if let lastMessage = viewModel.messages.last {
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                        }
+                    }
+                }
             }
-            .navigationTitle("Chat")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button {
-                            viewModel.newSession()
-                        } label: {
-                            Label("New Chat", systemImage: "plus.message")
-                        }
-                        
-                        Button {
-                            viewModel.clearConversation()
-                        } label: {
-                            Label("Clear Conversation", systemImage: "trash")
-                        }
-                        
-                        Divider()
-                        
-                        Button {
-                            viewModel.refreshDownloadedModels()
-                        } label: {
-                            Label("Refresh Models", systemImage: "arrow.clockwise")
-                        }
+            
+            // Error display
+            if let error = viewModel.generationError {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                    Spacer()
+                    Button("Dismiss") {
+                        viewModel.generationError = nil
+                    }
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.orange.opacity(0.1))
+            }
+            
+            // Input area
+            ChatInputView(
+                text: $inputText,
+                canSend: !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isGenerating && viewModel.selectedModel != nil,
+                isGenerating: viewModel.isGenerating,
+                onSend: {
+                    let message = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !message.isEmpty {
+                        viewModel.sendMessage(message)
+                        inputText = ""
+                    }
+                }
+            )
+        }
+        .navigationTitle("Chat")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button {
+                        viewModel.clearConversation()
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Label("New Chat", systemImage: "plus.message")
                     }
+                    
+                    Button {
+                        viewModel.clearConversation()
+                    } label: {
+                        Label("Clear Conversation", systemImage: "trash")
+                    }
+                    
+                    Divider()
+                    
+                    Button {
+                        viewModel.refreshDownloadedModels()
+                    } label: {
+                        Label("Refresh Models", systemImage: "arrow.clockwise")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title2)
                 }
             }
-        }
-        .onAppear {
-            viewModel.refreshDownloadedModels()
-        }
-        .alert("Generation Error", isPresented: .constant(viewModel.generationError != nil)) {
-            Button("OK") {
-                viewModel.generationError = nil
-            }
-        } message: {
-            Text(viewModel.generationError ?? "")
         }
         .sheet(isPresented: $viewModel.showingModelPicker) {
             ModelPickerView(viewModel: viewModel)
         }
+        .onAppear {
+            viewModel.refreshDownloadedModels()
+        }
     }
 }
 
-
-
-
-
-
-
-
-
 #Preview {
-    ChatView()
+    SimpleChatView()
 } 
