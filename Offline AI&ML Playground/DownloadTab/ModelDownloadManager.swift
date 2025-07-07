@@ -16,7 +16,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
     @Published var downloadedModels: Set<String> = []
     @Published var activeDownloads: [String: ModelDownload] = [:]
     @Published var storageUsed: Double = 0
-    @Published var totalStorage: Double = 100_000_000_000 // 100GB
+    @Published var totalStorage: Double = 0 // Will be set dynamically
     
     private var urlSession: URLSession!
     private let documentsDirectory: URL
@@ -42,6 +42,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
         
         // Calculate initial storage
         calculateStorageUsed()
+        updateTotalStorage()
         
         print("📱 ModelDownloadManager initialized")
         print("📁 Models directory: \(modelsDirectory.path)")
@@ -195,23 +196,13 @@ class ModelDownloadManager: NSObject, ObservableObject {
     
     func downloadModel(_ model: AIModel) {
         guard !activeDownloads.contains(where: { $0.key == model.id }) else { 
-            print("⚠️ Download already in progress for: \(model.id)")
             return 
         }
         guard !isModelDownloaded(model.id) else { 
-            print("⚠️ Model already downloaded: \(model.id)")
             return 
         }
         
         let url = constructHuggingFaceURL(repo: model.huggingFaceRepo, filename: model.filename)
-        
-        // Enhanced logging for Hugging Face downloads
-        print("🔄 Starting download for: \(model.name)")
-        print("📍 Hugging Face URL: \(url.absoluteString)")
-        print("📦 Repository: \(model.huggingFaceRepo)")
-        print("📄 Filename: \(model.filename)")
-        print("📏 Expected size: \(model.formattedSize)")
-        print("📁 Models directory: \(modelsDirectory.path)")
         
         // Create download request with proper headers for Hugging Face
         var request = URLRequest(url: url)
@@ -231,9 +222,6 @@ class ModelDownloadManager: NSObject, ObservableObject {
         
         activeDownloads[model.id] = download
         task.resume()
-        
-        print("✅ Download task started for: \(model.name)")
-        print("🔗 Task identifier: \(task.taskIdentifier)")
     }
     
     func cancelDownload(_ modelId: String) {
@@ -247,6 +235,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
         try? FileManager.default.removeItem(at: modelURL)
         downloadedModels.remove(modelId)
         calculateStorageUsed()
+        updateTotalStorage()
     }
     
     func isModelDownloaded(_ modelId: String) -> Bool {
@@ -342,6 +331,10 @@ class ModelDownloadManager: NSObject, ObservableObject {
         ByteCountFormatter.string(fromByteCount: Int64(storageUsed), countStyle: .file)
     }
     
+    var formattedTotalStorage: String {
+        ByteCountFormatter.string(fromByteCount: Int64(totalStorage), countStyle: .file)
+    }
+    
     // MARK: - Testing and Debugging Methods
     
     func testModelURL(_ model: AIModel) async {
@@ -432,10 +425,21 @@ class ModelDownloadManager: NSObject, ObservableObject {
             try FileManager.default.moveItem(at: location, to: destinationURL)
             downloadedModels.insert(modelId)
             calculateStorageUsed()
+            updateTotalStorage()
             
             print("Successfully saved model: \(modelId)")
         } catch {
             print("Error saving model \(modelId): \(error)")
+        }
+    }
+    
+    /// Update the total storage property to reflect the device's available storage
+    func updateTotalStorage() {
+        if let systemAttributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
+           let totalSpace = systemAttributes[.systemSize] as? NSNumber {
+            self.totalStorage = totalSpace.doubleValue
+        } else {
+            self.totalStorage = 0
         }
     }
 }
@@ -458,21 +462,13 @@ extension ModelDownloadManager: URLSessionDownloadDelegate {
         }
         
         guard let modelId = targetModelId else { 
-            print("❌ Could not find model for completed download task")
             return 
         }
-        
-        print("📥 Download completed for model: \(modelId)")
-        print("📁 Temporary file location: \(location.path)")
-        print("📋 File exists at temp location: \(FileManager.default.fileExists(atPath: location.path))")
         
         // Move the file immediately (before switching actors) to prevent cleanup
         let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let modelsDirectory = documentsDirectory.appendingPathComponent("Models", isDirectory: true)
         let destinationURL = modelsDirectory.appendingPathComponent(modelId)
-        
-        print("📁 Target directory: \(modelsDirectory.path)")
-        print("📁 Final destination: \(destinationURL.path)")
         
         var moveSuccess = false
         

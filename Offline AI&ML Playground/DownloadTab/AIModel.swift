@@ -24,13 +24,73 @@ struct AIModel: Identifiable {
     var formattedSize: String {
         ByteCountFormatter.string(fromByteCount: sizeInBytes, countStyle: .file)
     }
+    
+    // MARK: - Logo Support
+    var brandIcon: String? {
+        // Detect brand from model name or repo and return appropriate SF Symbol
+        let nameAndRepo = (name + " " + huggingFaceRepo).lowercased()
+        
+        if nameAndRepo.contains("llama") || nameAndRepo.contains("meta") {
+            return "m.circle.fill" // Meta's M
+        } else if nameAndRepo.contains("mistral") {
+            return "wind" // Mistral = wind
+        } else if nameAndRepo.contains("deepseek") {
+            return "eye.circle.fill" // DeepSeek = deep sight
+        } else if nameAndRepo.contains("starcoder") || nameAndRepo.contains("bigcode") {
+            return "star.circle.fill" // StarCoder = star
+        } else if nameAndRepo.contains("apple") || nameAndRepo.contains("mobilevit") {
+            return "applelogo" // Apple logo
+        } else if nameAndRepo.contains("distilbert") || nameAndRepo.contains("google") {
+            return "g.circle.fill" // Google's G
+        } else if nameAndRepo.contains("sentence-transformers") || nameAndRepo.contains("all-minilm") {
+            return "face.smiling.inverse" // Hugging Face emoji
+        } else if nameAndRepo.contains("stable") && nameAndRepo.contains("diffusion") {
+            return "wand.and.stars" // Stability AI = magic wand
+        }
+        return nil
+    }
+    
+    var brandColor: Color? {
+        // Brand-specific colors
+        let nameAndRepo = (name + " " + huggingFaceRepo).lowercased()
+        
+        if nameAndRepo.contains("llama") || nameAndRepo.contains("meta") {
+            return Color.blue // Meta blue
+        } else if nameAndRepo.contains("mistral") {
+            return Color.orange // Mistral orange
+        } else if nameAndRepo.contains("deepseek") {
+            return Color.purple // DeepSeek purple
+        } else if nameAndRepo.contains("starcoder") || nameAndRepo.contains("bigcode") {
+            return Color.yellow // StarCoder yellow
+        } else if nameAndRepo.contains("apple") || nameAndRepo.contains("mobilevit") {
+            return Color.primary // Apple black/white
+        } else if nameAndRepo.contains("distilbert") || nameAndRepo.contains("google") {
+            return Color.red // Google red
+        } else if nameAndRepo.contains("sentence-transformers") || nameAndRepo.contains("all-minilm") {
+            return Color.yellow // Hugging Face yellow
+        } else if nameAndRepo.contains("stable") && nameAndRepo.contains("diffusion") {
+            return Color.purple // Stability purple
+        }
+        return nil
+    }
+    
+    var displayIcon: String {
+        return brandIcon ?? type.iconName
+    }
+    
+    var displayColor: Color {
+        return brandColor ?? type.color
+    }
+    
+    var isUsingBrandIcon: Bool {
+        return brandIcon != nil
+    }
 }
 
 // MARK: - Model Type
 enum ModelType: String, CaseIterable {
     case llama = "llama"
     case mistral = "mistral"
-    case whisper = "whisper"
     case stable_diffusion = "stable_diffusion"
     case code = "code"
     case general = "general"
@@ -39,7 +99,6 @@ enum ModelType: String, CaseIterable {
         switch self {
         case .llama: return "Llama"
         case .mistral: return "Mistral"
-        case .whisper: return "Whisper"
         case .stable_diffusion: return "Stable Diffusion"
         case .code: return "Code"
         case .general: return "General"
@@ -50,7 +109,6 @@ enum ModelType: String, CaseIterable {
         switch self {
         case .llama: return .orange
         case .mistral: return .red
-        case .whisper: return .purple
         case .stable_diffusion: return .pink
         case .code: return .green
         case .general: return .blue
@@ -61,7 +119,6 @@ enum ModelType: String, CaseIterable {
         switch self {
         case .llama: return "brain.head.profile"
         case .mistral: return "wind"
-        case .whisper: return "waveform"
         case .stable_diffusion: return "photo.artframe"
         case .code: return "curlybraces"
         case .general: return "cpu"
@@ -101,17 +158,6 @@ extension AIModel {
             sizeInBytes: 3_800_000_000, // ~3.8GB
             type: .llama,
             tags: ["chat", "ggml", "quantized", "7b"],
-            isGated: false
-        ),
-        AIModel(
-            id: "whisper-tiny",
-            name: "Whisper Tiny",
-            description: "Tiny Whisper model for speech recognition",
-            huggingFaceRepo: "ggerganov/whisper.cpp",
-            filename: "ggml-tiny.bin",
-            sizeInBytes: 39_000_000, // ~39MB
-            type: .whisper,
-            tags: ["speech-to-text", "ggml", "tiny"],
             isGated: false
         ),
         AIModel(

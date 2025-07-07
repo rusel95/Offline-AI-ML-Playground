@@ -203,7 +203,7 @@ class TestMLXFunctionality {
         for model in testModels {
             print("🏗️ Testing model: \(model.name) (\(model.type))")
             print("   - ID: \(model.id)")
-            print("   - Size: \(model.sizeInBytes / (1024 * 1024)) MB")
+            print("   - Size: \(ByteCountFormatter.string(fromByteCount: model.sizeInBytes, countStyle: .file))")
             print("   - Type: \(model.type)")
             print("   - HF Repo: \(model.huggingFaceRepo)")
         }

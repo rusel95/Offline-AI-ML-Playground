@@ -116,9 +116,6 @@ class PerformanceMonitor: ObservableObject {
         )
         
         currentStats = stats
-        
-        // Log performance data for debugging
-        logger.debug("📊 CPU: \(stats.formattedCPUUsage), App Memory: \(stats.formattedAppMemoryUsed) (\(stats.formattedAppMemoryPercentage)), System Memory: \(stats.formattedSystemMemoryUsed)/\(stats.formattedSystemMemoryTotal) (\(stats.formattedSystemMemoryPercentage))")
     }
     
     // MARK: - CPU Usage

@@ -10,7 +10,7 @@ A **production-ready on-device AI playground** for Apple platforms (iOS, iPadOS,
 
 <div align="center">
 
-![Chat Interface](chat-example.jpeg)
+<img src="chat-example.jpeg" alt="Chat Interface" width="300" style="max-height: 500px; object-fit: contain;">
 
 *Chat with local AI models on your iPhone - completely offline!*
 

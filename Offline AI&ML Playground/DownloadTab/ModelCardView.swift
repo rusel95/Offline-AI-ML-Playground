@@ -17,14 +17,14 @@ struct ModelCardView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Model header
             HStack(alignment: .top, spacing: 12) {
-                // Model type icon
+                // Model brand icon
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(model.type.color.opacity(0.2))
+                    .fill(model.displayColor.opacity(0.2))
                     .frame(width: 40, height: 40)
                     .overlay(
-                        Image(systemName: model.type.iconName)
+                        Image(systemName: model.displayIcon)
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(model.type.color)
+                            .foregroundColor(model.displayColor)
                     )
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -52,8 +52,8 @@ struct ModelCardView: View {
                         .font(.caption)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(model.type.color.opacity(0.15))
-                        .foregroundColor(model.type.color)
+                        .background(model.displayColor.opacity(0.15))
+                        .foregroundColor(model.displayColor)
                         .cornerRadius(6)
                 }
             }

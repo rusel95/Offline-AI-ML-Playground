@@ -27,9 +27,7 @@ struct SimpleDownloadView: View {
     
     // MARK: - iPhone Layout
     private var iPhoneLayout: some View {
-        NavigationView {
-            mainContentList
-        }
+        mainContentList
     }
     
     private var mainContentList: some View {
@@ -38,7 +36,7 @@ struct SimpleDownloadView: View {
             activeDownloadsSection
             availableModelsSection
         }
-        .listStyle(.automatic)
+        .listStyle(.plain)
         .onAppear {
             downloadManager.refreshAvailableModels()
         }
@@ -82,7 +80,7 @@ struct SimpleDownloadView: View {
     
     private func activeDownloadRow(model: AIModel, download: ModelDownload) -> some View {
         DownloadProgressCard(model: model, download: download, downloadManager: downloadManager)
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            .listRowInsets(EdgeInsets())
             .listRowBackground(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.accentColor.opacity(0.05))
@@ -110,7 +108,7 @@ struct SimpleDownloadView: View {
             model: model,
             downloadManager: downloadManager
         )
-        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        .listRowInsets(EdgeInsets())
         .listRowBackground(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(.regularMaterial)

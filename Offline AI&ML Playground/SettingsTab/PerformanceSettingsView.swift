@@ -47,116 +47,119 @@ struct PerformanceSettingsView: View {
                         .toggleStyle(SwitchToggleStyle())
                     }
                     
-                    // CPU Usage
-                    HStack {
-                        Image(systemName: "cpu")
-                            .foregroundStyle(.blue)
-                            .font(.title2)
-                            .frame(width: 24)
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("CPU Usage")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
+                    // Performance metrics - only show when monitoring is enabled
+                    if performanceMonitor.isMonitoring {
+                        // CPU Usage
+                        HStack {
+                            Image(systemName: "cpu")
+                                .foregroundStyle(.blue)
+                                .font(.title2)
+                                .frame(width: 24)
                             
-                            ProgressView(value: performanceMonitor.currentStats.cpuUsage, total: 100)
-                                .progressViewStyle(LinearProgressViewStyle(tint: cpuUsageColor(performanceMonitor.currentStats.cpuUsage)))
-                                .scaleEffect(y: 0.8)
-                        }
-                        
-                        Spacer()
-                        
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(performanceMonitor.currentStats.formattedCPUUsage)
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(cpuUsageColor(performanceMonitor.currentStats.cpuUsage))
-                            
-                            Text(cpuUsageStatus(performanceMonitor.currentStats.cpuUsage))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 12)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(12)
-                    
-                    // App Memory Usage
-                    HStack {
-                        Image(systemName: "app.badge")
-                            .foregroundStyle(.blue)
-                            .font(.title2)
-                            .frame(width: 24)
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("App Memory")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            
-                            ProgressView(value: performanceMonitor.currentStats.appMemoryPercentage, total: 5.0)
-                                .progressViewStyle(LinearProgressViewStyle(tint: appMemoryUsageColor(performanceMonitor.currentStats.appMemoryPercentage)))
-                                .scaleEffect(y: 0.8)
-                        }
-                        
-                        Spacer()
-                        
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(performanceMonitor.currentStats.formattedAppMemoryUsed)
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(appMemoryUsageColor(performanceMonitor.currentStats.appMemoryPercentage))
-                            
-                            Text(appMemoryUsageStatus(performanceMonitor.currentStats.appMemoryUsedMB))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 12)
-                    .background(Color.blue.opacity(0.05))
-                    .cornerRadius(12)
-                    
-                    // System Memory Usage
-                    HStack {
-                        Image(systemName: "memorychip")
-                            .foregroundStyle(.purple)
-                            .font(.title2)
-                            .frame(width: 24)
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("System Memory")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            
-                            ProgressView(value: performanceMonitor.currentStats.systemMemoryPercentage, total: 100)
-                                .progressViewStyle(LinearProgressViewStyle(tint: systemMemoryUsageColor(performanceMonitor.currentStats.systemMemoryPercentage)))
-                                .scaleEffect(y: 0.8)
-                        }
-                        
-                        Spacer()
-                        
-                        VStack(alignment: .trailing, spacing: 2) {
-                            HStack(spacing: 4) {
-                                Text(performanceMonitor.currentStats.formattedSystemMemoryUsed)
-                                    .font(.headline)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(systemMemoryUsageColor(performanceMonitor.currentStats.systemMemoryPercentage))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("CPU Usage")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
                                 
-                                Text("(\(performanceMonitor.currentStats.formattedSystemMemoryPercentage))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                ProgressView(value: performanceMonitor.currentStats.cpuUsage, total: 100)
+                                    .progressViewStyle(LinearProgressViewStyle(tint: cpuUsageColor(performanceMonitor.currentStats.cpuUsage)))
+                                    .scaleEffect(y: 0.8)
                             }
                             
-                            Text(systemMemoryUsageStatus(performanceMonitor.currentStats.systemMemoryPercentage))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                            Spacer()
+                            
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(performanceMonitor.currentStats.formattedCPUUsage)
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(cpuUsageColor(performanceMonitor.currentStats.cpuUsage))
+                                
+                                Text(cpuUsageStatus(performanceMonitor.currentStats.cpuUsage))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(12)
+                        
+                        // App Memory Usage
+                        HStack {
+                            Image(systemName: "app.badge")
+                                .foregroundStyle(.blue)
+                                .font(.title2)
+                                .frame(width: 24)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("App Memory")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                
+                                ProgressView(value: performanceMonitor.currentStats.appMemoryPercentage, total: 5.0)
+                                    .progressViewStyle(LinearProgressViewStyle(tint: appMemoryUsageColor(performanceMonitor.currentStats.appMemoryPercentage)))
+                                    .scaleEffect(y: 0.8)
+                            }
+                            
+                            Spacer()
+                            
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(performanceMonitor.currentStats.formattedAppMemoryUsed)
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(appMemoryUsageColor(performanceMonitor.currentStats.appMemoryPercentage))
+                                
+                                Text(appMemoryUsageStatus(performanceMonitor.currentStats.appMemoryUsedMB))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .background(Color.blue.opacity(0.05))
+                        .cornerRadius(12)
+                        
+                        // System Memory Usage
+                        HStack {
+                            Image(systemName: "memorychip")
+                                .foregroundStyle(.purple)
+                                .font(.title2)
+                                .frame(width: 24)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("System Memory")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                
+                                ProgressView(value: performanceMonitor.currentStats.systemMemoryPercentage, total: 100)
+                                    .progressViewStyle(LinearProgressViewStyle(tint: systemMemoryUsageColor(performanceMonitor.currentStats.systemMemoryPercentage)))
+                                    .scaleEffect(y: 0.8)
+                            }
+                            
+                            Spacer()
+                            
+                            VStack(alignment: .trailing, spacing: 2) {
+                                HStack(spacing: 4) {
+                                    Text(performanceMonitor.currentStats.formattedSystemMemoryUsed)
+                                        .font(.headline)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(systemMemoryUsageColor(performanceMonitor.currentStats.systemMemoryPercentage))
+                                    
+                                    Text("(\(performanceMonitor.currentStats.formattedSystemMemoryPercentage))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Text(systemMemoryUsageStatus(performanceMonitor.currentStats.systemMemoryPercentage))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .background(Color.purple.opacity(0.05))
+                        .cornerRadius(12)
                     }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 12)
-                    .background(Color.purple.opacity(0.05))
-                    .cornerRadius(12)
                     
                     // Last updated timestamp
                     if performanceMonitor.isMonitoring {
@@ -170,54 +173,7 @@ struct PerformanceSettingsView: View {
                 }
             }
             
-            // Model Configuration Section
-            Section("Model Configuration") {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "thermometer")
-                            .foregroundColor(.orange)
-                        Text("Temperature")
-                        Spacer()
-                        Text(String(format: "%.1f", settingsManager.temperature))
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Slider(value: $settingsManager.temperature, in: 0.0...2.0, step: 0.1)
-                        .accentColor(.orange)
-                }
-                .padding(.vertical, 4)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "speedometer")
-                            .foregroundColor(.green)
-                        Text("Max Tokens")
-                        Spacer()
-                        Text("\(settingsManager.maxTokens)")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Slider(value: Binding(
-                        get: { Double(settingsManager.maxTokens) },
-                        set: { settingsManager.maxTokens = Int($0) }
-                    ), in: 100...4000, step: 100)
-                        .accentColor(.green)
-                }
-                .padding(.vertical, 4)
-                
-                HStack {
-                    Image(systemName: "cpu")
-                        .foregroundColor(.blue)
-                    Text("Performance Mode")
-                    Spacer()
-                    Picker("Performance Mode", selection: $settingsManager.performanceMode) {
-                        ForEach(PerformanceMode.allCases, id: \.self) { mode in
-                            Text(mode.displayName).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-            }
+
         }
         .onAppear {
             // Auto-start monitoring when view appears

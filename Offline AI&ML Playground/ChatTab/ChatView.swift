@@ -606,29 +606,26 @@ struct SimpleChatView: View {
             )
         }
         .toolbar {
-            // Chat History button
-            ToolbarItem(placement: .cancellationAction) {
+            // Chat History button (leading)
+            ToolbarItem(placement: .topBarLeading) {
                 Button {
                     viewModel.showingChatHistory = true
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock.arrow.circlepath")
-                        Text("History")
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(Color.accentColor)
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.title2)
+                        .foregroundStyle(Color.accentColor)
                 }
                 .disabled(viewModel.isGenerating || viewModel.isModelLoading)
             }
             
-            // Model Status/Picker button
-            ToolbarItem(placement: .automatic) {
+            // Model picker button (center/principal)
+            ToolbarItem(placement: .principal) {
                 Button {
                     if !viewModel.isModelLoading {
                         viewModel.showingModelPicker = true
                     }
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         if viewModel.isModelLoading {
                             ProgressView()
                                 .controlSize(.mini)
@@ -637,16 +634,17 @@ struct SimpleChatView: View {
                             Image(systemName: "cpu")
                             Text("\(viewModel.selectedModel?.name ?? "No Model")")
                                 .lineLimit(1)
+                                .truncationMode(.middle)
                         }
                     }
-                    .font(.caption)
+                    .font(.headline)
                     .foregroundStyle(viewModel.isModelLoading ? .secondary : Color.accentColor)
                 }
                 .disabled(viewModel.isGenerating || viewModel.isModelLoading)
             }
             
-            // Secondary actions menu
-            ToolbarItem(placement: .primaryAction) {
+            // Actions menu (trailing)
+            ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
                         viewModel.startNewConversation()
@@ -693,11 +691,11 @@ struct SimpleChatView: View {
                     }
                     .disabled(viewModel.isModelLoading)
                 } label: {
-                    Image(systemName: viewModel.isModelLoading ? "gearshape.2" : "ellipsis.circle")
+                    Image(systemName: "ellipsis.circle")
                         .font(.title2)
-                        .foregroundStyle(viewModel.isModelLoading ? .secondary : Color.accentColor)
-                        .symbolEffect(.rotate, isActive: viewModel.isModelLoading)
+                        .foregroundStyle(Color.accentColor)
                 }
+                .disabled(viewModel.isModelLoading)
             }
         }
         .sheet(isPresented: $viewModel.showingModelPicker) {

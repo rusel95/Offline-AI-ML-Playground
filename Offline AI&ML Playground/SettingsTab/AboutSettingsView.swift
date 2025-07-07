@@ -14,14 +14,6 @@ struct AboutSettingsView: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
     }
     
-    private var buildNumber: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
-    }
-    
-    private var versionText: String {
-        "\(appVersion) (\(buildNumber))"
-    }
-    
     var body: some View {
         Section("About") {
             HStack {
@@ -29,7 +21,7 @@ struct AboutSettingsView: View {
                     .foregroundColor(.blue)
                 Text("Version")
                 Spacer()
-                Text(versionText)
+                Text(appVersion)
                     .foregroundColor(.secondary)
                     .font(.system(.body, design: .monospaced))
             }

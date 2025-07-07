@@ -211,6 +211,18 @@ class ChatHistoryManager: ObservableObject {
         }
     }
     
+    /// Delete all conversations and chat history
+    func deleteAllConversations() {
+        let conversations = getAllConversations()
+        
+        for conversation in conversations {
+            modelContext.delete(conversation)
+        }
+        
+        saveContext()
+        print("📚 Deleted all chat history: \(conversations.count) conversations removed")
+    }
+    
     // MARK: - Private Methods
     
     private func saveContext() {

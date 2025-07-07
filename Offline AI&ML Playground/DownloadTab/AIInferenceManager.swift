@@ -31,7 +31,7 @@ class AIInferenceManager: ObservableObject {
     private func setupLogging() {
         print("📋 Setting up comprehensive logging system")
         print("📱 Device info: \(ProcessInfo.processInfo.machineDescription)")
-        print("💾 Available memory: \(ProcessInfo.processInfo.physicalMemory) bytes")
+        print("💾 Available memory: \(ByteCountFormatter.string(fromByteCount: Int64(ProcessInfo.processInfo.physicalMemory), countStyle: .memory))")
         print("🔧 MLX Swift availability: \(isMLXSwiftAvailable ? "✅ Available" : "❌ Not Available")")
     }
     
@@ -41,7 +41,7 @@ class AIInferenceManager: ObservableObject {
         // Monitor memory usage periodically
         Task {
             while true {
-                let memoryUsage = getMemoryUsage()
+                let _ = getMemoryUsage()
                 let memoryPressure = getMemoryPressure()
                 
                 if memoryPressure > 0.8 && isModelLoaded {
@@ -169,7 +169,7 @@ class AIInferenceManager: ObservableObject {
             
             print("🎉 Model loaded successfully: \(model.name)")
             print("🔗 Source: \(isLocallyAvailable ? "Local Cache" : "Downloaded")")
-            print("📈 Final memory usage: \(getMemoryUsage()) bytes")
+            print("📈 Final memory usage: \(ByteCountFormatter.string(fromByteCount: Int64(getMemoryUsage()), countStyle: .memory))")
             print("📊 Memory pressure: \(getMemoryPressure())")
             
         } catch {
@@ -602,7 +602,7 @@ class AIInferenceManager: ObservableObject {
                     
                     // Check if file size is reasonable (at least 50% of expected size to account for compression)
                     let isValidSize = fileSize > expectedSize / 2
-                    print("📄 Single file model check - Size: \(fileSize) vs Expected: \(expectedSize), Valid: \(isValidSize)")
+                    print("📄 Single file model check - Size: \(ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)) vs Expected: \(ByteCountFormatter.string(fromByteCount: Int64(expectedSize), countStyle: .file)), Valid: \(isValidSize)")
                     return isValidSize
                 } catch {
                     print("❌ Error checking file size: \(error)")
@@ -739,24 +739,6 @@ class AIInferenceManager: ObservableObject {
             // Model: \(model.name)
             """
             
-        case .whisper:
-            return """
-            \(modelInfo)
-            
-            🎤 Whisper model response for: "\(prompt)"
-            
-            MLX Swift Audio Processing:
-            • Speech-to-text transcription
-            • Multi-language audio processing
-            • Real-time audio analysis
-            • On-device voice recognition
-            
-            Note: Audio processing with MLX Swift integration ready.
-            
-            Temperature: \(temperature)
-            Model: \(model.name)
-            """
-            
         case .stable_diffusion:
             return """
             \(modelInfo)
@@ -854,8 +836,8 @@ extension AIInferenceManager {
             isAppleSilicon: true
         )
         
-        print("💾 Total memory: \(capabilities.totalMemory) bytes")
-        print("🔓 Available memory: \(capabilities.availableMemory) bytes")
+        print("💾 Total memory: \(ByteCountFormatter.string(fromByteCount: Int64(capabilities.totalMemory), countStyle: .memory))")
+        print("🔓 Available memory: \(ByteCountFormatter.string(fromByteCount: Int64(capabilities.availableMemory), countStyle: .memory))")
         print("🧠 Neural Engine: \(capabilities.hasNeuralEngine ? "Available" : "Not Available")")
         print("🎮 GPU: \(capabilities.hasGPU ? "Available" : "Not Available")")
         print("🍎 Apple Silicon: \(capabilities.isAppleSilicon ? "Yes" : "No")")

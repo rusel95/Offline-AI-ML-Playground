@@ -147,7 +147,7 @@ final class MLXInferenceTests: XCTestCase {
         let initialMemory: UInt64 = 1024 * 1024 // 1MB mock value
         XCTAssertGreaterThan(initialMemory, 0, "Memory usage should be positive")
         
-        print("💾 Simulated memory usage: \(initialMemory) bytes")
+        print("💾 Simulated memory usage: \(ByteCountFormatter.string(fromByteCount: Int64(initialMemory), countStyle: .memory))")
         print("✅ Memory operations test passed")
     }
     
