@@ -100,7 +100,8 @@ struct DownloadProgressCard: View {
                 sizeInBytes: 7_000_000_000,
                 type: .general,
                 tags: ["test", "general"],
-                isGated: false
+                isGated: false,
+                provider: .anthropic // Added provider
             ),
             download: ModelDownload(
                 modelId: "test-2",

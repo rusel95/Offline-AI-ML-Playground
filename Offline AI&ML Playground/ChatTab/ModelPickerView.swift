@@ -46,17 +46,23 @@ struct ModelPickerView: View {
                 } else {
                     // Models list
                     List {
-                        ForEach(viewModel.availableModels, id: \.id) { model in
-                            ModelPickerRow(
-                                model: model,
-                                isSelected: viewModel.selectedModel?.id == model.id,
-                                onSelect: {
-                                    Task {
-                                        await viewModel.selectModel(model)
-                                        dismiss()
+                        ForEach(Provider.allCases, id: \.self) { provider in
+                            if !modelsForProvider(provider).isEmpty {
+                                Section(header: providerHeader(for: provider)) {
+                                    ForEach(modelsForProvider(provider), id: \.id) { model in
+                                        ModelPickerRow(
+                                            model: model,
+                                            isSelected: viewModel.selectedModel?.id == model.id,
+                                            onSelect: {
+                                                Task {
+                                                    await viewModel.selectModel(model)
+                                                    dismiss()
+                                                }
+                                            }
+                                        )
                                     }
                                 }
-                            )
+                            }
                         }
                     }
                     .listStyle(.plain)
@@ -71,6 +77,36 @@ struct ModelPickerView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Helper Functions
+extension ModelPickerView {
+    private func modelsForProvider(_ provider: Provider) -> [AIModel] {
+        return viewModel.availableModels.filter { $0.provider == provider }
+    }
+    
+    private func providerHeader(for provider: Provider) -> some View {
+        HStack {
+            Image(systemName: provider.iconName)
+                .foregroundStyle(provider.color)
+                .font(.title3)
+            
+            Text(provider.displayName)
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            Spacer()
+            
+            Text("\(modelsForProvider(provider).count) models")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.quaternary, in: Capsule())
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
     }
 }
 

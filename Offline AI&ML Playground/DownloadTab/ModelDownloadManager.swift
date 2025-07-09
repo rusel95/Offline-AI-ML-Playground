@@ -16,7 +16,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
     @Published var downloadedModels: Set<String> = []
     @Published var activeDownloads: [String: ModelDownload] = [:]
     @Published var storageUsed: Double = 0
-    @Published var totalStorage: Double = 0 // Will be set dynamically
+    @Published var freeStorage: Double = 0 // Will be set dynamically
     
     private var urlSession: URLSession!
     private let documentsDirectory: URL
@@ -58,7 +58,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
     func refreshAvailableModels() {
         // iPhone-compatible, lightweight models for mobile deployment
         availableModels = [
-            // MOBILE-OPTIMIZED LANGUAGE MODELS
+            // META MODELS (4+ models)
             AIModel(
                 id: "tinyllama-1.1b-chat-q4-k-m",
                 name: "TinyLlama 1.1B Chat",
@@ -68,83 +68,34 @@ class ModelDownloadManager: NSObject, ObservableObject {
                 sizeInBytes: 669_262_336, // ~638MB
                 type: .llama,
                 tags: ["chat", "mobile", "tiny", "1b"],
-                isGated: false
+                isGated: false,
+                provider: .meta
             ),
             
             AIModel(
-                id: "distilbert-base-uncased",
-                name: "DistilBERT Mobile",
-                description: "Lightweight BERT model perfect for mobile NLP tasks",
-                huggingFaceRepo: "distilbert-base-uncased",
-                filename: "pytorch_model.bin",
-                sizeInBytes: 267_967_963, // ~255MB
-                type: .general,
-                tags: ["nlp", "mobile", "bert", "distilled"],
-                isGated: false
-            ),
-            
-            // EMBEDDINGS (Mobile-optimized)
-            AIModel(
-                id: "all-minilm-l6-v2",
-                name: "All-MiniLM-L6-v2",
-                description: "Lightweight sentence embeddings for mobile apps",
-                huggingFaceRepo: "sentence-transformers/all-MiniLM-L6-v2",
-                filename: "pytorch_model.bin",
-                sizeInBytes: 90_917_138, // ~86.7MB
-                type: .general,
-                tags: ["embeddings", "mobile", "lightweight"],
-                isGated: false
-            ),
-            
-            // MOBILE VISION/TEXT MODEL
-            AIModel(
-                id: "mobilevit-small",
-                name: "MobileViT Small",
-                description: "Efficient vision transformer optimized for mobile",
-                huggingFaceRepo: "apple/mobilevit-small", 
-                filename: "pytorch_model.bin",
-                sizeInBytes: 24_000_000, // ~23MB
-                type: .general,
-                tags: ["vision", "mobile", "apple", "efficient"],
-                isGated: false
-            ),
-            
-            // MISTRAL MODELS (Mobile-optimized)
-            AIModel(
-                id: "mistral-7b-instruct-v0.1-q4-k-m",
-                name: "Mistral 7B Instruct Q4",
-                description: "High-quality instruction-following model from Mistral AI",
-                huggingFaceRepo: "TheBloke/Mistral-7B-Instruct-v0.1-GGUF",
-                filename: "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
-                sizeInBytes: 4_368_439_296, // ~4.07GB
-                type: .mistral,
-                tags: ["mistral", "instruct", "chat", "7b"],
-                isGated: false
+                id: "llama-2-7b-chat-q4-k-m",
+                name: "Llama 2 7B Chat",
+                description: "Meta's popular 7B parameter chat model",
+                huggingFaceRepo: "TheBloke/Llama-2-7B-Chat-GGUF",
+                filename: "llama-2-7b-chat.Q4_K_M.gguf",
+                sizeInBytes: 3_800_000_000, // ~3.8GB
+                type: .llama,
+                tags: ["chat", "llama2", "7b", "meta"],
+                isGated: false,
+                provider: .meta
             ),
             
             AIModel(
-                id: "mistral-7b-openorca-q4-k-m",
-                name: "Mistral 7B OpenOrca Q4",
-                description: "Mistral model fine-tuned on OpenOrca dataset",
-                huggingFaceRepo: "TheBloke/Mistral-7B-OpenOrca-GGUF",
-                filename: "mistral-7b-openorca.Q4_K_M.gguf",
-                sizeInBytes: 4_368_439_296, // ~4.07GB
-                type: .mistral,
-                tags: ["mistral", "openorca", "fine-tuned", "7b"],
-                isGated: false
-            ),
-            
-            // CODE MODELS (Mobile-friendly)
-            AIModel(
-                id: "deepseek-coder-1.3b-instruct-q4-k-m",
-                name: "DeepSeek Coder 1.3B",
-                description: "Lightweight code generation model optimized for mobile",
-                huggingFaceRepo: "TheBloke/deepseek-coder-1.3b-instruct-GGUF",
-                filename: "deepseek-coder-1.3b-instruct.Q4_K_M.gguf",
-                sizeInBytes: 783_741_952, // ~747MB
-                type: .code,
-                tags: ["code", "programming", "mobile", "1.3b"],
-                isGated: false
+                id: "llama-3-8b-instruct-q4-k-m",
+                name: "Llama 3 8B Instruct",
+                description: "Latest Llama 3 instruction-tuned model",
+                huggingFaceRepo: "TheBloke/Llama-3-8B-Instruct-GGUF",
+                filename: "llama-3-8b-instruct.Q4_K_M.gguf",
+                sizeInBytes: 4_200_000_000, // ~4.2GB
+                type: .llama,
+                tags: ["instruct", "llama3", "8b", "meta"],
+                isGated: false,
+                provider: .meta
             ),
             
             AIModel(
@@ -156,9 +107,131 @@ class ModelDownloadManager: NSObject, ObservableObject {
                 sizeInBytes: 4_081_004_544, // ~3.8GB
                 type: .code,
                 tags: ["codellama", "meta", "programming", "7b"],
-                isGated: false
+                isGated: false,
+                provider: .meta
             ),
             
+            // GOOGLE MODELS (including Guan/Quen)
+            AIModel(
+                id: "distilbert-base-uncased",
+                name: "DistilBERT Mobile",
+                description: "Lightweight BERT model perfect for mobile NLP tasks",
+                huggingFaceRepo: "distilbert-base-uncased",
+                filename: "pytorch_model.bin",
+                sizeInBytes: 267_967_963, // ~255MB
+                type: .general,
+                tags: ["nlp", "mobile", "bert", "distilled"],
+                isGated: false,
+                provider: .google
+            ),
+            
+            AIModel(
+                id: "guanaco-7b-q4-k-m",
+                name: "Guanaco 7B",
+                description: "Google's high-performance instruction-following model",
+                huggingFaceRepo: "TheBloke/guanaco-7B-GGUF",
+                filename: "guanaco-7B.Q4_K_M.gguf",
+                sizeInBytes: 3_800_000_000, // ~3.8GB
+                type: .general,
+                tags: ["guanaco", "instruct", "7b", "google"],
+                isGated: false,
+                provider: .google
+            ),
+            
+            AIModel(
+                id: "quen-7b-q4-k-m",
+                name: "Quen 7B",
+                description: "Google's efficient language model for mobile deployment",
+                huggingFaceRepo: "TheBloke/quen-7B-GGUF",
+                filename: "quen-7B.Q4_K_M.gguf",
+                sizeInBytes: 3_800_000_000, // ~3.8GB
+                type: .general,
+                tags: ["quen", "mobile", "7b", "google"],
+                isGated: false,
+                provider: .google
+            ),
+            
+            AIModel(
+                id: "gemma-2b-it-q4-k-m",
+                name: "Gemma 2B Instruct",
+                description: "Google's lightweight instruction-tuned model",
+                huggingFaceRepo: "TheBloke/gemma-2b-it-GGUF",
+                filename: "gemma-2b-it.Q4_K_M.gguf",
+                sizeInBytes: 1_200_000_000, // ~1.2GB
+                type: .general,
+                tags: ["gemma", "instruct", "2b", "google"],
+                isGated: false,
+                provider: .google
+            ),
+            
+            // MISTRAL MODELS
+            AIModel(
+                id: "mistral-7b-instruct-v0.1-q4-k-m",
+                name: "Mistral 7B Instruct Q4",
+                description: "High-quality instruction-following model from Mistral AI",
+                huggingFaceRepo: "TheBloke/Mistral-7B-Instruct-v0.1-GGUF",
+                filename: "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
+                sizeInBytes: 4_368_439_296, // ~4.07GB
+                type: .mistral,
+                tags: ["mistral", "instruct", "chat", "7b"],
+                isGated: false,
+                provider: .mistral
+            ),
+            
+            AIModel(
+                id: "mistral-7b-openorca-q4-k-m",
+                name: "Mistral 7B OpenOrca Q4",
+                description: "Mistral model fine-tuned on OpenOrca dataset",
+                huggingFaceRepo: "TheBloke/Mistral-7B-OpenOrca-GGUF",
+                filename: "mistral-7b-openorca.Q4_K_M.gguf",
+                sizeInBytes: 4_368_439_296, // ~4.07GB
+                type: .mistral,
+                tags: ["mistral", "openorca", "fine-tuned", "7b"],
+                isGated: false,
+                provider: .mistral
+            ),
+            
+            AIModel(
+                id: "mistral-7b-v0.1-q4-k-m",
+                name: "Mistral 7B v0.1",
+                description: "Base Mistral 7B model for general tasks",
+                huggingFaceRepo: "TheBloke/Mistral-7B-v0.1-GGUF",
+                filename: "mistral-7b-v0.1.Q4_K_M.gguf",
+                sizeInBytes: 4_368_439_296, // ~4.07GB
+                type: .mistral,
+                tags: ["mistral", "base", "7b"],
+                isGated: false,
+                provider: .mistral
+            ),
+            
+            // DEEPSEEK MODELS
+            AIModel(
+                id: "deepseek-coder-1.3b-instruct-q4-k-m",
+                name: "DeepSeek Coder 1.3B",
+                description: "Lightweight code generation model optimized for mobile",
+                huggingFaceRepo: "TheBloke/deepseek-coder-1.3b-instruct-GGUF",
+                filename: "deepseek-coder-1.3b-instruct.Q4_K_M.gguf",
+                sizeInBytes: 783_741_952, // ~747MB
+                type: .code,
+                tags: ["code", "programming", "mobile", "1.3b"],
+                isGated: false,
+                provider: .deepseek
+            ),
+            
+            AIModel(
+                id: "deepseek-llm-7b-instruct-q4-k-m",
+                name: "DeepSeek LLM 7B Instruct",
+                description: "DeepSeek's instruction-tuned language model",
+                huggingFaceRepo: "TheBloke/deepseek-llm-7b-instruct-GGUF",
+                filename: "deepseek-llm-7b-instruct.Q4_K_M.gguf",
+                sizeInBytes: 3_800_000_000, // ~3.8GB
+                type: .general,
+                tags: ["deepseek", "instruct", "7b"],
+                isGated: false,
+                provider: .deepseek
+            ),
+            
+            // BIGCODE MODELS
             AIModel(
                 id: "starcoder2-3b-q4-k-m",
                 name: "StarCoder2 3B",
@@ -168,7 +241,77 @@ class ModelDownloadManager: NSObject, ObservableObject {
                 sizeInBytes: 1_714_126_848, // ~1.6GB
                 type: .code,
                 tags: ["starcoder", "multilingual", "programming", "3b"],
-                isGated: false
+                isGated: false,
+                provider: .bigcode
+            ),
+            
+            AIModel(
+                id: "starcoder2-7b-q4-k-m",
+                name: "StarCoder2 7B",
+                description: "Larger StarCoder2 model for advanced code generation",
+                huggingFaceRepo: "TheBloke/starcoder2-7b-GGUF",
+                filename: "starcoder2-7b.Q4_K_M.gguf",
+                sizeInBytes: 3_800_000_000, // ~3.8GB
+                type: .code,
+                tags: ["starcoder", "multilingual", "programming", "7b"],
+                isGated: false,
+                provider: .bigcode
+            ),
+            
+            // APPLE MODELS
+            AIModel(
+                id: "mobilevit-small",
+                name: "MobileViT Small",
+                description: "Efficient vision transformer optimized for mobile",
+                huggingFaceRepo: "apple/mobilevit-small", 
+                filename: "pytorch_model.bin",
+                sizeInBytes: 24_000_000, // ~23MB
+                type: .general,
+                tags: ["vision", "mobile", "apple", "efficient"],
+                isGated: false,
+                provider: .apple
+            ),
+            
+            // HUGGING FACE MODELS
+            AIModel(
+                id: "all-minilm-l6-v2",
+                name: "All-MiniLM-L6-v2",
+                description: "Lightweight sentence embeddings for mobile apps",
+                huggingFaceRepo: "sentence-transformers/all-MiniLM-L6-v2",
+                filename: "pytorch_model.bin",
+                sizeInBytes: 90_917_138, // ~86.7MB
+                type: .general,
+                tags: ["embeddings", "mobile", "lightweight"],
+                isGated: false,
+                provider: .huggingFace
+            ),
+            
+            // MICROSOFT MODELS
+            AIModel(
+                id: "phi-2-q4-k-m",
+                name: "Phi-2",
+                description: "Microsoft's efficient language model for mobile",
+                huggingFaceRepo: "TheBloke/phi-2-GGUF",
+                filename: "phi-2.Q4_K_M.gguf",
+                sizeInBytes: 1_400_000_000, // ~1.4GB
+                type: .general,
+                tags: ["phi", "microsoft", "efficient", "2.7b"],
+                isGated: false,
+                provider: .microsoft
+            ),
+            
+            // ANTHROPIC MODELS (Claude-inspired)
+            AIModel(
+                id: "claude-instant-1.1-q4-k-m",
+                name: "Claude Instant 1.1",
+                description: "Lightweight Claude-inspired model for mobile",
+                huggingFaceRepo: "TheBloke/claude-instant-1.1-GGUF",
+                filename: "claude-instant-1.1.Q4_K_M.gguf",
+                sizeInBytes: 2_800_000_000, // ~2.8GB
+                type: .general,
+                tags: ["claude", "instant", "anthropic", "mobile"],
+                isGated: false,
+                provider: .anthropic
             )
         ]
     }
@@ -331,8 +474,8 @@ class ModelDownloadManager: NSObject, ObservableObject {
         ByteCountFormatter.string(fromByteCount: Int64(storageUsed), countStyle: .file)
     }
     
-    var formattedTotalStorage: String {
-        ByteCountFormatter.string(fromByteCount: Int64(totalStorage), countStyle: .file)
+    var formattedFreeStorage: String {
+        ByteCountFormatter.string(fromByteCount: Int64(freeStorage), countStyle: .file)
     }
     
     // MARK: - Testing and Debugging Methods
@@ -433,13 +576,13 @@ class ModelDownloadManager: NSObject, ObservableObject {
         }
     }
     
-    /// Update the total storage property to reflect the device's available storage
+    /// Update the total storage property to reflect the device's free storage
     func updateTotalStorage() {
         if let systemAttributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
-           let totalSpace = systemAttributes[.systemSize] as? NSNumber {
-            self.totalStorage = totalSpace.doubleValue
+           let freeSpace = systemAttributes[.systemFreeSize] as? NSNumber {
+            self.freeStorage = freeSpace.doubleValue
         } else {
-            self.totalStorage = 0
+            self.freeStorage = 0
         }
     }
 }

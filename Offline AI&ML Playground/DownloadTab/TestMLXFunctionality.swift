@@ -174,7 +174,8 @@ class TestMLXFunctionality {
                 sizeInBytes: 1024 * 1024 * 1024,
                 type: .llama,
                 tags: ["test"],
-                isGated: false
+                isGated: false,
+                provider: .meta
             ),
             AIModel(
                 id: "test-llama2",
@@ -185,7 +186,8 @@ class TestMLXFunctionality {
                 sizeInBytes: 2048 * 1024 * 1024,
                 type: .llama,
                 tags: ["test"],
-                isGated: false
+                isGated: false,
+                provider: .meta
             ),
             AIModel(
                 id: "test-codellama",
@@ -196,7 +198,8 @@ class TestMLXFunctionality {
                 sizeInBytes: 512 * 1024 * 1024,
                 type: .llama,
                 tags: ["test", "code"],
-                isGated: false
+                isGated: false,
+                provider: .meta
             )
         ]
         

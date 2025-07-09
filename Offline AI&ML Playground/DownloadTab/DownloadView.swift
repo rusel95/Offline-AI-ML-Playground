@@ -37,6 +37,7 @@ struct SimpleDownloadView: View {
             availableModelsSection
         }
         .listStyle(.plain)
+        .listRowSeparator(.hidden) // Hide all row separators
         .onAppear {
             downloadManager.refreshAvailableModels()
         }
@@ -103,14 +104,53 @@ struct SimpleDownloadView: View {
     }
     
     private var availableModelsList: some View {
-        VStack(spacing: 8) {
-            ForEach(downloadManager.availableModels, id: \.id) { model in
-                availableModelRow(model: model)
-                    .padding(.horizontal, 8)
+        VStack(spacing: 16) {
+            ForEach(Provider.allCases, id: \.self) { provider in
+                if !modelsForProvider(provider).isEmpty {
+                    providerSection(for: provider)
+                }
             }
         }
         .listRowInsets(EdgeInsets())
         .listRowBackground(Color.clear)
+    }
+    
+    private func modelsForProvider(_ provider: Provider) -> [AIModel] {
+        return downloadManager.availableModels.filter { $0.provider == provider }
+    }
+    
+    private func providerSection(for provider: Provider) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Provider header
+            HStack {
+                Image(systemName: provider.iconName)
+                    .foregroundStyle(provider.color)
+                    .font(.title3)
+                
+                Text(provider.displayName)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                // Remove the model count badge
+                // Text("\(modelsForProvider(provider).count) models")
+                //     .font(.caption)
+                //     .foregroundStyle(.secondary)
+                //     .padding(.horizontal, 8)
+                //     .padding(.vertical, 4)
+                //     .background(.quaternary, in: Capsule())
+            }
+            .padding(.horizontal, 8)
+            
+            // Models for this provider
+            VStack(spacing: 8) {
+                ForEach(modelsForProvider(provider), id: \.id) { model in
+                    availableModelRow(model: model)
+                        .padding(.horizontal, 8)
+                }
+            }
+        }
     }
     
     private func availableModelRow(model: AIModel) -> some View {
@@ -155,7 +195,7 @@ struct SimpleDownloadView: View {
     
     private var modelCategoriesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Model Categories")
+            Text("Model Providers")
                 .font(.headline)
                 .foregroundStyle(.primary)
             
@@ -165,38 +205,42 @@ struct SimpleDownloadView: View {
     }
     
     private var modelCategoriesList: some View {
-        ForEach(ModelType.allCases, id: \.self) { type in
-            modelCategoryRow(for: type)
+        ForEach(Provider.allCases, id: \.self) { provider in
+            if !modelsForProvider(provider).isEmpty {
+                modelCategoryRow(for: provider)
+            }
         }
     }
     
-    private func modelCategoryRow(for type: ModelType) -> some View {
+    private func modelCategoryRow(for provider: Provider) -> some View {
         HStack {
-            Image(systemName: type.iconName)
-                .foregroundStyle(type.color)
+            Image(systemName: provider.iconName)
+                .foregroundStyle(provider.color)
                 .frame(width: 20, height: 20)
             
-            Text(type.displayName)
+            Text(provider.displayName)
                 .font(.subheadline)
                 .foregroundStyle(.primary)
             
             Spacer()
             
-            modelCountBadge(for: type)
+            // Remove the model count badge
+            // modelCountBadge(for: provider)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
     }
     
-    private func modelCountBadge(for type: ModelType) -> some View {
-        Text("\(downloadManager.availableModels.filter { $0.type == type }.count)")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(.quaternary, in: Capsule())
-    }
+    // Remove the modelCountBadge function entirely
+    // private func modelCountBadge(for provider: Provider) -> some View {
+    //     Text("\(modelsForProvider(provider).count)")
+    //         .font(.caption)
+    //         .foregroundStyle(.secondary)
+    //         .padding(.horizontal, 8)
+    //         .padding(.vertical, 4)
+    //         .background(.quaternary, in: Capsule())
+    // }
     
     private var macOSDetailView: some View {
         ScrollView {

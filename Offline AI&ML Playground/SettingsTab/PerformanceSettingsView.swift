@@ -46,7 +46,6 @@ struct PerformanceSettingsView: View {
                         ))
                         .toggleStyle(SwitchToggleStyle())
                     }
-                    
                     // Performance metrics - only show when monitoring is enabled
                     if performanceMonitor.isMonitoring {
                         // CPU Usage
@@ -161,15 +160,6 @@ struct PerformanceSettingsView: View {
                         .cornerRadius(12)
                     }
                     
-                    // Last updated timestamp
-                    if performanceMonitor.isMonitoring {
-                        HStack {
-                            Spacer()
-                            Text("Last updated: \(performanceMonitor.currentStats.timestamp, formatter: timeFormatter)")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
                 }
             }
             

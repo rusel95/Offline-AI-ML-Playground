@@ -20,6 +20,7 @@ struct ChatHistoryView: View {
     @State private var conversationToDelete: Conversation?
     @State private var editingConversation: Conversation?
     @State private var newTitle = ""
+    @State private var showCleanupConfirmation = false
     
     let onLoadConversation: (Conversation) -> Void
     
@@ -54,15 +55,9 @@ struct ChatHistoryView: View {
                         Button {
                             historyManager.cleanupOldConversations(keepLast: 50)
                             loadConversations()
+                            showCleanupConfirmation = true
                         } label: {
                             Label("Clean Old Chats", systemImage: "trash.circle")
-                        }
-                        
-                        Button {
-                            searchText = ""
-                            loadConversations()
-                        } label: {
-                            Label("Refresh", systemImage: "arrow.clockwise")
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
@@ -100,6 +95,9 @@ struct ChatHistoryView: View {
             }
         } message: {
             Text("Enter a new title for this conversation.")
+        }
+        .alert("Old chats cleaned! Only the 50 most recent conversations are kept.", isPresented: $showCleanupConfirmation) {
+            Button("OK", role: .cancel) { }
         }
     }
     

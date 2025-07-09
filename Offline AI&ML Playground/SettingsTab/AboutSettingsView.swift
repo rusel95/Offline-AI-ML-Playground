@@ -33,14 +33,6 @@ struct AboutSettingsView: View {
                     .font(.caption)
                 Spacer()
             }
-            
-            HStack {
-                Image(systemName: "cpu")
-                    .foregroundColor(.orange)
-                Text("Built with MLX Swift")
-                    .font(.caption)
-                Spacer()
-            }
         }
     }
 }

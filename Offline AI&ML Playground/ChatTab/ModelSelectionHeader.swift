@@ -62,13 +62,14 @@ struct ModelSelectionHeader: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(.regularMaterial)
-        .overlay(
-            Rectangle()
-                .frame(height: 0.5)
-                .foregroundColor(Color.gray.opacity(0.3)),
-            alignment: .bottom
-        )
+        // Remove background and overlay styling
+        // .background(.regularMaterial)
+        // .overlay(
+        //     Rectangle()
+        //         .frame(height: 0.5)
+        //         .foregroundColor(Color.gray.opacity(0.3)),
+        //     alignment: .bottom
+        // )
     }
 }
 

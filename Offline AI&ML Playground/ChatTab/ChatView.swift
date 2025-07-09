@@ -410,89 +410,6 @@ class SimpleChatViewModel: ObservableObject {
         
         isGenerating = false
     }
-    
-    @MainActor
-    private func generateResponse(for userMessage: String, using model: AIModel) async {
-        isGenerating = true
-        generationError = nil
-        
-        do {
-            let response = try await generateModelResponse(userMessage: userMessage, model: model)
-            
-            let assistantMessage = ChatMessage(
-                content: response,
-                role: .assistant,
-                timestamp: Date(),
-                modelUsed: model.name
-            )
-            messages.append(assistantMessage)
-            
-        } catch {
-            generationError = "Failed to generate response: \(error.localizedDescription)"
-        }
-        
-        isGenerating = false
-    }
-    
-    private func generateModelResponse(userMessage: String, model: AIModel) async throws -> String {
-        // Simulate AI model response generation
-        // In a real implementation, this would interface with the actual AI model
-        
-        // Add a realistic delay to simulate model processing
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-        
-        // Generate a response based on the model type
-        let response = switch model.type {
-        case .llama:
-            generateLlamaResponse(for: userMessage, model: model)
-        case .code:
-            generateCodeResponse(for: userMessage, model: model)
-        case .general:
-            generateGeneralResponse(for: userMessage, model: model)
-        default:
-            generateDefaultResponse(for: userMessage, model: model)
-        }
-        
-        return response
-    }
-    
-    private func generateLlamaResponse(for message: String, model: AIModel) -> String {
-        // Llama-style response
-        let responses = [
-            "🦙 As a Llama model, I understand you're asking about \"\(message)\". Let me provide a thoughtful response based on my training.",
-            "🦙 That's an interesting question about \"\(message)\". From my understanding, I can share these insights...",
-            "🦙 I'm processing your message about \"\(message)\" using my language model capabilities. Here's what I think...",
-            "🦙 Your question regarding \"\(message)\" is fascinating. Let me break this down for you..."
-        ]
-        return responses.randomElement() ?? "🦙 I'm thinking about your message..."
-    }
-    
-    private func generateCodeResponse(for message: String, model: AIModel) -> String {
-        // Code model response
-        let responses = [
-            "💻 As a code-focused model, I can help you with \"\(message)\". Here's my analysis:\n\n```\n// Code example related to your query\nfunction example() {\n    // Implementation here\n}\n```",
-            "💻 Looking at your code-related question about \"\(message)\", I suggest the following approach...",
-            "💻 I can help you with \"\(message)\". Let me provide a technical solution:\n\n```swift\n// Swift example\nfunc solution() {\n    // Your implementation\n}\n```",
-            "💻 Your programming question about \"\(message)\" is interesting. Here's how I'd approach it..."
-        ]
-        return responses.randomElement() ?? "💻 Let me analyze your code question..."
-    }
-    
-    private func generateGeneralResponse(for message: String, model: AIModel) -> String {
-        // General model response
-        let responses = [
-            "I understand you're asking about \"\(message)\". This is a broad topic that I can help explain...",
-            "That's a great question about \"\(message)\". Let me provide a comprehensive answer...",
-            "Regarding \"\(message)\", there are several important aspects to consider...",
-            "I'd be happy to help you understand \"\(message)\". Here's my perspective..."
-        ]
-        return responses.randomElement() ?? "I'm processing your question..."
-    }
-    
-    private func generateDefaultResponse(for message: String, model: AIModel) -> String {
-        // Default response for other model types
-        return "Using \(model.name) (\(model.type.rawValue)) to respond: I understand you're asking about \"\(message)\". This is a \(model.type.rawValue) model, so my response is tailored accordingly."
-    }
 }
 
 // MARK: - Main Chat View
@@ -511,7 +428,8 @@ struct SimpleChatView: View {
             // Model selection header
             if viewModel.selectedModel != nil {
                 ModelSelectionHeader(viewModel: viewModel)
-                    .padding(.horizontal, 16)
+                    // Remove extra padding to take full width
+                    // .padding(.horizontal, 16)
                     .padding(.top, 8)
             }
             

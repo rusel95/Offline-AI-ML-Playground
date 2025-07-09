@@ -78,7 +78,8 @@ class TestLocalCaching {
             sizeInBytes: 2 * 1024 * 1024 * 1024, // 2GB
             type: .general,
             tags: ["test", "cache"],
-            isGated: false
+            isGated: false,
+            provider: .other // Added provider
         )
         
         print("🔧 Created test model:")

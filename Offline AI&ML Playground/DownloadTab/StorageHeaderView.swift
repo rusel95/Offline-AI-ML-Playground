@@ -22,14 +22,14 @@ struct StorageHeaderView: View {
                     Text("Local Storage")
                         .font(.headline)
                         .fontWeight(.semibold)
-                    Text(downloadManager.formattedStorageUsed)
+                    Text("\(downloadManager.formattedStorageUsed) used")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 Spacer()
             }
             
-            ProgressView(value: downloadManager.storageUsed, total: downloadManager.totalStorage)
+            ProgressView(value: downloadManager.storageUsed, total: downloadManager.freeStorage)
                 .progressViewStyle(.linear)
                 .tint(.blue)
         }
@@ -44,7 +44,7 @@ private class PreviewDownloadManager: ModelDownloadManager {
         super.init()
         // Set some sample data for preview
         self.storageUsed = 15_000_000_000 // 15GB used
-        self.totalStorage = 100_000_000_000 // 100GB total
+        self.freeStorage = 100_000_000_000 // 100GB free
     }
 }
 
