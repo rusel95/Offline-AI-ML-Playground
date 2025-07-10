@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		852C2E092E2020F3004D03BD /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 852C2E082E2020F3004D03BD /* README.md */; };
 		85C974C52E1BC88F00143F63 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974C42E1BC88F00143F63 /* MLX */; };
 		85C974C72E1BC88F00143F63 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974C62E1BC88F00143F63 /* MLXNN */; };
 		85C974C82E1BC88F00143F63 /* MLXRandom in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974C32E1BC88F00143F63 /* MLXRandom */; };
@@ -35,6 +36,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		852C2E082E2020F3004D03BD /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		857668CE2E166CED0098BDAA /* Offline AI&ML Playground.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Offline AI&ML Playground.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		857668E22E166CEF0098BDAA /* Offline AI&ML PlaygroundTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Offline AI&ML PlaygroundTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		857668EC2E166CEF0098BDAA /* Offline AI&ML PlaygroundUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Offline AI&ML PlaygroundUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -107,6 +109,7 @@
 		857668C52E166CED0098BDAA = {
 			isa = PBXGroup;
 			children = (
+				852C2E082E2020F3004D03BD /* README.md */,
 				857668D02E166CED0098BDAA /* Offline AI&ML Playground */,
 				857668E52E166CEF0098BDAA /* Offline AI&ML PlaygroundTests */,
 				857668EF2E166CEF0098BDAA /* Offline AI&ML PlaygroundUITests */,
@@ -255,6 +258,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				852C2E092E2020F3004D03BD /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -319,7 +323,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Offline AI&ML Playground/Offline_AI_ML_Playground.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_ASSET_PATHS = "\"Offline AI&ML Playground/Preview Content\"";
 				DEVELOPMENT_TEAM = FWHF624C4H;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -341,14 +345,15 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.0.6;
+				MARKETING_VERSION = 0.0.8;
 				PRODUCT_BUNDLE_IDENTIFIER = "Kotesku.Offline-AI-ML-Playground";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 2.0;
 			};
 			name = Debug;
@@ -360,7 +365,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "Offline AI&ML Playground/Offline_AI_ML_Playground.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_ASSET_PATHS = "\"Offline AI&ML Playground/Preview Content\"";
 				DEVELOPMENT_TEAM = FWHF624C4H;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -382,14 +387,15 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.0.6;
+				MARKETING_VERSION = 0.0.8;
 				PRODUCT_BUNDLE_IDENTIFIER = "Kotesku.Offline-AI-ML-Playground";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 2.0;
 			};
 			name = Release;
@@ -645,7 +651,7 @@
 			repositoryURL = "https://github.com/ml-explore/mlx-swift/";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 1.5.0;
+				minimumVersion = 0.10.0;
 			};
 		};
 		85C974CA2E1BC88F00143F63 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */ = {

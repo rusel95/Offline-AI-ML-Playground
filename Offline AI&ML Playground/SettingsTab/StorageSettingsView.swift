@@ -23,24 +23,10 @@ struct StorageSettingsView: View {
             Section {
                 VStack(alignment: .leading) {
                     Text("Storage Used")
-                    Text("\(downloadManager.formattedStorageUsed) of \(downloadManager.formattedFreeStorage) free")
+                    Text("\(downloadManager.formattedStorageUsed) | \(downloadManager.formattedFreeStorage) free left")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                
-                // Add storage progress indicator
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("\(Int((downloadManager.storageUsed / downloadManager.freeStorage) * 100))%")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    
-                    ProgressView(value: downloadManager.storageUsed, total: downloadManager.freeStorage)
-                        .progressViewStyle(.linear)
-                        .frame(width: 60)
-                        .scaleEffect(y: 0.8)
-                }
-            } header: {
-                Text("Storage")
             }
             
             // Clear all models section
@@ -57,10 +43,6 @@ struct StorageSettingsView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(PlainButtonStyle())
-            } header: {
-                Text("Model Management")
-            } footer: {
-                Text("This will permanently delete all downloaded AI models from your device. This action cannot be undone.")
             }
         }
         .alert("Clear All Models", isPresented: $showingClearModelsAlert) {

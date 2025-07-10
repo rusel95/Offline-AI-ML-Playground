@@ -233,7 +233,7 @@ class AIInferenceManager: ObservableObject {
                     temperature: temperature,
                     topP: 0.9
                 )
-                print("⚙️ Generation parameters set: maxTokens=\(parameters.maxTokens), temp=\(String(describing: parameters.temperature)), topP=\(String(describing: parameters.topP))")
+                print("⚙️ Generation parameters set: maxTokens=\(String(describing: parameters.maxTokens)), temp=\(String(describing: parameters.temperature)), topP=\(String(describing: parameters.topP))")
                 
                 // Generate text using MLX
                 var generatedText = ""

@@ -32,7 +32,6 @@ struct SimpleDownloadView: View {
     
     private var mainContentList: some View {
         List {
-            storageSection
             activeDownloadsSection
             availableModelsSection
         }
@@ -43,18 +42,6 @@ struct SimpleDownloadView: View {
         }
         .refreshable {
             downloadManager.refreshAvailableModels()
-        }
-    }
-    
-    private var storageSection: some View {
-        Section {
-            StorageHeaderView(downloadManager: downloadManager)
-                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
-                .listRowBackground(Color.clear)
-        } header: {
-            Text("Storage")
-                .font(.headline)
-                .foregroundStyle(.primary)
         }
     }
     

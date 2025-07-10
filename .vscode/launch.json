@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Offline AI&ML Playground}",
+            "name": "Debug Offline AI&ML Playground V2",
+            "program": "${workspaceFolder:Offline AI&ML Playground}/.build/debug/Offline AI&ML Playground V2",
+            "preLaunchTask": "swift: Build Debug Offline AI&ML Playground V2"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Offline AI&ML Playground}",
+            "name": "Release Offline AI&ML Playground V2",
+            "program": "${workspaceFolder:Offline AI&ML Playground}/.build/release/Offline AI&ML Playground V2",
+            "preLaunchTask": "swift: Build Release Offline AI&ML Playground V2"
+        }
+    ]
+}

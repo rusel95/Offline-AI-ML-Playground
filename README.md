@@ -1,17 +1,17 @@
 # 🚀 Offline AI & ML Playground
 
-![Version](https://img.shields.io/badge/version-0.0.6-blue.svg)
-![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20macOS-lightgrey.svg)
+![Version](https://img.shields.io/badge/version-0.0.8-blue.svg)
+![Platform](https://img.shields.io/badge/platform-iOS-lightgrey.svg)
 ![MLX](https://img.shields.io/badge/MLX%20Swift-optimized-orange.svg)
 ![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2Frusel95%2FOffline-AI-ML-Playground&label=visitors&countColor=%23263759&style=flat)
 
-## **🧑‍💻 The Ultimate Playground to Compare and Choose Your AI Model (Apple Platforms Only)**
+## **🧑‍💻 The Ultimate Playground to Compare and Choose Your AI Model (iOS Only)**
 
-**Easily compare, test, and evaluate a wide range of open-source AI models locally on your Apple device (iOS or macOS) to help you choose the best model for your own project.**
+**Easily compare, test, and evaluate a wide range of open-source AI models locally on your iPhone to help you choose the best model for your own project.**
 
 ---
 
-### **A production-ready on-device AI playground for Apple platforms (iOS, macOS) that runs real open-source LLMs locally using MLX Swift. Chat with AI models completely offline with zero network dependency after download.**
+### **A production-ready on-device AI playground for iOS that runs real open-source LLMs locally using MLX Swift. Chat with AI models completely offline with zero network dependency after download.**
 
 ## 📱 App in Action
 
@@ -54,7 +54,7 @@
 
 ### 🎨 **Native Apple Experience**
 - ✅ **SwiftUI throughout** - Modern, responsive interface
-- ✅ **Cross-platform compatibility** - iOS, macOS
+- ✅ **iOS compatibility** - Optimized for iPhone and iPad
 - ✅ **Real-time UI updates** - Smooth streaming text display
 - ✅ **Native performance** - No web views or hybrid solutions
 
@@ -77,7 +77,7 @@
 ## 🚀 Getting Started
 
 ### Prerequisites
-- **macOS 12.0+** or **iOS 15.0+**
+- **iOS 15.0+**
 - **Apple Silicon recommended** (Intel supported)
 - **Xcode 15.0+**
 - **2GB+ free storage** for models
@@ -137,7 +137,6 @@ if isLocal {
 
 | Platform | Status | Performance |
 |----------|--------|-------------|
-| 🍎 **macOS** | ✅ Full Support | ⚡ Excellent (Apple Silicon) |
 | 📱 **iOS** | ✅ Full Support | ⚡ Great (A-series chips) |
 
 ## 🎯 Current Status
