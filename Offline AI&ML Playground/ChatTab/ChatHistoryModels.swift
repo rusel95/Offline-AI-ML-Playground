@@ -79,157 +79,83 @@ class StoredChatMessage {
     
     // Convert to ChatMessage
     var toChatMessage: ChatMessage {
-        ChatMessage(
-            id: self.id,
+        var chatMessage = ChatMessage(
             content: self.content,
             role: ChatMessage.MessageRole(rawValue: self.role) ?? .user,
             timestamp: self.timestamp,
             modelUsed: self.modelUsed
         )
+        // Set the ID to match the stored message
+        chatMessage.id = self.id
+        return chatMessage
     }
 }
 
 // MARK: - Chat History Manager
 @MainActor
-class ChatHistoryManager: ObservableObject {
-    private let modelContext: ModelContext
+class ChatHistoryManager: ChatHistoryServiceProtocol, ObservableObject {
+    private var modelContext: ModelContext?
     
-    init(modelContext: ModelContext) {
+    func setupHistoryManager(_ modelContext: ModelContext) {
         self.modelContext = modelContext
     }
     
-    // MARK: - Conversation Management
-    
-    /// Create a new conversation
-    func createConversation(title: String? = nil, modelUsed: String? = nil) -> Conversation {
-        let conversation = Conversation(
-            title: title ?? "New Conversation",
-            modelUsed: modelUsed
-        )
-        modelContext.insert(conversation)
-        saveContext()
-        return conversation
-    }
-    
-    /// Save current chat messages to a conversation
-    func saveConversation(_ messages: [ChatMessage], title: String? = nil, existingConversation: Conversation? = nil) -> Conversation {
-        let conversation = existingConversation ?? createConversation(title: title)
+    func saveConversation(_ messages: [ChatMessage], title: String?, existingConversation: Conversation?) -> Conversation? {
+        guard let modelContext = modelContext else { return nil }
         
-        // Clear existing messages if updating
+        let conversation: Conversation
         if let existing = existingConversation {
-            existing.messages.removeAll()
+            conversation = existing
+            // Clear existing messages
+            conversation.messages.removeAll()
+        } else {
+            conversation = Conversation(title: title ?? generateTitle(from: messages.first?.content ?? ""))
+            modelContext.insert(conversation)
         }
         
-        // Add all messages
+        // Set conversation properties
+        conversation.title = title ?? generateTitle(from: messages.first?.content ?? "")
+        conversation.updatedAt = Date()
+        conversation.modelUsed = messages.first(where: { $0.role == .assistant })?.modelUsed
+        
+        // Convert and add messages
         for message in messages {
-            let storedMessage = StoredChatMessage(from: message)
+            let storedMessage = StoredChatMessage(
+                content: message.content,
+                role: message.role.rawValue,
+                timestamp: message.timestamp,
+                modelUsed: message.modelUsed
+            )
+            storedMessage.id = message.id
             storedMessage.conversation = conversation
-            conversation.messages.append(storedMessage)
-            modelContext.insert(storedMessage)
-        }
-        
-        // Generate title if not provided
-        if title == nil {
-            conversation.generateTitle()
-        }
-        
-        conversation.updatedAt = Date()
-        saveContext()
-        return conversation
-    }
-    
-    /// Load conversation messages
-    func loadConversation(_ conversation: Conversation) -> [ChatMessage] {
-        return conversation.messages
-            .sorted(by: { $0.timestamp < $1.timestamp })
-            .map { $0.toChatMessage }
-    }
-    
-    /// Get all conversations sorted by last activity
-    func getAllConversations() -> [Conversation] {
-        let descriptor = FetchDescriptor<Conversation>(
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-        )
-        
-        do {
-            return try modelContext.fetch(descriptor)
-        } catch {
-            print("Error fetching conversations: \(error)")
-            return []
-        }
-    }
-    
-    /// Delete a conversation
-    func deleteConversation(_ conversation: Conversation) {
-        modelContext.delete(conversation)
-        saveContext()
-    }
-    
-    /// Update conversation title
-    func updateConversationTitle(_ conversation: Conversation, title: String) {
-        conversation.title = title
-        conversation.updatedAt = Date()
-        saveContext()
-    }
-    
-    // MARK: - Search
-    
-    /// Search conversations by title or content
-    func searchConversations(query: String) -> [Conversation] {
-        let allConversations = getAllConversations()
-        
-        if query.isEmpty {
-            return allConversations
-        }
-        
-        return allConversations.filter { conversation in
-            // Search in title
-            if conversation.title.localizedCaseInsensitiveContains(query) {
-                return true
-            }
             
-            // Search in message content
-            return conversation.messages.contains { message in
-                message.content.localizedCaseInsensitiveContains(query)
-            }
-        }
-    }
-    
-    // MARK: - Cleanup
-    
-    /// Delete old conversations (keep last N)
-    func cleanupOldConversations(keepLast: Int = 100) {
-        let conversations = getAllConversations()
-        let toDelete = conversations.dropFirst(keepLast)
-        
-        for conversation in toDelete {
-            modelContext.delete(conversation)
+            modelContext.insert(storedMessage)
+            conversation.messages.append(storedMessage)
         }
         
-        if !toDelete.isEmpty {
-            saveContext()
-        }
-    }
-    
-    /// Delete all conversations and chat history
-    func deleteAllConversations() {
-        let conversations = getAllConversations()
-        
-        for conversation in conversations {
-            modelContext.delete(conversation)
-        }
-        
-        saveContext()
-        print("📚 Deleted all chat history: \(conversations.count) conversations removed")
-    }
-    
-    // MARK: - Private Methods
-    
-    private func saveContext() {
         do {
             try modelContext.save()
+            return conversation
         } catch {
-            print("Error saving context: \(error)")
+            print("❌ Failed to save conversation: \(error)")
+            return nil
         }
+    }
+    
+    func loadConversation(_ conversation: Conversation) async -> [ChatMessage] {
+        return conversation.messages.map { storedMessage in
+            ChatMessage(
+                content: storedMessage.content,
+                role: ChatMessage.MessageRole(rawValue: storedMessage.role) ?? .user,
+                timestamp: storedMessage.timestamp,
+                modelUsed: storedMessage.modelUsed
+            )
+        }
+    }
+    
+    private func generateTitle(from firstMessage: String) -> String {
+        let words = firstMessage.components(separatedBy: .whitespacesAndNewlines)
+        let titleWords = Array(words.prefix(5))
+        return titleWords.joined(separator: " ") + (words.count > 5 ? "..." : "")
     }
 } 

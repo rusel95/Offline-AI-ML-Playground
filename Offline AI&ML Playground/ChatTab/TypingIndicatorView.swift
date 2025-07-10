@@ -11,6 +11,15 @@ import SwiftUI
 // MARK: - Typing Indicator View
 struct TypingIndicatorView: View {
     let modelName: String
+    
+    var body: some View {
+        iOSTypingIndicatorView(modelName: modelName)
+    }
+}
+
+// MARK: - iOS Typing Indicator View
+struct iOSTypingIndicatorView: View {
+    let modelName: String
     @State private var animating = false
     
     var body: some View {

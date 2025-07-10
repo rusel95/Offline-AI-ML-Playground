@@ -98,6 +98,7 @@ struct DownloadProgressCard: View {
                 huggingFaceRepo: "test/claude",
                 filename: "claude.gguf",
                 sizeInBytes: 7_000_000_000,
+                parameterCount: 3_500_000_000, // 3.5B parameters
                 type: .general,
                 tags: ["test", "general"],
                 isGated: false,

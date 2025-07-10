@@ -10,8 +10,18 @@ import SwiftUI
 
 // MARK: - Model Picker View
 struct ModelPickerView: View {
-    @ObservedObject var viewModel: SimpleChatViewModel
+    @ObservedObject var viewModel: ChatViewModel
     @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        iOSModelPickerView(viewModel: viewModel, dismiss: dismiss)
+    }
+}
+
+// MARK: - iOS Model Picker View
+struct iOSModelPickerView: View {
+    @ObservedObject var viewModel: ChatViewModel
+    let dismiss: DismissAction
     
     var body: some View {
         NavigationView {
@@ -78,10 +88,8 @@ struct ModelPickerView: View {
             }
         }
     }
-}
-
-// MARK: - Helper Functions
-extension ModelPickerView {
+    
+    // MARK: - Helper Functions
     private func modelsForProvider(_ provider: Provider) -> [AIModel] {
         return viewModel.availableModels.filter { $0.provider == provider }
     }
@@ -112,5 +120,5 @@ extension ModelPickerView {
 
 // MARK: - Preview
 #Preview {
-    ModelPickerView(viewModel: SimpleChatViewModel())
+    ModelPickerView(viewModel: ChatViewModel())
 } 

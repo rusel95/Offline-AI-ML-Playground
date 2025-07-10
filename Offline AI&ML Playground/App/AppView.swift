@@ -10,6 +10,13 @@ import SwiftUI
 
 struct AppView: View {
     var body: some View {
+        iOSAppView()
+    }
+}
+
+// MARK: - iOS App View
+struct iOSAppView: View {
+    var body: some View {
         TabView {
             NavigationView {
                 SimpleChatView()
@@ -34,8 +41,6 @@ struct AppView: View {
         }
     }
 }
-
-
 
 #Preview {
     AppView()

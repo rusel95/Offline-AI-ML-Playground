@@ -11,7 +11,7 @@ import Foundation
 
 // MARK: - Download Manager
 @MainActor
-class ModelDownloadManager: NSObject, ObservableObject {
+class ModelDownloadManager: ModelManagementServiceProtocol, NSObject, ObservableObject {
     @Published var availableModels: [AIModel] = []
     @Published var downloadedModels: Set<String> = []
     @Published var activeDownloads: [String: ModelDownload] = [:]
@@ -49,10 +49,12 @@ class ModelDownloadManager: NSObject, ObservableObject {
         print("📊 Found \(downloadedModels.count) downloaded models")
     }
     
-    // MARK: - Public Methods
+    // MARK: - ModelManagementServiceProtocol Implementation
     
-    func getDownloadedModels() -> [AIModel] {
-        return availableModels.filter { downloadedModels.contains($0.id) }
+    func loadDownloadedModels() {
+        // This method is called to refresh the list of downloaded models
+        synchronizeDownloadedModels()
+        calculateStorageUsed()
     }
     
     func refreshAvailableModels() {
@@ -459,17 +461,6 @@ class ModelDownloadManager: NSObject, ObservableObject {
         }
     }
     
-    func loadDownloadedModels() {
-        guard FileManager.default.fileExists(atPath: modelsDirectory.path) else { return }
-        
-        do {
-            let contents = try FileManager.default.contentsOfDirectory(at: modelsDirectory, includingPropertiesForKeys: nil)
-            downloadedModels = Set(contents.map { $0.lastPathComponent })
-        } catch {
-            print("Error loading downloaded models: \(error)")
-        }
-    }
-    
     var formattedStorageUsed: String {
         ByteCountFormatter.string(fromByteCount: Int64(storageUsed), countStyle: .file)
     }
@@ -534,7 +525,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
         }
     }
     
-    private func calculateStorageUsed() {
+    func calculateStorageUsed() {
         guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
             storageUsed = 0
             return
