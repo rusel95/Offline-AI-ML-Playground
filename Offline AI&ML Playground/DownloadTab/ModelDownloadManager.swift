@@ -534,7 +534,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
         }
     }
     
-    private func calculateStorageUsed() {
+    func calculateStorageUsed() {
         guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
             storageUsed = 0
             return
