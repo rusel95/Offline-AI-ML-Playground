@@ -32,6 +32,7 @@ struct SimpleDownloadView: View {
     
     private var mainContentList: some View {
         List {
+            storageSection
             activeDownloadsSection
             availableModelsSection
         }
@@ -42,6 +43,18 @@ struct SimpleDownloadView: View {
         }
         .refreshable {
             downloadManager.refreshAvailableModels()
+        }
+    }
+    
+    private var storageSection: some View {
+        Section {
+            StorageHeaderView(downloadManager: downloadManager)
+                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                .listRowBackground(Color.clear)
+        } header: {
+            Text("Storage")
+                .font(.headline)
+                .foregroundStyle(.primary)
         }
     }
     
@@ -119,6 +132,14 @@ struct SimpleDownloadView: View {
                     .fontWeight(.semibold)
                 
                 Spacer()
+                
+                // Remove the model count badge
+                // Text("\(modelsForProvider(provider).count) models")
+                //     .font(.caption)
+                //     .foregroundStyle(.secondary)
+                //     .padding(.horizontal, 8)
+                //     .padding(.vertical, 4)
+                //     .background(.quaternary, in: Capsule())
             }
             .padding(.horizontal, 8)
             
@@ -156,12 +177,20 @@ struct SimpleDownloadView: View {
     
     private var macOSSidebar: some View {
         VStack(alignment: .leading, spacing: 20) {
+            sidebarStorageHeader
             modelCategoriesSection
             Spacer()
         }
         .padding(.vertical, 20)
         .frame(minWidth: 250, idealWidth: 300)
         .background(.thickMaterial)
+    }
+    
+    private var sidebarStorageHeader: some View {
+        StorageHeaderView(downloadManager: downloadManager)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
     
     private var modelCategoriesSection: some View {
@@ -194,11 +223,24 @@ struct SimpleDownloadView: View {
                 .foregroundStyle(.primary)
             
             Spacer()
+            
+            // Remove the model count badge
+            // modelCountBadge(for: provider)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
     }
+    
+    // Remove the modelCountBadge function entirely
+    // private func modelCountBadge(for provider: Provider) -> some View {
+    //     Text("\(modelsForProvider(provider).count)")
+    //         .font(.caption)
+    //         .foregroundStyle(.secondary)
+    //         .padding(.horizontal, 8)
+    //         .padding(.vertical, 4)
+    //         .background(.quaternary, in: Capsule())
+    // }
     
     private var macOSDetailView: some View {
         ScrollView {

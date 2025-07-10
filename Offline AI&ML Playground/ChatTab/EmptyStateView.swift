@@ -10,16 +10,7 @@ import SwiftUI
 
 // MARK: - Empty State View
 struct EmptyStateView: View {
-    @ObservedObject var viewModel: ChatViewModel
-    
-    var body: some View {
-        iOSEmptyStateView(viewModel: viewModel)
-    }
-}
-
-// MARK: - iOS Empty State View
-struct iOSEmptyStateView: View {
-    @ObservedObject var viewModel: ChatViewModel
+    @ObservedObject var viewModel: SimpleChatViewModel
     
     var body: some View {
         VStack(spacing: 20) {
@@ -70,5 +61,5 @@ struct iOSEmptyStateView: View {
 
 // MARK: - Preview
 #Preview {
-    EmptyStateView(viewModel: ChatViewModel())
+    EmptyStateView(viewModel: SimpleChatViewModel())
 } 

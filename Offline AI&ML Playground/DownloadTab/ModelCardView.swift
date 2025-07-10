@@ -12,7 +12,7 @@ import SwiftUI
 struct ModelCardView: View {
     let model: AIModel
     @ObservedObject var downloadManager: ModelDownloadManager
-    @State private var isExpanded = false
+    @State private var showingDetailedInfo = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -42,69 +42,96 @@ struct ModelCardView: View {
                 
                 Spacer()
                 
-                // Expand/Collapse button
+                // Info button
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        isExpanded.toggle()
-                    }
+                    showingDetailedInfo = true
                 }) {
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    Image(systemName: "info.circle")
                         .foregroundStyle(.secondary)
                         .font(.title3)
-                        .rotationEffect(.degrees(isExpanded ? 0 : 0))
                 }
                 .buttonStyle(.plain)
             }
             
-            // Expanded content
-            if isExpanded {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Model description and use cases
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("About This Model")
-                            .font(.headline)
-                            .fontWeight(.semibold)
+            // Download status and action
+            ModelActionView(model: model, downloadManager: downloadManager)
+        }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
+        .sheet(isPresented: $showingDetailedInfo) {
+            ModelDetailedInfoView(model: model)
+        }
+    }
+}
+
+// MARK: - Model Detailed Info View
+struct ModelDetailedInfoView: View {
+    let model: AIModel
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Header
+                    HStack(alignment: .top, spacing: 16) {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(model.displayColor.opacity(0.2))
+                            .frame(width: 60, height: 60)
+                            .overlay(
+                                Image(systemName: model.displayIcon)
+                                    .font(.system(size: 24, weight: .medium))
+                                    .foregroundColor(model.displayColor)
+                            )
                         
-                        Text(model.richDescription)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.leading)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(model.name)
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            
+                            Text(model.description)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.leading)
+                        }
+                        
+                        Spacer()
                     }
                     
-                    // Use cases
+                    // Provider info
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Best For")
+                        Text("Provider")
                             .font(.headline)
                             .fontWeight(.semibold)
                         
-                        LazyVGrid(columns: [
-                            GridItem(.flexible()),
-                            GridItem(.flexible())
-                        ], spacing: 8) {
-                            ForEach(model.useCases, id: \.self) { useCase in
-                                HStack(spacing: 6) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.caption)
-                                        .foregroundColor(.green)
-                                    Text(useCase)
-                                        .font(.caption)
-                                        .foregroundColor(.primary)
-                                }
-                            }
+                        HStack(spacing: 8) {
+                            Image(systemName: model.provider.iconName)
+                                .foregroundStyle(model.provider.color)
+                                .font(.title3)
+                            
+                            Text(model.provider.displayName)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
                         }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(model.provider.color.opacity(0.1))
+                        .cornerRadius(8)
                     }
                     
                     // Model details
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Technical Details")
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Model Details")
                             .font(.headline)
                             .fontWeight(.semibold)
                         
-                        VStack(spacing: 6) {
-                            detailRow(title: "Parameters", value: model.formattedParameterCount)
+                        VStack(spacing: 8) {
+                            detailRow(title: "Size", value: model.formattedSize)
                             detailRow(title: "Type", value: model.type.displayName)
-                            detailRow(title: "Provider", value: model.provider.displayName)
                             detailRow(title: "Repository", value: model.huggingFaceRepo)
+                            detailRow(title: "Filename", value: model.filename)
+                            detailRow(title: "Gated", value: model.isGated ? "Yes" : "No")
                         }
                     }
                     
@@ -129,17 +156,21 @@ struct ModelCardView: View {
                             }
                         }
                     }
+                    
+                    Spacer()
                 }
-                .padding(.top, 8)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .padding()
             }
-            
-            // Download status and action
-            ModelActionView(model: model, downloadManager: downloadManager)
+            .navigationTitle("Model Info")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
         }
-        .padding(16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
     }
     
     private func detailRow(title: String, value: String) -> some View {
@@ -159,37 +190,37 @@ struct ModelCardView: View {
 }
 
 // MARK: - Preview Helper
-struct PreviewDownloadManager: ModelDownloadManager {
-    private var _downloadedModels: Set<String> = []
-    private var _activeDownloads: [String: ModelDownload] = [:]
+private class PreviewDownloadManager: ModelDownloadManager {
+    var mockDownloadedModels: Set<String> = []
+    var mockActiveDownloads: [String: ModelDownload] = [:]
     
-    override var downloadedModels: Set<String> {
-        get { _downloadedModels }
-        set { _downloadedModels = newValue }
+    override init() {
+        super.init()
     }
     
-    override var activeDownloads: [String: ModelDownload] {
-        get { _activeDownloads }
-        set { _activeDownloads = newValue }
+    override func isModelDownloaded(_ modelId: String) -> Bool {
+        mockDownloadedModels.contains(modelId)
     }
     
     func setDownloaded(_ modelId: String) {
-        _downloadedModels.insert(modelId)
+        mockDownloadedModels.insert(modelId)
     }
     
     func setDownloading(_ modelId: String, progress: Double) {
-        let mockDownload = ModelDownload(
+        let mockTask = URLSession.shared.downloadTask(with: URL(string: "https://example.com")!)
+        let download = ModelDownload(
             modelId: modelId,
             progress: progress,
             totalBytes: 1_000_000_000,
             downloadedBytes: Int64(progress * 1_000_000_000),
-            speed: 1_000_000,
-            task: URLSession.shared.downloadTask(with: URL(string: "https://example.com")!)
+            speed: 2_500_000, // 2.5 MB/s
+            task: mockTask
         )
-        _activeDownloads[modelId] = mockDownload
+        activeDownloads[modelId] = download
     }
 }
 
+// MARK: - Previews
 #Preview("Model Cards") {
     ScrollView {
         LazyVGrid(columns: [

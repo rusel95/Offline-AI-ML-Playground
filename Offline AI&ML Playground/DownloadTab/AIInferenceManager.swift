@@ -9,7 +9,7 @@ import Hub
 
 /// Manager for handling real on-device AI inference using MLX Swift
 @MainActor
-class AIInferenceManager: ChatServiceProtocol, ObservableObject {
+class AIInferenceManager: ObservableObject {
     @Published var isModelLoaded = false
     @Published var loadingProgress: Float = 0.0
     @Published var loadingStatus = "Ready"

@@ -17,7 +17,6 @@ struct AIModel: Identifiable {
     let huggingFaceRepo: String
     let filename: String
     let sizeInBytes: Int64
-    let parameterCount: Int // Add parameter count
     let type: ModelType
     let tags: [String]
     let isGated: Bool
@@ -25,94 +24,6 @@ struct AIModel: Identifiable {
     
     var formattedSize: String {
         ByteCountFormatter.string(fromByteCount: sizeInBytes, countStyle: .file)
-    }
-    
-    var formattedParameterCount: String {
-        if parameterCount >= 1_000_000_000 {
-            return String(format: "%.1fB", Double(parameterCount) / 1_000_000_000)
-        } else if parameterCount >= 1_000_000 {
-            return String(format: "%.1fM", Double(parameterCount) / 1_000_000)
-        } else {
-            return "\(parameterCount)"
-        }
-    }
-    
-    var richDescription: String {
-        switch (type, provider) {
-        case (.llama, .meta):
-            return "Llama models are Meta's open-source large language models, known for their strong performance across various tasks. This model is optimized for chat and instruction following, making it excellent for conversational AI applications."
-        case (.mistral, .mistral):
-            return "Mistral AI's models are renowned for their efficiency and performance. This model excels at instruction following and reasoning tasks, making it ideal for applications requiring precise responses and complex problem-solving."
-        case (.code, .deepseek):
-            return "DeepSeek's code models are specifically designed for programming tasks. This model understands multiple programming languages and can assist with code generation, debugging, and software development tasks."
-        case (.code, .bigcode):
-            return "StarCoder models from BigCode are specialized for code generation and understanding. This model excels at programming tasks, code completion, and software development workflows."
-        case (.stable_diffusion, .stabilityAI):
-            return "Stable Diffusion is a state-of-the-art text-to-image generation model. It can create high-quality images from text descriptions, making it perfect for creative applications and content generation."
-        case (.general, .microsoft):
-            return "Microsoft's Phi models are compact yet powerful language models. This model is optimized for efficiency while maintaining strong performance across general language tasks."
-        default:
-            return description
-        }
-    }
-    
-    var useCases: [String] {
-        switch (type, provider) {
-        case (.llama, .meta):
-            return [
-                "Chat conversations",
-                "Text generation",
-                "Question answering",
-                "Creative writing",
-                "Language translation"
-            ]
-        case (.mistral, .mistral):
-            return [
-                "Instruction following",
-                "Reasoning tasks",
-                "Text analysis",
-                "Content creation",
-                "Problem solving"
-            ]
-        case (.code, .deepseek):
-            return [
-                "Code generation",
-                "Programming assistance",
-                "Debugging help",
-                "Code explanation",
-                "Software development"
-            ]
-        case (.code, .bigcode):
-            return [
-                "Multi-language coding",
-                "Code completion",
-                "Programming tutorials",
-                "Software documentation",
-                "Code review"
-            ]
-        case (.stable_diffusion, .stabilityAI):
-            return [
-                "Image generation",
-                "Creative art",
-                "Content creation",
-                "Visual storytelling",
-                "Design inspiration"
-            ]
-        case (.general, .microsoft):
-            return [
-                "General text processing",
-                "Efficient inference",
-                "Mobile applications",
-                "Resource-constrained environments",
-                "Quick responses"
-            ]
-        default:
-            return [
-                "Text processing",
-                "Language understanding",
-                "Content generation"
-            ]
-        }
     }
     
     // MARK: - Provider Detection
@@ -347,7 +258,6 @@ extension AIModel {
             huggingFaceRepo: "TheBloke/Llama-2-7B-Chat-GGML",
             filename: "llama-2-7b-chat.q4_0.bin",
             sizeInBytes: 3_800_000_000, // ~3.8GB
-            parameterCount: 7_000_000_000, // 7B parameters
             type: .llama,
             tags: ["chat", "ggml", "quantized", "7b"],
             isGated: false,
@@ -360,7 +270,6 @@ extension AIModel {
             huggingFaceRepo: "TheBloke/Llama-3-8B-Instruct-GGML",
             filename: "llama-3-8b-instruct.q4_0.bin",
             sizeInBytes: 4_200_000_000, // ~4.2GB
-            parameterCount: 8_000_000_000, // 8B parameters
             type: .llama,
             tags: ["chat", "instruct", "ggml", "quantized", "8b"],
             isGated: false,
@@ -373,7 +282,6 @@ extension AIModel {
             huggingFaceRepo: "TheBloke/Mistral-7B-Instruct-v0.2-GGML",
             filename: "mistral-7b-instruct-v0.2.q4_0.bin",
             sizeInBytes: 3_900_000_000, // ~3.9GB
-            parameterCount: 7_000_000_000, // 7B parameters
             type: .mistral,
             tags: ["chat", "instruct", "ggml", "quantized", "7b"],
             isGated: false,
@@ -386,7 +294,6 @@ extension AIModel {
             huggingFaceRepo: "TheBloke/deepseek-coder-6.7B-base-GGML",
             filename: "deepseek-coder-6.7b-base.q4_0.bin",
             sizeInBytes: 3_600_000_000, // ~3.6GB
-            parameterCount: 6_700_000_000, // 6.7B parameters
             type: .code,
             tags: ["code", "ggml", "quantized", "6.7b"],
             isGated: false,
@@ -399,7 +306,6 @@ extension AIModel {
             huggingFaceRepo: "TheBloke/starcoder-15.5B-GGML",
             filename: "starcoder-15.5b.q4_0.bin",
             sizeInBytes: 8_200_000_000, // ~8.2GB
-            parameterCount: 15_500_000_000, // 15.5B parameters
             type: .code,
             tags: ["code", "ggml", "quantized", "15.5b"],
             isGated: false,
@@ -412,7 +318,6 @@ extension AIModel {
             huggingFaceRepo: "CompVis/stable-diffusion-v1-4",
             filename: "model.ckpt",
             sizeInBytes: 4_000_000_000, // ~4GB
-            parameterCount: 860_000_000, // 860M parameters
             type: .stable_diffusion,
             tags: ["text-to-image", "diffusion", "v1.4"],
             isGated: false,
@@ -425,7 +330,6 @@ extension AIModel {
             huggingFaceRepo: "TheBloke/phi-2-GGML",
             filename: "phi-2.q4_0.bin",
             sizeInBytes: 1_400_000_000, // ~1.4GB
-            parameterCount: 2_700_000_000, // 2.7B parameters
             type: .general,
             tags: ["general", "ggml", "quantized", "2.7b"],
             isGated: false,

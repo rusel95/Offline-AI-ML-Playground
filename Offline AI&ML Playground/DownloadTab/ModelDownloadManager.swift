@@ -11,7 +11,7 @@ import Foundation
 
 // MARK: - Download Manager
 @MainActor
-class ModelDownloadManager: ModelManagementServiceProtocol, NSObject, ObservableObject {
+class ModelDownloadManager: NSObject, ObservableObject {
     @Published var availableModels: [AIModel] = []
     @Published var downloadedModels: Set<String> = []
     @Published var activeDownloads: [String: ModelDownload] = [:]
@@ -49,12 +49,10 @@ class ModelDownloadManager: ModelManagementServiceProtocol, NSObject, Observable
         print("📊 Found \(downloadedModels.count) downloaded models")
     }
     
-    // MARK: - ModelManagementServiceProtocol Implementation
+    // MARK: - Public Methods
     
-    func loadDownloadedModels() {
-        // This method is called to refresh the list of downloaded models
-        synchronizeDownloadedModels()
-        calculateStorageUsed()
+    func getDownloadedModels() -> [AIModel] {
+        return availableModels.filter { downloadedModels.contains($0.id) }
     }
     
     func refreshAvailableModels() {
@@ -461,6 +459,17 @@ class ModelDownloadManager: ModelManagementServiceProtocol, NSObject, Observable
         }
     }
     
+    func loadDownloadedModels() {
+        guard FileManager.default.fileExists(atPath: modelsDirectory.path) else { return }
+        
+        do {
+            let contents = try FileManager.default.contentsOfDirectory(at: modelsDirectory, includingPropertiesForKeys: nil)
+            downloadedModels = Set(contents.map { $0.lastPathComponent })
+        } catch {
+            print("Error loading downloaded models: \(error)")
+        }
+    }
+    
     var formattedStorageUsed: String {
         ByteCountFormatter.string(fromByteCount: Int64(storageUsed), countStyle: .file)
     }
@@ -525,7 +534,7 @@ class ModelDownloadManager: ModelManagementServiceProtocol, NSObject, Observable
         }
     }
     
-    func calculateStorageUsed() {
+    private func calculateStorageUsed() {
         guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
             storageUsed = 0
             return

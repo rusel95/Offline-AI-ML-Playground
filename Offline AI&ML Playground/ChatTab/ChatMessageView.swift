@@ -13,15 +13,6 @@ struct ChatMessageView: View {
     let message: ChatMessage
     
     var body: some View {
-        iOSChatMessageView(message: message)
-    }
-}
-
-// MARK: - iOS Chat Message View
-struct iOSChatMessageView: View {
-    let message: ChatMessage
-    
-    var body: some View {
         HStack {
             if message.role == .user {
                 Spacer()
