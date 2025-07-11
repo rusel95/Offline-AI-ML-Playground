@@ -10,7 +10,6 @@ import SwiftUI
 
 // MARK: - Performance Settings View
 struct PerformanceSettingsView: View {
-    @ObservedObject var settingsManager: SettingsManager
     @StateObject private var performanceMonitor = PerformanceMonitor()
     
     var body: some View {
@@ -256,7 +255,7 @@ struct PerformanceSettingsView: View {
 #Preview {
     NavigationView {
         List {
-            PerformanceSettingsView(settingsManager: SettingsManager())
+            PerformanceSettingsView()
         }
         .navigationTitle("Performance")
     }

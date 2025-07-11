@@ -70,21 +70,3 @@ struct ModelPickerRow: View {
         .buttonStyle(.plain)
     }
 }
-
-// MARK: - Preview
-#Preview {
-    List {
-        ModelPickerRow(
-            model: AIModel.sampleModel,
-            isSelected: false,
-            onSelect: {}
-        )
-        
-        ModelPickerRow(
-            model: AIModel.sampleModel,
-            isSelected: true,
-            onSelect: {}
-        )
-    }
-    .listStyle(.plain)
-} 

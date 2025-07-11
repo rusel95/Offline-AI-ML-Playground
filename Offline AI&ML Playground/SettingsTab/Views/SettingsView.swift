@@ -9,32 +9,16 @@
 import SwiftUI
 
 struct SimpleSettingsView: View {
-    @StateObject private var settingsManager = SettingsManager()
-    
-
-    
     var body: some View {
         VStack(spacing: 0) {
             List {
-                PerformanceSettingsView(settingsManager: settingsManager)
-                StorageSettingsView(settingsManager: settingsManager)
+                PerformanceSettingsView()
+                StorageSettingsView()
                 AboutSettingsView()
             }
         }
     }
 }
-
-// MARK: - Settings Manager
-@MainActor
-class SettingsManager: ObservableObject {
-
-    
-
-}
-
-
-
-
 
 #Preview {
     SimpleSettingsView()

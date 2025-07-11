@@ -11,7 +11,6 @@ import SwiftData
 
 // MARK: - Storage Settings View
 struct StorageSettingsView: View {
-    @ObservedObject var settingsManager: SettingsManager
     @StateObject private var downloadManager = ModelDownloadManager()
     @Environment(\.modelContext) private var modelContext
     @State private var showingClearHistoryAlert = false
@@ -92,7 +91,7 @@ struct StorageSettingsView: View {
 #Preview {
     NavigationView {
         List {
-            StorageSettingsView(settingsManager: SettingsManager())
+            StorageSettingsView()
         }
         .navigationTitle("Storage Settings")
     }

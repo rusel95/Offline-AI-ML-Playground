@@ -35,6 +35,7 @@ struct ModelPickerView: View {
                         }
                         
                         Button {
+                            viewModel.shouldNavigateToDownloads = true
                             dismiss()
                         } label: {
                             Text("Go to Downloads")
