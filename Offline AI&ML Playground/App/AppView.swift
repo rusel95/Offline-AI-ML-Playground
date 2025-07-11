@@ -9,14 +9,23 @@
 import SwiftUI
 
 struct AppView: View {
+    enum Tab: String {
+        case chat
+        case download
+        case settings
+    }
+
+    @State private var selectedTab: Tab = .chat
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             NavigationView {
-                SimpleChatView()
+                SimpleChatView(selectedTab: $selectedTab)
             }
             .tabItem {
                 Label("Chat", systemImage: "bubble.left.and.bubble.right")
             }
+            .tag(Tab.chat)
             
             NavigationView {
                 SimpleDownloadView()
@@ -24,6 +33,7 @@ struct AppView: View {
             .tabItem {
                 Label("Download", systemImage: "arrow.down.circle")
             }
+            .tag(Tab.download)
             
             NavigationView {
                 SimpleSettingsView()
@@ -31,6 +41,7 @@ struct AppView: View {
             .tabItem {
                 Label("Settings", systemImage: "gear")
             }
+            .tag(Tab.settings)
         }
     }
 }

@@ -56,6 +56,7 @@ class SimpleChatViewModel: ObservableObject {
     @Published var currentConversation: Conversation?
     @Published var conversationTitle: String = "New Conversation"
     @Published var isModelLoading = false
+    @Published var shouldNavigateToDownloads = false
     
     // Reference to download manager to get available models
     let downloadManager = ModelDownloadManager()
@@ -422,7 +423,8 @@ struct SimpleChatView: View {
     @State private var lastScrollPosition: CGFloat = 0
     @State private var scrollPosition: CGFloat = 0
     @FocusState private var isInputFocused: Bool
-    
+    @Binding var selectedTab: AppView.Tab
+
     var body: some View {
         VStack(spacing: 0) {
             // Model selection header
@@ -638,6 +640,12 @@ struct SimpleChatView: View {
                 showKeyboard()
             }
         }
+        .onChange(of: viewModel.showingModelPicker) { oldValue, newValue in
+            if !newValue && viewModel.shouldNavigateToDownloads {
+                selectedTab = .download
+                viewModel.shouldNavigateToDownloads = false
+            }
+        }
         .navigationTitle(viewModel.conversationTitle)
     }
     
@@ -683,7 +691,6 @@ struct ScrollOffsetPreferenceKey: PreferenceKey {
 #Preview {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: Conversation.self, StoredChatMessage.self, configurations: config)
-    
-    return SimpleChatView()
+    SimpleChatView(selectedTab: .constant(.chat))
         .modelContainer(container)
 } 
