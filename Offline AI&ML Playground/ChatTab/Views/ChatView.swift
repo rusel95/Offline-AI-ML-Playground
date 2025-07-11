@@ -646,7 +646,6 @@ struct SimpleChatView: View {
                 viewModel.shouldNavigateToDownloads = false
             }
         }
-        .navigationTitle(viewModel.conversationTitle)
     }
     
     // MARK: - Keyboard Management Methods

@@ -535,7 +535,7 @@ class AIInferenceManager: ObservableObject {
     }
     
     /// Get model download directory
-    private func getModelDownloadDirectory() -> URL {
+    public func getModelDownloadDirectory() -> URL {
         let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         let modelsDir = documentsDir.appendingPathComponent("MLXModels")
         

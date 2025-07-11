@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import MLX
 
 // MARK: - Storage Settings View
 struct StorageSettingsView: View {
@@ -16,13 +17,15 @@ struct StorageSettingsView: View {
     @State private var showingClearHistoryAlert = false
     @State private var showingClearModelsAlert = false
     
+    @StateObject private var inferenceManager = AIInferenceManager()
+    
     var body: some View {
         Section("Storage Management") {
             // Storage usage section
             Section {
                 VStack(alignment: .leading) {
                     Text("Storage Used")
-                    Text("\(downloadManager.formattedStorageUsed) | \(downloadManager.formattedFreeStorage) free left")
+                    Text("\(formattedTotalStorageUsed) | \(downloadManager.formattedFreeStorage) free left")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -44,6 +47,10 @@ struct StorageSettingsView: View {
                 .buttonStyle(PlainButtonStyle())
             }
         }
+        .onAppear {
+            downloadManager.calculateStorageUsed()
+            downloadManager.updateTotalStorage()
+        }
         .alert("Clear All Models", isPresented: $showingClearModelsAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Clear All", role: .destructive) {
@@ -51,6 +58,51 @@ struct StorageSettingsView: View {
             }
         } message: {
             Text("This will permanently delete all downloaded AI models from your device. This action cannot be undone.")
+        }
+    }
+    
+    private var formattedTotalStorageUsed: String {
+        let modelsUsed = downloadManager.storageUsed
+        let mlxUsed = calculateMLXStorageUsed()
+        let totalUsed = modelsUsed + mlxUsed
+        return ByteCountFormatter.string(fromByteCount: Int64(totalUsed), countStyle: .file)
+    }
+    
+    private func calculateMLXStorageUsed() -> Double {
+        let mlxDir = inferenceManager.getModelDownloadDirectory()
+        guard FileManager.default.fileExists(atPath: mlxDir.path) else { return 0 }
+        
+        do {
+            let contents = try FileManager.default.contentsOfDirectory(at: mlxDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+            let totalSize = contents.reduce(Int64(0)) { total, url in
+                total + recursiveSize(for: url)
+            }
+            return Double(totalSize)
+        } catch {
+            print("Error calculating MLX storage: \(error)")
+            return 0
+        }
+    }
+    
+    private func recursiveSize(for url: URL) -> Int64 {
+        let fileManager = FileManager.default
+        var isDir: ObjCBool = false
+        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDir) else { return 0 }
+        
+        if isDir.boolValue {
+            do {
+                let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+                return contents.reduce(Int64(0)) { $0 + recursiveSize(for: $1) }
+            } catch {
+                return 0
+            }
+        } else {
+            do {
+                let attributes = try url.resourceValues(forKeys: [.fileSizeKey])
+                return Int64(attributes.fileSize ?? 0)
+            } catch {
+                return 0
+            }
         }
     }
     
@@ -70,6 +122,18 @@ struct StorageSettingsView: View {
             
             // Clear the downloaded models set
             downloadManager.downloadedModels.removeAll()
+            
+            // Add for MLXModels
+            let mlxDir = inferenceManager.getModelDownloadDirectory()
+            do {
+                let mlxContents = try FileManager.default.contentsOfDirectory(at: mlxDir, includingPropertiesForKeys: nil)
+                for fileURL in mlxContents {
+                    try FileManager.default.removeItem(at: fileURL)
+                    print("🗑️ Deleted MLX model: \(fileURL.lastPathComponent)")
+                }
+            } catch {
+                print("❌ Error clearing MLX models: \(error)")
+            }
             
             // Recalculate storage
             downloadManager.calculateStorageUsed()

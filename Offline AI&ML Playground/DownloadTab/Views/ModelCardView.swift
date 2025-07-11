@@ -34,10 +34,32 @@ struct ModelCardView: View {
                         .fontWeight(.semibold)
                         .lineLimit(1)
                     
-                    Text(model.formattedSize)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
+                    HStack {
+                        Text("Storage:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(model.formattedSize)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    
+                    HStack {
+                        Text("Regular Memory:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(model.formattedRegularMemory)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    
+                    HStack {
+                        Text("Max Memory:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(model.formattedMaxMemory)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
                 }
                 
                 Spacer()

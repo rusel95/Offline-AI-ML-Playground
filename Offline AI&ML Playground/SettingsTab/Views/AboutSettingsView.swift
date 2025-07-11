@@ -26,13 +26,8 @@ struct AboutSettingsView: View {
                     .font(.system(.body, design: .monospaced))
             }
             
-            HStack {
-                Image(systemName: "heart.fill")
-                    .foregroundColor(.pink)
-                Text("Made with ❤️ by Ruslan Popesku")
+            Text("Made with ❤️ by Ruslan Popesku")
                     .font(.caption)
-                Spacer()
-            }
         }
     }
 }

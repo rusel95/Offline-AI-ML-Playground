@@ -22,6 +22,39 @@ class ModelDownloadManager: NSObject, ObservableObject {
     private let documentsDirectory: URL
     private let modelsDirectory: URL
     
+    // Add these instance variables near the top of ModelDownloadManager class, after other properties
+    private var lastUpdateTime: [URLSessionTask: Date] = [:]
+    private var lastBytesWritten: [URLSessionTask: Int64] = [:]
+    
+    // Add this struct outside the class
+    private struct DownloadSpeedTracker {
+        private var samples: [(timestamp: Date, bytes: Int64)] = []
+        
+        mutating func addSample(bytes: Int64) {
+            let now = Date()
+            samples.append((now, bytes))
+            // Clean up old samples
+            samples.removeAll { $0.timestamp < now.addingTimeInterval(-2) }
+        }
+        
+        func getAverageSpeed() -> Double {
+            let now = Date()
+            let oneSecondAgo = now.addingTimeInterval(-1)
+            
+            let recentSamples = samples.filter { $0.timestamp >= oneSecondAgo }
+            if recentSamples.isEmpty { return 0 }
+            
+            let totalBytes = recentSamples.map { $0.bytes }.reduce(0, +)
+            let timeSpan = now.timeIntervalSince(recentSamples.first!.timestamp)
+            let effectiveSpan = max(timeSpan, 0.1) // Avoid div by zero/small
+            
+            return Double(totalBytes) / effectiveSpan
+        }
+    }
+
+    // Add this instance var in ModelDownloadManager class
+    private var speedTrackers: [URLSessionTask: DownloadSpeedTracker] = [:]
+    
     // MARK: - Static Models
     private let staticModels: [AIModel] = [
         // Microsoft Models
@@ -425,6 +458,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
         guard let download = activeDownloads[modelId] else { return }
         download.task.cancel()
         activeDownloads.removeValue(forKey: modelId)
+        speedTrackers.removeValue(forKey: download.task)
     }
     
     func deleteModel(_ modelId: String) {
@@ -713,6 +747,7 @@ extension ModelDownloadManager: URLSessionDownloadDelegate {
                 calculateStorageUsed()
             }
             activeDownloads.removeValue(forKey: modelId)
+            speedTrackers.removeValue(forKey: downloadTask)
         }
     }
     
@@ -721,6 +756,17 @@ extension ModelDownloadManager: URLSessionDownloadDelegate {
         Task { @MainActor in
             for (modelId, download) in activeDownloads {
                 if download.task == downloadTask {
+                    // Initialize tracker if needed
+                    if speedTrackers[downloadTask] == nil {
+                        speedTrackers[downloadTask] = DownloadSpeedTracker()
+                    }
+                    
+                    // Add sample with bytesWritten (delta)
+                    speedTrackers[downloadTask]!.addSample(bytes: bytesWritten)
+                    
+                    // Get average speed
+                    let averageSpeed = speedTrackers[downloadTask]!.getAverageSpeed()
+                    
                     let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
                     
                     let updatedDownload = ModelDownload(
@@ -728,7 +774,7 @@ extension ModelDownloadManager: URLSessionDownloadDelegate {
                         progress: progress,
                         totalBytes: totalBytesExpectedToWrite,
                         downloadedBytes: totalBytesWritten,
-                        speed: Double(bytesWritten), // Simplified speed calculation
+                        speed: averageSpeed,
                         task: download.task
                     )
                     

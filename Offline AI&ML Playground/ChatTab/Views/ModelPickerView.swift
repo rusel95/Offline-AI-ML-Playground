@@ -56,8 +56,8 @@ struct ModelPickerView: View {
                                             isSelected: viewModel.selectedModel?.id == model.id,
                                             onSelect: {
                                                 Task {
+                                                    dismiss()  // Dismiss first for immediate close
                                                     await viewModel.selectModel(model)
-                                                    dismiss()
                                                 }
                                             }
                                         )
@@ -67,14 +67,6 @@ struct ModelPickerView: View {
                         }
                     }
                     .listStyle(.plain)
-                }
-            }
-            .navigationTitle("Select Model")
-            .toolbar {
-                ToolbarItem(placement: .automatic) {
-                    Button("Done") {
-                        dismiss()
-                    }
                 }
             }
         }

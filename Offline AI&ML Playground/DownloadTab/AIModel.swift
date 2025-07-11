@@ -23,7 +23,58 @@ struct AIModel: Identifiable {
     let provider: Provider // Add provider property
     
     var formattedSize: String {
-        ByteCountFormatter.string(fromByteCount: sizeInBytes, countStyle: .file)
+        let gb = Double(sizeInBytes) / 1_073_741_824.0
+        if gb >= 1.0 {
+            return String(format: "%.1f GB", gb)
+        } else {
+            let mb = Double(sizeInBytes) / 1_048_576.0
+            return String(format: "%.1f MB", mb)
+        }
+    }
+    
+    var formattedRegularMemory: String {
+        switch id {
+        case "phi-3-mini-4k", "phi-3-mini-128k": return "2.5 - 3 GB"
+        case "phi-2": return "1.6 - 2 GB"
+        case "tinyllama-1.1b": return "0.7 - 0.9 GB"
+        case "llama-2-7b", "deepseek-llm-7b": return "4 - 5 GB"
+        case "codellama-7b": return "4.5 - 5.5 GB"
+        case "llama-3-70b": return "40 - 50 GB"
+        case "mistral-7b-instruct", "mistral-7b-openorca": return "4.5 - 5.5 GB"
+        case "deepseek-coder-1.3b": return "0.8 - 1 GB"
+        case "starcoder2-3b": return "1.8 - 2.2 GB"
+        case "distilbert": return "0.3 - 0.4 GB"
+        case "mobilevit": return "0.06 - 0.1 GB"
+        case "all-minilm-l6-v2": return "0.1 - 0.15 GB"
+        case "grok-beta": return "9 - 12 GB"
+        // Add more as needed for ~32 models, default for others
+        default: 
+            let gb = Double(sizeInBytes) / 1_073_741_824
+            return String(format: "%.1f - %.1f GB", gb * 1.1, gb * 1.5)
+        }
+    }
+
+    var formattedMaxMemory: String {
+        switch id {
+        case "phi-3-mini-4k": return "4 - 6 GB"
+        case "phi-3-mini-128k": return "5 - 8 GB"
+        case "phi-2": return "3 - 4 GB"
+        case "tinyllama-1.1b": return "1.5 - 2 GB"
+        case "llama-2-7b", "deepseek-llm-7b": return "6 - 10 GB"
+        case "codellama-7b": return "7 - 11 GB"
+        case "llama-3-70b": return "60 - 100 GB"
+        case "mistral-7b-instruct", "mistral-7b-openorca": return "7 - 12 GB"
+        case "deepseek-coder-1.3b": return "1.5 - 2.5 GB"
+        case "starcoder2-3b": return "3 - 5 GB"
+        case "distilbert": return "0.5 - 0.8 GB"
+        case "mobilevit": return "0.15 - 0.3 GB"
+        case "all-minilm-l6-v2": return "0.2 - 0.4 GB"
+        case "grok-beta": return "15 - 25 GB"
+        // Add more, default
+        default: 
+            let gb = Double(sizeInBytes) / 1_073_741_824
+            return String(format: "%.1f - %.1f GB", gb * 2, gb * 4)
+        }
     }
     
     // MARK: - Provider Detection
