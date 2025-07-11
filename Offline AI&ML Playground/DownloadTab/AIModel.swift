@@ -171,6 +171,7 @@ enum Provider: String, CaseIterable {
     case anthropic = "anthropic"
     case openAI = "openAI"
     case compVis = "compVis"
+    case xai = "xai"
     case other = "other"
     
     var displayName: String {
@@ -187,6 +188,7 @@ enum Provider: String, CaseIterable {
         case .anthropic: return "Anthropic"
         case .openAI: return "OpenAI"
         case .compVis: return "CompVis"
+        case .xai: return "xAI"
         case .other: return "Other"
         }
     }
@@ -205,6 +207,7 @@ enum Provider: String, CaseIterable {
         case .anthropic: return .orange
         case .openAI: return .green
         case .compVis: return .blue
+        case .xai: return .blue
         case .other: return .gray
         }
     }
@@ -223,6 +226,7 @@ enum Provider: String, CaseIterable {
         case .anthropic: return "person.circle.fill"
         case .openAI: return "brain.head.profile"
         case .compVis: return "photo.artframe"
+        case .xai: return "x.circle.fill"
         case .other: return "building.2"
         }
     }
@@ -248,94 +252,6 @@ struct ModelDownload {
     }
 }
 
-// MARK: - Sample Data for Previews
-extension AIModel {
-    static let sampleModels: [AIModel] = [
-        AIModel(
-            id: "llama-2-7b-chat-q4",
-            name: "Llama 2 7B Chat Q4_0",
-            description: "Quantized Llama 2 7B model - tested and working for chat applications",
-            huggingFaceRepo: "TheBloke/Llama-2-7B-Chat-GGML",
-            filename: "llama-2-7b-chat.q4_0.bin",
-            sizeInBytes: 3_800_000_000, // ~3.8GB
-            type: .llama,
-            tags: ["chat", "ggml", "quantized", "7b"],
-            isGated: false,
-            provider: .meta
-        ),
-        AIModel(
-            id: "llama-3-8b-instruct-q4",
-            name: "Llama 3 8B Instruct Q4_0",
-            description: "Latest Llama 3 8B instruction-tuned model for chat and tasks",
-            huggingFaceRepo: "TheBloke/Llama-3-8B-Instruct-GGML",
-            filename: "llama-3-8b-instruct.q4_0.bin",
-            sizeInBytes: 4_200_000_000, // ~4.2GB
-            type: .llama,
-            tags: ["chat", "instruct", "ggml", "quantized", "8b"],
-            isGated: false,
-            provider: .meta
-        ),
-        AIModel(
-            id: "mistral-7b-instruct-q4",
-            name: "Mistral 7B Instruct Q4_0",
-            description: "High-performance 7B parameter model from Mistral AI",
-            huggingFaceRepo: "TheBloke/Mistral-7B-Instruct-v0.2-GGML",
-            filename: "mistral-7b-instruct-v0.2.q4_0.bin",
-            sizeInBytes: 3_900_000_000, // ~3.9GB
-            type: .mistral,
-            tags: ["chat", "instruct", "ggml", "quantized", "7b"],
-            isGated: false,
-            provider: .mistral
-        ),
-        AIModel(
-            id: "deepseek-coder-6.7b-q4",
-            name: "DeepSeek Coder 6.7B Q4_0",
-            description: "Specialized code generation model from DeepSeek",
-            huggingFaceRepo: "TheBloke/deepseek-coder-6.7B-base-GGML",
-            filename: "deepseek-coder-6.7b-base.q4_0.bin",
-            sizeInBytes: 3_600_000_000, // ~3.6GB
-            type: .code,
-            tags: ["code", "ggml", "quantized", "6.7b"],
-            isGated: false,
-            provider: .deepseek
-        ),
-        AIModel(
-            id: "starcoder-15.5b-q4",
-            name: "StarCoder 15.5B Q4_0",
-            description: "Large code generation model from BigCode",
-            huggingFaceRepo: "TheBloke/starcoder-15.5B-GGML",
-            filename: "starcoder-15.5b.q4_0.bin",
-            sizeInBytes: 8_200_000_000, // ~8.2GB
-            type: .code,
-            tags: ["code", "ggml", "quantized", "15.5b"],
-            isGated: false,
-            provider: .bigcode
-        ),
-        AIModel(
-            id: "stable-diffusion-v1",
-            name: "Stable Diffusion v1.4",
-            description: "Text-to-image generation model",
-            huggingFaceRepo: "CompVis/stable-diffusion-v1-4",
-            filename: "model.ckpt",
-            sizeInBytes: 4_000_000_000, // ~4GB
-            type: .stable_diffusion,
-            tags: ["text-to-image", "diffusion", "v1.4"],
-            isGated: false,
-            provider: .compVis
-        ),
-        AIModel(
-            id: "phi-2-2.7b-q4",
-            name: "Phi-2 2.7B Q4_0",
-            description: "Microsoft's compact language model for general tasks",
-            huggingFaceRepo: "TheBloke/phi-2-GGML",
-            filename: "phi-2.q4_0.bin",
-            sizeInBytes: 1_400_000_000, // ~1.4GB
-            type: .general,
-            tags: ["general", "ggml", "quantized", "2.7b"],
-            isGated: false,
-            provider: .microsoft
-        )
-    ]
-    
-    static let sampleModel = sampleModels[0]
-} 
+// MARK: - Dynamic Model System
+// All models are now discovered dynamically from Hugging Face API
+// No static models - the system is fully entropic and fluid 

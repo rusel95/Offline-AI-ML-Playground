@@ -22,6 +22,55 @@ class ModelDownloadManager: NSObject, ObservableObject {
     private let documentsDirectory: URL
     private let modelsDirectory: URL
     
+    // MARK: - Static Models
+    private let staticModels: [AIModel] = [
+        // Microsoft Models
+        AIModel(id: "phi-3-mini-4k", name: "Phi-3 Mini 4K", description: "Microsoft's efficient SLM with 4K context", huggingFaceRepo: "microsoft/Phi-3-mini-4k-instruct-gguf", filename: "Phi-3-mini-4k-instruct-q4_0.gguf", sizeInBytes: 2400000000, type: .general, tags: ["slm", "microsoft"], isGated: false, provider: .microsoft),
+        AIModel(id: "phi-3-mini-128k", name: "Phi-3 Mini 128K", description: "Microsoft's SLM with extended 128K context", huggingFaceRepo: "microsoft/Phi-3-mini-128k-instruct-gguf", filename: "Phi-3-mini-128k-instruct-q4_0.gguf", sizeInBytes: 2400000000, type: .general, tags: ["slm", "microsoft", "long-context"], isGated: false, provider: .microsoft),
+        AIModel(id: "phi-2", name: "Phi-2", description: "Microsoft's 2.7B parameter model", huggingFaceRepo: "TheBloke/phi-2-GGUF", filename: "phi-2.Q4_K_M.gguf", sizeInBytes: 1400000000, type: .general, tags: ["language", "microsoft"], isGated: false, provider: .microsoft),
+        AIModel(id: "phi-3-medium", name: "Phi-3 Medium", description: "Microsoft's medium-sized SLM", huggingFaceRepo: "microsoft/Phi-3-medium-4k-instruct-gguf", filename: "Phi-3-medium-4k-instruct-q4_0.gguf", sizeInBytes: 7800000000, type: .general, tags: ["slm", "microsoft"], isGated: false, provider: .microsoft),
+        // Google Models
+        AIModel(id: "gemma-2b", name: "Gemma 2B", description: "Google's lightweight open model", huggingFaceRepo: "google/gemma-2b-gguf", filename: "gemma-2b.gguf", sizeInBytes: 1200000000, type: .general, tags: ["language", "google"], isGated: false, provider: .google),
+        AIModel(id: "gemma-7b", name: "Gemma 7B", description: "Google's 7B parameter model", huggingFaceRepo: "google/gemma-7b-gguf", filename: "gemma-7b.gguf", sizeInBytes: 4500000000, type: .general, tags: ["language", "google"], isGated: false, provider: .google),
+        AIModel(id: "gemma-2-9b", name: "Gemma 2 9B", description: "Google's latest 9B model", huggingFaceRepo: "google/gemma-2-9b-gguf", filename: "gemma-2-9b.gguf", sizeInBytes: 5500000000, type: .general, tags: ["language", "google"], isGated: false, provider: .google),
+        AIModel(id: "gemma-2b-it", name: "Gemma 2B Instruct", description: "Instruction-tuned Gemma 2B", huggingFaceRepo: "TheBloke/gemma-2b-it-GGUF", filename: "gemma-2b-it.Q4_K_M.gguf", sizeInBytes: 1200000000, type: .general, tags: ["instruct", "google"], isGated: false, provider: .google),
+        // OpenAI Models (community GGUF versions of open models)
+        AIModel(id: "gpt2-small", name: "GPT-2 Small", description: "OpenAI's small GPT-2", huggingFaceRepo: "gpt2", filename: "gpt2.gguf", sizeInBytes: 124000000, type: .general, tags: ["language", "openai"], isGated: false, provider: .openAI),
+        AIModel(id: "gpt2-medium", name: "GPT-2 Medium", description: "OpenAI's medium GPT-2", huggingFaceRepo: "gpt2-medium", filename: "gpt2-medium.gguf", sizeInBytes: 355000000, type: .general, tags: ["language", "openai"], isGated: false, provider: .openAI),
+        AIModel(id: "gpt2-large", name: "GPT-2 Large", description: "OpenAI's large GPT-2", huggingFaceRepo: "gpt2-large", filename: "gpt2-large.gguf", sizeInBytes: 774000000, type: .general, tags: ["language", "openai"], isGated: false, provider: .openAI),
+        // Anthropic (community alternatives/inspired models)
+        AIModel(id: "openhermes-2.5", name: "OpenHermes 2.5", description: "Community model inspired by Claude", huggingFaceRepo: "teknium/OpenHermes-2.5-Mistral-7B-GGUF", filename: "openhermes-2.5-mistral-7b.Q4_K_M.gguf", sizeInBytes: 3800000000, type: .general, tags: ["instruct", "anthropic-like"], isGated: false, provider: .anthropic),
+        AIModel(id: "claudia-7b", name: "Claudia 7B", description: "Claude-inspired 7B model", huggingFaceRepo: "TheBloke/claudia-7b-GGUF", filename: "claudia-7b.Q4_K_M.gguf", sizeInBytes: 3800000000, type: .general, tags: ["language", "anthropic"], isGated: false, provider: .anthropic),
+        AIModel(id: "openclaude-2", name: "OpenClaude 2", description: "Open-source Claude 2 alternative", huggingFaceRepo: "TheBloke/openclaude-2-GGUF", filename: "openclaude-2.Q4_K_M.gguf", sizeInBytes: 4200000000, type: .general, tags: ["language", "anthropic"], isGated: false, provider: .anthropic),
+        // xAI Grok
+        AIModel(id: "grok-1", name: "Grok-1", description: "xAI's large Grok model (quantized)", huggingFaceRepo: "TheBloke/grok-1-GGUF", filename: "grok-1.Q4_K_M.gguf", sizeInBytes: 10000000000, type: .general, tags: ["language", "xai"], isGated: false, provider: .xai),
+        AIModel(id: "grok-beta", name: "Grok Beta", description: "Beta version of Grok", huggingFaceRepo: "xai-org/grok-beta-gguf", filename: "grok-beta.gguf", sizeInBytes: 8000000000, type: .general, tags: ["language", "xai"], isGated: false, provider: .xai),
+        // Mistral Models
+        AIModel(id: "mistral-7b-instruct", name: "Mistral 7B Instruct", description: "Mistral's instruction-tuned model", huggingFaceRepo: "TheBloke/Mistral-7B-Instruct-v0.1-GGUF", filename: "mistral-7b-instruct-v0.1.Q4_K_M.gguf", sizeInBytes: 4368439296, type: .mistral, tags: ["instruct", "mistral"], isGated: false, provider: .mistral),
+        AIModel(id: "mixtral-8x7b", name: "Mixtral 8x7B", description: "Mistral's MoE model", huggingFaceRepo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF", filename: "mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf", sizeInBytes: 26000000000, type: .mistral, tags: ["moe", "mistral"], isGated: false, provider: .mistral),
+        AIModel(id: "mistral-lite", name: "Mistral Lite", description: "Lightweight Mistral variant", huggingFaceRepo: "TheBloke/Mistral-Lite-7B-GGUF", filename: "mistral-lite.Q4_K_M.gguf", sizeInBytes: 3800000000, type: .mistral, tags: ["lite", "mistral"], isGated: false, provider: .mistral),
+        AIModel(id: "mistral-7b-openorca", name: "Mistral 7B OpenOrca", description: "Mistral fine-tuned on OpenOrca", huggingFaceRepo: "TheBloke/Mistral-7B-OpenOrca-GGUF", filename: "mistral-7b-openorca.Q4_K_M.gguf", sizeInBytes: 4368439296, type: .mistral, tags: ["openorca", "mistral"], isGated: false, provider: .mistral),
+        // Meta Models
+        AIModel(id: "llama-3-8b", name: "Llama 3 8B", description: "Meta's latest Llama 3 8B", huggingFaceRepo: "meta-llama/Meta-Llama-3-8B-GGUF", filename: "Meta-Llama-3-8B.Q4_K_M.gguf", sizeInBytes: 4200000000, type: .llama, tags: ["llama3", "meta"], isGated: true, provider: .meta),
+        AIModel(id: "llama-2-7b", name: "Llama 2 7B", description: "Meta's Llama 2 7B", huggingFaceRepo: "TheBloke/Llama-2-7B-GGUF", filename: "llama-2-7b.Q4_K_M.gguf", sizeInBytes: 3800000000, type: .llama, tags: ["llama2", "meta"], isGated: false, provider: .meta),
+        AIModel(id: "codellama-7b", name: "CodeLlama 7B", description: "Meta's code-focused model", huggingFaceRepo: "TheBloke/CodeLlama-7B-GGUF", filename: "codellama-7b.Q4_K_M.gguf", sizeInBytes: 4081004544, type: .code, tags: ["code", "meta"], isGated: false, provider: .meta),
+        AIModel(id: "tinyllama-1.1b", name: "TinyLlama 1.1B", description: "Meta's tiny model", huggingFaceRepo: "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF", filename: "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf", sizeInBytes: 669262336, type: .llama, tags: ["tiny", "meta"], isGated: false, provider: .meta),
+        AIModel(id: "llama-3-70b", name: "Llama 3 70B", description: "Meta's large Llama 3 (quantized)", huggingFaceRepo: "meta-llama/Meta-Llama-3-70B-GGUF", filename: "Meta-Llama-3-70B.Q4_K_M.gguf", sizeInBytes: 38000000000, type: .llama, tags: ["large", "meta"], isGated: true, provider: .meta),
+        // Add more providers and models as needed (DeepSeek, BigCode, Apple, etc.)
+        // DeepSeek
+        AIModel(id: "deepseek-coder-1.3b", name: "DeepSeek Coder 1.3B", description: "DeepSeek's small code model", huggingFaceRepo: "TheBloke/deepseek-coder-1.3b-instruct-GGUF", filename: "deepseek-coder-1.3b-instruct.Q4_K_M.gguf", sizeInBytes: 783741952, type: .code, tags: ["code", "deepseek"], isGated: false, provider: .deepseek),
+        AIModel(id: "deepseek-llm-7b", name: "DeepSeek LLM 7B", description: "DeepSeek's 7B LLM", huggingFaceRepo: "TheBloke/deepseek-llm-7b-instruct-GGUF", filename: "deepseek-llm-7b-instruct.Q4_K_M.gguf", sizeInBytes: 3800000000, type: .general, tags: ["llm", "deepseek"], isGated: false, provider: .deepseek),
+        // BigCode
+        AIModel(id: "starcoder2-3b", name: "StarCoder2 3B", description: "BigCode's 3B code model", huggingFaceRepo: "TheBloke/starcoder2-3b-GGUF", filename: "starcoder2-3b.Q4_K_M.gguf", sizeInBytes: 1714126848, type: .code, tags: ["code", "bigcode"], isGated: false, provider: .bigcode),
+        AIModel(id: "starcoder2-7b", name: "StarCoder2 7B", description: "BigCode's 7B code model", huggingFaceRepo: "TheBloke/starcoder2-7b-GGUF", filename: "starcoder2-7b.Q4_K_M.gguf", sizeInBytes: 3800000000, type: .code, tags: ["code", "bigcode"], isGated: false, provider: .bigcode),
+        // Apple
+        AIModel(id: "mobilevit-small", name: "MobileViT Small", description: "Apple's efficient vision model", huggingFaceRepo: "apple/mobilevit-small", filename: "pytorch_model.bin", sizeInBytes: 24000000, type: .general, tags: ["vision", "apple"], isGated: false, provider: .apple),
+        // HuggingFace
+        AIModel(id: "all-minilm-l6-v2", name: "All-MiniLM-L6-v2", description: "HuggingFace's embedding model", huggingFaceRepo: "sentence-transformers/all-MiniLM-L6-v2", filename: "pytorch_model.bin", sizeInBytes: 90917138, type: .general, tags: ["embeddings", "huggingface"], isGated: false, provider: .huggingFace),
+        // Stability AI
+        AIModel(id: "stablelm-3b", name: "StableLM 3B", description: "Stability AI's 3B language model", huggingFaceRepo: "TheBloke/stablelm-3b-4e1t-GGUF", filename: "stablelm-3b-4e1t.Q4_K_M.gguf", sizeInBytes: 1800000000, type: .general, tags: ["language", "stabilityai"], isGated: false, provider: .stabilityAI),
+    ]
+    
     override init() {
         // Setup directories
         self.documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -44,9 +93,14 @@ class ModelDownloadManager: NSObject, ObservableObject {
         calculateStorageUsed()
         updateTotalStorage()
         
-        print("📱 ModelDownloadManager initialized")
+        // Set static models
+        self.availableModels = staticModels
+        // Remove any dynamic fetching code if present
+        
+        print("🚀 ModelDownloadManager initialized with static models")
         print("📁 Models directory: \(modelsDirectory.path)")
         print("📊 Found \(downloadedModels.count) downloaded models")
+        print("📋 Available models: \(availableModels.count)")
     }
     
     // MARK: - Public Methods
@@ -57,263 +111,263 @@ class ModelDownloadManager: NSObject, ObservableObject {
     
     func refreshAvailableModels() {
         // iPhone-compatible, lightweight models for mobile deployment
-        availableModels = [
-            // META MODELS (4+ models)
-            AIModel(
-                id: "tinyllama-1.1b-chat-q4-k-m",
-                name: "TinyLlama 1.1B Chat",
-                description: "Ultra-lightweight chat model optimized for mobile devices",
-                huggingFaceRepo: "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
-                filename: "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
-                sizeInBytes: 669_262_336, // ~638MB
-                type: .llama,
-                tags: ["chat", "mobile", "tiny", "1b"],
-                isGated: false,
-                provider: .meta
-            ),
+        // availableModels = [
+        //     // META MODELS (4+ models)
+        //     AIModel(
+        //         id: "tinyllama-1.1b-chat-q4-k-m",
+        //         name: "TinyLlama 1.1B Chat",
+        //         description: "Ultra-lightweight chat model optimized for mobile devices",
+        //         huggingFaceRepo: "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+        //         filename: "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+        //         sizeInBytes: 669_262_336, // ~638MB
+        //         type: .llama,
+        //         tags: ["chat", "mobile", "tiny", "1b"],
+        //         isGated: false,
+        //         provider: .meta
+        //     ),
             
-            AIModel(
-                id: "llama-2-7b-chat-q4-k-m",
-                name: "Llama 2 7B Chat",
-                description: "Meta's popular 7B parameter chat model",
-                huggingFaceRepo: "TheBloke/Llama-2-7B-Chat-GGUF",
-                filename: "llama-2-7b-chat.Q4_K_M.gguf",
-                sizeInBytes: 3_800_000_000, // ~3.8GB
-                type: .llama,
-                tags: ["chat", "llama2", "7b", "meta"],
-                isGated: false,
-                provider: .meta
-            ),
+        //     AIModel(
+        //         id: "llama-2-7b-chat-q4-k-m",
+        //         name: "Llama 2 7B Chat",
+        //         description: "Meta's popular 7B parameter chat model",
+        //         huggingFaceRepo: "TheBloke/Llama-2-7B-Chat-GGUF",
+        //         filename: "llama-2-7b-chat.Q4_K_M.gguf",
+        //         sizeInBytes: 3_800_000_000, // ~3.8GB
+        //         type: .llama,
+        //         tags: ["chat", "llama2", "7b", "meta"],
+        //         isGated: false,
+        //         provider: .meta
+        //     ),
             
-            AIModel(
-                id: "llama-3-8b-instruct-q4-k-m",
-                name: "Llama 3 8B Instruct",
-                description: "Latest Llama 3 instruction-tuned model",
-                huggingFaceRepo: "TheBloke/Llama-3-8B-Instruct-GGUF",
-                filename: "llama-3-8b-instruct.Q4_K_M.gguf",
-                sizeInBytes: 4_200_000_000, // ~4.2GB
-                type: .llama,
-                tags: ["instruct", "llama3", "8b", "meta"],
-                isGated: false,
-                provider: .meta
-            ),
+        //     AIModel(
+        //         id: "llama-3-8b-instruct-q4-k-m",
+        //         name: "Llama 3 8B Instruct",
+        //         description: "Latest Llama 3 instruction-tuned model",
+        //         huggingFaceRepo: "TheBloke/Llama-3-8B-Instruct-GGUF",
+        //         filename: "llama-3-8b-instruct.Q4_K_M.gguf",
+        //         sizeInBytes: 4_200_000_000, // ~4.2GB
+        //         type: .llama,
+        //         tags: ["instruct", "llama3", "8b", "meta"],
+        //         isGated: false,
+        //         provider: .meta
+        //     ),
             
-            AIModel(
-                id: "codellama-7b-instruct-q4-k-m",
-                name: "Code Llama 7B Instruct",
-                description: "Meta's specialized code generation and understanding model",
-                huggingFaceRepo: "TheBloke/CodeLlama-7B-Instruct-GGUF",
-                filename: "codellama-7b-instruct.Q4_K_M.gguf",
-                sizeInBytes: 4_081_004_544, // ~3.8GB
-                type: .code,
-                tags: ["codellama", "meta", "programming", "7b"],
-                isGated: false,
-                provider: .meta
-            ),
+        //     AIModel(
+        //         id: "codellama-7b-instruct-q4-k-m",
+        //         name: "Code Llama 7B Instruct",
+        //         description: "Meta's specialized code generation and understanding model",
+        //         huggingFaceRepo: "TheBloke/CodeLlama-7B-Instruct-GGUF",
+        //         filename: "codellama-7b-instruct.Q4_K_M.gguf",
+        //         sizeInBytes: 4_081_004_544, // ~3.8GB
+        //         type: .code,
+        //         tags: ["codellama", "meta", "programming", "7b"],
+        //         isGated: false,
+        //         provider: .meta
+        //     ),
             
-            // GOOGLE MODELS (including Guan/Quen)
-            AIModel(
-                id: "distilbert-base-uncased",
-                name: "DistilBERT Mobile",
-                description: "Lightweight BERT model perfect for mobile NLP tasks",
-                huggingFaceRepo: "distilbert-base-uncased",
-                filename: "pytorch_model.bin",
-                sizeInBytes: 267_967_963, // ~255MB
-                type: .general,
-                tags: ["nlp", "mobile", "bert", "distilled"],
-                isGated: false,
-                provider: .google
-            ),
+        //     // GOOGLE MODELS (including Guan/Quen)
+        //     AIModel(
+        //         id: "distilbert-base-uncased",
+        //         name: "DistilBERT Mobile",
+        //         description: "Lightweight BERT model perfect for mobile NLP tasks",
+        //         huggingFaceRepo: "distilbert-base-uncased",
+        //         filename: "pytorch_model.bin",
+        //         sizeInBytes: 267_967_963, // ~255MB
+        //         type: .general,
+        //         tags: ["nlp", "mobile", "bert", "distilled"],
+        //         isGated: false,
+        //         provider: .google
+        //     ),
             
-            AIModel(
-                id: "guanaco-7b-q4-k-m",
-                name: "Guanaco 7B",
-                description: "Google's high-performance instruction-following model",
-                huggingFaceRepo: "TheBloke/guanaco-7B-GGUF",
-                filename: "guanaco-7B.Q4_K_M.gguf",
-                sizeInBytes: 3_800_000_000, // ~3.8GB
-                type: .general,
-                tags: ["guanaco", "instruct", "7b", "google"],
-                isGated: false,
-                provider: .google
-            ),
+        //     AIModel(
+        //         id: "guanaco-7b-q4-k-m",
+        //         name: "Guanaco 7B",
+        //         description: "Google's high-performance instruction-following model",
+        //         huggingFaceRepo: "TheBloke/guanaco-7B-GGUF",
+        //         filename: "guanaco-7B.Q4_K_M.gguf",
+        //         sizeInBytes: 3_800_000_000, // ~3.8GB
+        //         type: .general,
+        //         tags: ["guanaco", "instruct", "7b", "google"],
+        //         isGated: false,
+        //         provider: .google
+        //     ),
             
-            AIModel(
-                id: "quen-7b-q4-k-m",
-                name: "Quen 7B",
-                description: "Google's efficient language model for mobile deployment",
-                huggingFaceRepo: "TheBloke/quen-7B-GGUF",
-                filename: "quen-7B.Q4_K_M.gguf",
-                sizeInBytes: 3_800_000_000, // ~3.8GB
-                type: .general,
-                tags: ["quen", "mobile", "7b", "google"],
-                isGated: false,
-                provider: .google
-            ),
+        //     AIModel(
+        //         id: "quen-7b-q4-k-m",
+        //         name: "Quen 7B",
+        //         description: "Google's efficient language model for mobile deployment",
+        //         huggingFaceRepo: "TheBloke/quen-7B-GGUF",
+        //         filename: "quen-7B.Q4_K_M.gguf",
+        //         sizeInBytes: 3_800_000_000, // ~3.8GB
+        //         type: .general,
+        //         tags: ["quen", "mobile", "7b", "google"],
+        //         isGated: false,
+        //         provider: .google
+        //     ),
             
-            AIModel(
-                id: "gemma-2b-it-q4-k-m",
-                name: "Gemma 2B Instruct",
-                description: "Google's lightweight instruction-tuned model",
-                huggingFaceRepo: "TheBloke/gemma-2b-it-GGUF",
-                filename: "gemma-2b-it.Q4_K_M.gguf",
-                sizeInBytes: 1_200_000_000, // ~1.2GB
-                type: .general,
-                tags: ["gemma", "instruct", "2b", "google"],
-                isGated: false,
-                provider: .google
-            ),
+        //     AIModel(
+        //         id: "gemma-2b-it-q4-k-m",
+        //         name: "Gemma 2B Instruct",
+        //         description: "Google's lightweight instruction-tuned model",
+        //         huggingFaceRepo: "TheBloke/gemma-2b-it-GGUF",
+        //         filename: "gemma-2b-it.Q4_K_M.gguf",
+        //         sizeInBytes: 1_200_000_000, // ~1.2GB
+        //         type: .general,
+        //         tags: ["gemma", "instruct", "2b", "google"],
+        //         isGated: false,
+        //         provider: .google
+        //     ),
             
-            // MISTRAL MODELS
-            AIModel(
-                id: "mistral-7b-instruct-v0.1-q4-k-m",
-                name: "Mistral 7B Instruct Q4",
-                description: "High-quality instruction-following model from Mistral AI",
-                huggingFaceRepo: "TheBloke/Mistral-7B-Instruct-v0.1-GGUF",
-                filename: "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
-                sizeInBytes: 4_368_439_296, // ~4.07GB
-                type: .mistral,
-                tags: ["mistral", "instruct", "chat", "7b"],
-                isGated: false,
-                provider: .mistral
-            ),
+        //     // MISTRAL MODELS
+        //     AIModel(
+        //         id: "mistral-7b-instruct-v0.1-q4-k-m",
+        //         name: "Mistral 7B Instruct Q4",
+        //         description: "High-quality instruction-following model from Mistral AI",
+        //         huggingFaceRepo: "TheBloke/Mistral-7B-Instruct-v0.1-GGUF",
+        //         filename: "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
+        //         sizeInBytes: 4_368_439_296, // ~4.07GB
+        //         type: .mistral,
+        //         tags: ["mistral", "instruct", "chat", "7b"],
+        //         isGated: false,
+        //         provider: .mistral
+        //     ),
             
-            AIModel(
-                id: "mistral-7b-openorca-q4-k-m",
-                name: "Mistral 7B OpenOrca Q4",
-                description: "Mistral model fine-tuned on OpenOrca dataset",
-                huggingFaceRepo: "TheBloke/Mistral-7B-OpenOrca-GGUF",
-                filename: "mistral-7b-openorca.Q4_K_M.gguf",
-                sizeInBytes: 4_368_439_296, // ~4.07GB
-                type: .mistral,
-                tags: ["mistral", "openorca", "fine-tuned", "7b"],
-                isGated: false,
-                provider: .mistral
-            ),
+        //     AIModel(
+        //         id: "mistral-7b-openorca-q4-k-m",
+        //         name: "Mistral 7B OpenOrca Q4",
+        //         description: "Mistral model fine-tuned on OpenOrca dataset",
+        //         huggingFaceRepo: "TheBloke/Mistral-7B-OpenOrca-GGUF",
+        //         filename: "mistral-7b-openorca.Q4_K_M.gguf",
+        //         sizeInBytes: 4_368_439_296, // ~4.07GB
+        //         type: .mistral,
+        //         tags: ["mistral", "openorca", "fine-tuned", "7b"],
+        //         isGated: false,
+        //         provider: .mistral
+        //     ),
             
-            AIModel(
-                id: "mistral-7b-v0.1-q4-k-m",
-                name: "Mistral 7B v0.1",
-                description: "Base Mistral 7B model for general tasks",
-                huggingFaceRepo: "TheBloke/Mistral-7B-v0.1-GGUF",
-                filename: "mistral-7b-v0.1.Q4_K_M.gguf",
-                sizeInBytes: 4_368_439_296, // ~4.07GB
-                type: .mistral,
-                tags: ["mistral", "base", "7b"],
-                isGated: false,
-                provider: .mistral
-            ),
+        //     AIModel(
+        //         id: "mistral-7b-v0.1-q4-k-m",
+        //         name: "Mistral 7B v0.1",
+        //         description: "Base Mistral 7B model for general tasks",
+        //         huggingFaceRepo: "TheBloke/Mistral-7B-v0.1-GGUF",
+        //         filename: "mistral-7b-v0.1.Q4_K_M.gguf",
+        //         sizeInBytes: 4_368_439_296, // ~4.07GB
+        //         type: .mistral,
+        //         tags: ["mistral", "base", "7b"],
+        //         isGated: false,
+        //         provider: .mistral
+        //     ),
             
-            // DEEPSEEK MODELS
-            AIModel(
-                id: "deepseek-coder-1.3b-instruct-q4-k-m",
-                name: "DeepSeek Coder 1.3B",
-                description: "Lightweight code generation model optimized for mobile",
-                huggingFaceRepo: "TheBloke/deepseek-coder-1.3b-instruct-GGUF",
-                filename: "deepseek-coder-1.3b-instruct.Q4_K_M.gguf",
-                sizeInBytes: 783_741_952, // ~747MB
-                type: .code,
-                tags: ["code", "programming", "mobile", "1.3b"],
-                isGated: false,
-                provider: .deepseek
-            ),
+        //     // DEEPSEEK MODELS
+        //     AIModel(
+        //         id: "deepseek-coder-1.3b-instruct-q4-k-m",
+        //         name: "DeepSeek Coder 1.3B",
+        //         description: "Lightweight code generation model optimized for mobile",
+        //         huggingFaceRepo: "TheBloke/deepseek-coder-1.3b-instruct-GGUF",
+        //         filename: "deepseek-coder-1.3b-instruct.Q4_K_M.gguf",
+        //         sizeInBytes: 783_741_952, // ~747MB
+        //         type: .code,
+        //         tags: ["code", "programming", "mobile", "1.3b"],
+        //         isGated: false,
+        //         provider: .deepseek
+        //     ),
             
-            AIModel(
-                id: "deepseek-llm-7b-instruct-q4-k-m",
-                name: "DeepSeek LLM 7B Instruct",
-                description: "DeepSeek's instruction-tuned language model",
-                huggingFaceRepo: "TheBloke/deepseek-llm-7b-instruct-GGUF",
-                filename: "deepseek-llm-7b-instruct.Q4_K_M.gguf",
-                sizeInBytes: 3_800_000_000, // ~3.8GB
-                type: .general,
-                tags: ["deepseek", "instruct", "7b"],
-                isGated: false,
-                provider: .deepseek
-            ),
+        //     AIModel(
+        //         id: "deepseek-llm-7b-instruct-q4-k-m",
+        //         name: "DeepSeek LLM 7B Instruct",
+        //         description: "DeepSeek's instruction-tuned language model",
+        //         huggingFaceRepo: "TheBloke/deepseek-llm-7b-instruct-GGUF",
+        //         filename: "deepseek-llm-7b-instruct.Q4_K_M.gguf",
+        //         sizeInBytes: 3_800_000_000, // ~3.8GB
+        //         type: .general,
+        //         tags: ["deepseek", "instruct", "7b"],
+        //         isGated: false,
+        //         provider: .deepseek
+        //     ),
             
-            // BIGCODE MODELS
-            AIModel(
-                id: "starcoder2-3b-q4-k-m",
-                name: "StarCoder2 3B",
-                description: "Advanced code model supporting 600+ programming languages",
-                huggingFaceRepo: "TheBloke/starcoder2-3b-GGUF",
-                filename: "starcoder2-3b.Q4_K_M.gguf",
-                sizeInBytes: 1_714_126_848, // ~1.6GB
-                type: .code,
-                tags: ["starcoder", "multilingual", "programming", "3b"],
-                isGated: false,
-                provider: .bigcode
-            ),
+        //     // BIGCODE MODELS
+        //     AIModel(
+        //         id: "starcoder2-3b-q4-k-m",
+        //         name: "StarCoder2 3B",
+        //         description: "Advanced code model supporting 600+ programming languages",
+        //         huggingFaceRepo: "TheBloke/starcoder2-3b-GGUF",
+        //         filename: "starcoder2-3b.Q4_K_M.gguf",
+        //         sizeInBytes: 1_714_126_848, // ~1.6GB
+        //         type: .code,
+        //         tags: ["starcoder", "multilingual", "programming", "3b"],
+        //         isGated: false,
+        //         provider: .bigcode
+        //     ),
             
-            AIModel(
-                id: "starcoder2-7b-q4-k-m",
-                name: "StarCoder2 7B",
-                description: "Larger StarCoder2 model for advanced code generation",
-                huggingFaceRepo: "TheBloke/starcoder2-7b-GGUF",
-                filename: "starcoder2-7b.Q4_K_M.gguf",
-                sizeInBytes: 3_800_000_000, // ~3.8GB
-                type: .code,
-                tags: ["starcoder", "multilingual", "programming", "7b"],
-                isGated: false,
-                provider: .bigcode
-            ),
+        //     AIModel(
+        //         id: "starcoder2-7b-q4-k-m",
+        //         name: "StarCoder2 7B",
+        //         description: "Larger StarCoder2 model for advanced code generation",
+        //         huggingFaceRepo: "TheBloke/starcoder2-7b-GGUF",
+        //         filename: "starcoder2-7b.Q4_K_M.gguf",
+        //         sizeInBytes: 3_800_000_000, // ~3.8GB
+        //         type: .code,
+        //         tags: ["starcoder", "multilingual", "programming", "7b"],
+        //         isGated: false,
+        //         provider: .bigcode
+        //     ),
             
-            // APPLE MODELS
-            AIModel(
-                id: "mobilevit-small",
-                name: "MobileViT Small",
-                description: "Efficient vision transformer optimized for mobile",
-                huggingFaceRepo: "apple/mobilevit-small", 
-                filename: "pytorch_model.bin",
-                sizeInBytes: 24_000_000, // ~23MB
-                type: .general,
-                tags: ["vision", "mobile", "apple", "efficient"],
-                isGated: false,
-                provider: .apple
-            ),
+        //     // APPLE MODELS
+        //     AIModel(
+        //         id: "mobilevit-small",
+        //         name: "MobileViT Small",
+        //         description: "Efficient vision transformer optimized for mobile",
+        //         huggingFaceRepo: "apple/mobilevit-small", 
+        //         filename: "pytorch_model.bin",
+        //         sizeInBytes: 24_000_000, // ~23MB
+        //         type: .general,
+        //         tags: ["vision", "mobile", "apple", "efficient"],
+        //         isGated: false,
+        //         provider: .apple
+        //     ),
             
-            // HUGGING FACE MODELS
-            AIModel(
-                id: "all-minilm-l6-v2",
-                name: "All-MiniLM-L6-v2",
-                description: "Lightweight sentence embeddings for mobile apps",
-                huggingFaceRepo: "sentence-transformers/all-MiniLM-L6-v2",
-                filename: "pytorch_model.bin",
-                sizeInBytes: 90_917_138, // ~86.7MB
-                type: .general,
-                tags: ["embeddings", "mobile", "lightweight"],
-                isGated: false,
-                provider: .huggingFace
-            ),
+        //     // HUGGING FACE MODELS
+        //     AIModel(
+        //         id: "all-minilm-l6-v2",
+        //         name: "All-MiniLM-L6-v2",
+        //         description: "Lightweight sentence embeddings for mobile apps",
+        //         huggingFaceRepo: "sentence-transformers/all-MiniLM-L6-v2",
+        //         filename: "pytorch_model.bin",
+        //         sizeInBytes: 90_917_138, // ~86.7MB
+        //         type: .general,
+        //         tags: ["embeddings", "mobile", "lightweight"],
+        //         isGated: false,
+        //         provider: .huggingFace
+        //     ),
             
-            // MICROSOFT MODELS
-            AIModel(
-                id: "phi-2-q4-k-m",
-                name: "Phi-2",
-                description: "Microsoft's efficient language model for mobile",
-                huggingFaceRepo: "TheBloke/phi-2-GGUF",
-                filename: "phi-2.Q4_K_M.gguf",
-                sizeInBytes: 1_400_000_000, // ~1.4GB
-                type: .general,
-                tags: ["phi", "microsoft", "efficient", "2.7b"],
-                isGated: false,
-                provider: .microsoft
-            ),
+        //     // MICROSOFT MODELS
+        //     AIModel(
+        //         id: "phi-2-q4-k-m",
+        //         name: "Phi-2",
+        //         description: "Microsoft's efficient language model for mobile",
+        //         huggingFaceRepo: "TheBloke/phi-2-GGUF",
+        //         filename: "phi-2.Q4_K_M.gguf",
+        //         sizeInBytes: 1_400_000_000, // ~1.4GB
+        //         type: .general,
+        //         tags: ["phi", "microsoft", "efficient", "2.7b"],
+        //         isGated: false,
+        //         provider: .microsoft
+        //     ),
             
-            // ANTHROPIC MODELS (Claude-inspired)
-            AIModel(
-                id: "claude-instant-1.1-q4-k-m",
-                name: "Claude Instant 1.1",
-                description: "Lightweight Claude-inspired model for mobile",
-                huggingFaceRepo: "TheBloke/claude-instant-1.1-GGUF",
-                filename: "claude-instant-1.1.Q4_K_M.gguf",
-                sizeInBytes: 2_800_000_000, // ~2.8GB
-                type: .general,
-                tags: ["claude", "instant", "anthropic", "mobile"],
-                isGated: false,
-                provider: .anthropic
-            )
-        ]
+        //     // ANTHROPIC MODELS (Claude-inspired)
+        //     AIModel(
+        //         id: "claude-instant-1.1-q4-k-m",
+        //         name: "Claude Instant 1.1",
+        //         description: "Lightweight Claude-inspired model for mobile",
+        //         huggingFaceRepo: "TheBloke/claude-instant-1.1-GGUF",
+        //         filename: "claude-instant-1.1.Q4_K_M.gguf",
+        //         sizeInBytes: 2_800_000_000, // ~2.8GB
+        //         type: .general,
+        //         tags: ["claude", "instant", "anthropic", "mobile"],
+        //         isGated: false,
+        //         provider: .anthropic
+        //     )
+        // ]
     }
     
     func verifyModelAvailability(_ model: AIModel) async -> Bool {

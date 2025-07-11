@@ -50,10 +50,6 @@ struct SimpleDownloadView: View {
         if !downloadManager.activeDownloads.isEmpty {
             Section {
                 activeDownloadsList
-            } header: {
-                Text("Downloading")
-                    .font(.headline)
-                    .foregroundStyle(.blue)
             }
         }
     }
@@ -83,10 +79,6 @@ struct SimpleDownloadView: View {
     private var availableModelsSection: some View {
         Section {
             availableModelsList
-        } header: {
-            Text("Available Models")
-                .font(.headline)
-                .foregroundStyle(.primary)
         }
     }
     

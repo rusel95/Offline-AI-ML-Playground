@@ -549,7 +549,7 @@ struct SimpleChatView: View {
                         if viewModel.isModelLoading {
                             ProgressView()
                                 .controlSize(.mini)
-                            Text("Loading...")
+                            Text("Loading model to memory")
                         } else {
                             Image(systemName: "cpu")
                             Text("\(viewModel.selectedModel?.name ?? "No Model")")
