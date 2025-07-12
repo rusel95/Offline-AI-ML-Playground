@@ -24,11 +24,11 @@ struct ModelPickerView: View {
                             .foregroundStyle(.secondary)
                         
                         VStack(spacing: 8) {
-                            Text("No Models Downloaded")
+                            Text("No Language Models Available")
                                 .font(.title2)
                                 .fontWeight(.semibold)
                             
-                            Text("Download models from the Download tab to start chatting")
+                            Text("Download language models (not vision models) from the Download tab to start chatting")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)

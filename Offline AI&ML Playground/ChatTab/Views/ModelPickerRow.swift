@@ -14,6 +14,12 @@ struct ModelPickerRow: View {
     let isSelected: Bool
     let onSelect: () -> Void
     
+    private var isVisionModel: Bool {
+        model.name.lowercased().contains("mobilevit") ||
+        model.name.lowercased().contains("vision") ||
+        model.tags.contains("vision")
+    }
+    
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 12) {
@@ -29,10 +35,18 @@ struct ModelPickerRow: View {
                 
                 // Model info
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(model.name)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
+                    HStack {
+                        Text(model.name)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                        
+                        if isVisionModel {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                                .font(.caption)
+                        }
+                    }
                     
                     Text(model.description)
                         .font(.caption)
@@ -53,6 +67,15 @@ struct ModelPickerRow: View {
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(model.type.color, in: Capsule())
+                        
+                        if isVisionModel {
+                            Text("Vision")
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(.orange, in: Capsule())
+                        }
                     }
                 }
                 
@@ -68,5 +91,7 @@ struct ModelPickerRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(isVisionModel)
+        .opacity(isVisionModel ? 0.6 : 1.0)
     }
 }

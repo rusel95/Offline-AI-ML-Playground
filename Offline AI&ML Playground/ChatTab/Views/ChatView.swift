@@ -82,15 +82,27 @@ class SimpleChatViewModel: ObservableObject {
         // First priority: Try to find the previously selected model
         if let savedModelID = lastSelectedModelID,
            let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
-            selectedModel = savedModel
-            modelToLoad = savedModel
-            print("🔄 Restored last selected model: \(savedModel.name)")
+            // Check if the saved model is a vision model that should be filtered out
+            if savedModel.name.lowercased().contains("mobilevit") ||
+               savedModel.name.lowercased().contains("vision") ||
+               savedModel.tags.contains("vision") {
+                print("⚠️ Saved model is a vision model, will use fallback")
+                // Don't set this as selected model, will use fallback below
+            } else {
+                selectedModel = savedModel
+                modelToLoad = savedModel
+                print("🔄 Restored last selected model: \(savedModel.name)")
+            }
         }
-        // Fallback: Use the first available model if no saved model found
-        else if let firstModel = downloadedModels.first {
-            selectedModel = firstModel
-            modelToLoad = firstModel
-            print("🔄 No saved model found, using first available: \(firstModel.name)")
+        
+        // Fallback: Use the first available model if no saved model found or if saved model was vision
+        if modelToLoad == nil {
+            let availableModels = self.availableModels // Use the filtered list
+            if let firstModel = availableModels.first {
+                selectedModel = firstModel
+                modelToLoad = firstModel
+                print("🔄 Using first available language model: \(firstModel.name)")
+            }
         }
         
         // Load the selected model for inference
@@ -110,7 +122,12 @@ class SimpleChatViewModel: ObservableObject {
     }
     
     var availableModels: [AIModel] {
-        downloadManager.getDownloadedModels()
+        // Filter out vision models that can't be used for text generation
+        return downloadManager.getDownloadedModels().filter { model in
+            !model.name.lowercased().contains("mobilevit") &&
+            !model.name.lowercased().contains("vision") &&
+            !model.tags.contains("vision")
+        }
     }
     
     /// Load a model for inference with proper error handling and race condition prevention
@@ -139,6 +156,12 @@ class SimpleChatViewModel: ObservableObject {
             await MainActor.run {
                 isModelLoading = false
                 generationError = "Failed to load model: \(error.localizedDescription)"
+                
+                // If it's a vision model error, provide more helpful guidance
+                if error.localizedDescription.contains("Vision models") {
+                    generationError = "Vision models like MobileViT cannot be used for text generation. Please select a language model from the model picker."
+                }
+                
                 selectedModel = nil
             }
             print("❌ Failed to load model for inference: \(error.localizedDescription)")
@@ -175,6 +198,7 @@ class SimpleChatViewModel: ObservableObject {
         
         let downloadedModels = downloadManager.getDownloadedModels()
         let lastSelectedModelID = UserDefaults.standard.lastSelectedModelID
+        let availableModels = self.availableModels // Use filtered list
         
         // Check if currently selected model is still available
         if let selectedModel = selectedModel,
@@ -182,17 +206,31 @@ class SimpleChatViewModel: ObservableObject {
             // Current model no longer available, try to restore from UserDefaults
             if let savedModelID = lastSelectedModelID,
                let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
-                self.selectedModel = savedModel
-                print("🔄 Current model unavailable, restored saved model: \(savedModel.name)")
-                
-                Task {
-                    await loadModelForInference(savedModel)
+                // Check if saved model is a vision model
+                if savedModel.name.lowercased().contains("mobilevit") ||
+                   savedModel.name.lowercased().contains("vision") ||
+                   savedModel.tags.contains("vision") {
+                    print("⚠️ Saved model is a vision model, using fallback")
+                    // Use first available language model
+                    if let firstModel = availableModels.first {
+                        self.selectedModel = firstModel
+                        print("🔄 Using first available language model: \(firstModel.name)")
+                        Task {
+                            await loadModelForInference(firstModel)
+                        }
+                    }
+                } else {
+                    self.selectedModel = savedModel
+                    print("🔄 Current model unavailable, restored saved model: \(savedModel.name)")
+                    Task {
+                        await loadModelForInference(savedModel)
+                    }
                 }
             }
             // Fallback to first available model
             else {
-                self.selectedModel = downloadedModels.first
-                print("🔄 No saved model available, using first model")
+                self.selectedModel = availableModels.first
+                print("🔄 No saved model available, using first language model")
                 
                 if let newModel = self.selectedModel {
                     Task {
@@ -203,14 +241,23 @@ class SimpleChatViewModel: ObservableObject {
         }
         
         // If no model selected but models are available, try to restore preference
-        if selectedModel == nil && !downloadedModels.isEmpty {
+        if selectedModel == nil && !availableModels.isEmpty {
             if let savedModelID = lastSelectedModelID,
                let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
-                selectedModel = savedModel
-                print("🔄 Restored saved model on refresh: \(savedModel.name)")
+                // Check if saved model is a vision model
+                if savedModel.name.lowercased().contains("mobilevit") ||
+                   savedModel.name.lowercased().contains("vision") ||
+                   savedModel.tags.contains("vision") {
+                    print("⚠️ Saved model is a vision model, using fallback")
+                    selectedModel = availableModels.first
+                    print("🔄 Using first available language model")
+                } else {
+                    selectedModel = savedModel
+                    print("🔄 Restored saved model on refresh: \(savedModel.name)")
+                }
             } else {
-                selectedModel = downloadedModels.first
-                print("🔄 No saved preference, using first available model")
+                selectedModel = availableModels.first
+                print("🔄 No saved preference, using first available language model")
             }
             
             // Load the selected model for inference
@@ -430,9 +477,6 @@ struct SimpleChatView: View {
             // Model selection header
             if viewModel.selectedModel != nil {
                 ModelSelectionHeader(viewModel: viewModel)
-                    // Remove extra padding to take full width
-                    // .padding(.horizontal, 16)
-                    .padding(.top, 8)
             }
             
             // Chat messages

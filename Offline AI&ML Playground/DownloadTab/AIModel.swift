@@ -273,7 +273,7 @@ enum Provider: String, CaseIterable {
         case .apple: return "applelogo"
         case .huggingFace: return "face.smiling.inverse"
         case .stabilityAI: return "wand.and.stars"
-        case .microsoft: return "microsoft.logo"
+        case .microsoft: return "m.circle.fill"
         case .anthropic: return "person.circle.fill"
         case .openAI: return "brain.head.profile"
         case .compVis: return "photo.artframe"

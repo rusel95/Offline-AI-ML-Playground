@@ -73,6 +73,14 @@ class AIInferenceManager: ObservableObject {
         print("🏠 Repository: \(model.huggingFaceRepo)")
         print("📄 Filename: \(model.filename)")
         
+        // Check if this is a vision model that can't be used for text generation
+        if model.name.lowercased().contains("mobilevit") || 
+           model.name.lowercased().contains("vision") ||
+           model.tags.contains("vision") {
+            print("❌ Vision model detected - cannot be used for text generation")
+            throw AIInferenceError.configurationError("Vision models like MobileViT cannot be used for text generation. Please select a language model instead.")
+        }
+        
         // **CRITICAL FIX**: Properly handle model switching
         if isModelLoaded {
             print("🔄 Switching models - unloading current model first")
@@ -110,8 +118,9 @@ class AIInferenceManager: ObservableObject {
             }
             
             // Create Hub API for custom download location - only download if not available locally
-            let hub = HubApi(downloadBase: getModelDownloadDirectory())
-            print("📁 Using download directory: \(getModelDownloadDirectory().path)")
+            let downloadDirectory = getModelDownloadDirectory()
+            let hub = HubApi(downloadBase: downloadDirectory)
+            print("📁 Using download directory: \(downloadDirectory.path)")
             
             // If model exists locally, inform Hub API to use local files
             if isLocallyAvailable {
@@ -130,19 +139,52 @@ class AIInferenceManager: ObservableObject {
             
             // Load model container with proper error handling
             print("🔄 Loading model container with configuration: \(config.id)")
-            modelContainer = try await LLMModelFactory.shared.loadContainer(
-                hub: hub,
-                configuration: config
-            ) { progress in
-                let progressStatus = isLocallyAvailable ? "Loading" : "Downloading"
-                let baseProgress = isLocallyAvailable ? 0.5 : 0.3
-                let progressRange = isLocallyAvailable ? 0.4 : 0.6
-                
-                print("📊 Model \(progressStatus.lowercased()) progress: \(progress.fractionCompleted * 100)%")
-                Task { @MainActor in
-                    self.loadingProgress = Float(baseProgress + (progress.fractionCompleted * progressRange))
-                    self.loadingStatus = "\(progressStatus): \(Int(progress.fractionCompleted * 100))%"
+            
+            // Validate configuration before loading
+            let configIdString = String(describing: config.id)
+            guard !configIdString.isEmpty else {
+                throw AIInferenceError.configurationError("Invalid model configuration: empty model ID")
+            }
+            
+            // Wrap the model loading in additional error handling with fallback
+            do {
+                print("🔄 Attempting to load model container with primary configuration...")
+                modelContainer = try await LLMModelFactory.shared.loadContainer(
+                    hub: hub,
+                    configuration: config
+                ) { progress in
+                    let progressStatus = isLocallyAvailable ? "Loading" : "Downloading"
+                    let baseProgress = isLocallyAvailable ? 0.5 : 0.3
+                    let progressRange = isLocallyAvailable ? 0.4 : 0.6
+                    
+                    print("📊 Model \(progressStatus.lowercased()) progress: \(progress.fractionCompleted * 100)%")
+                    Task { @MainActor in
+                        self.loadingProgress = Float(baseProgress + (progress.fractionCompleted * progressRange))
+                        self.loadingStatus = "\(progressStatus): \(Int(progress.fractionCompleted * 100))%"
+                    }
                 }
+                print("✅ Model container loaded successfully with primary configuration")
+            } catch {
+                print("❌ Primary configuration failed: \(error)")
+                print("🔄 Trying fallback configuration...")
+                
+                // Try with fallback configuration
+                let fallbackConfig = createFallbackModelConfiguration(for: model)
+                modelContainer = try await LLMModelFactory.shared.loadContainer(
+                    hub: hub,
+                    configuration: fallbackConfig
+                ) { progress in
+                    let progressStatus = isLocallyAvailable ? "Loading" : "Downloading"
+                    let baseProgress = isLocallyAvailable ? 0.5 : 0.3
+                    let progressRange = isLocallyAvailable ? 0.4 : 0.6
+                    
+                    print("📊 Model \(progressStatus.lowercased()) progress: \(progress.fractionCompleted * 100)%")
+                    Task { @MainActor in
+                        self.loadingProgress = Float(baseProgress + (progress.fractionCompleted * progressRange))
+                        self.loadingStatus = "\(progressStatus): \(Int(progress.fractionCompleted * 100))%"
+                    }
+                }
+                print("✅ Model container loaded successfully with fallback configuration")
             }
             
             await MainActor.run {
@@ -463,8 +505,20 @@ class AIInferenceManager: ObservableObject {
     private func createModelConfiguration(for model: AIModel) -> ModelConfiguration {
         print("🔧 Creating model configuration for: \(model.name)")
         
+        // Validate model name is not empty
+        guard !model.name.isEmpty else {
+            print("❌ Model name is empty, using default configuration")
+            return ModelConfiguration(
+                id: "mlx-community/Llama-3.2-1B-Instruct-4bit",
+                overrideTokenizer: "PreTrainedTokenizer",
+                defaultPrompt: "Hello! How can I help you today?"
+            )
+        }
+        
         // Try to determine the best configuration based on model name
-        if model.name.lowercased().contains("llama") {
+        let modelName = model.name.lowercased()
+        
+        if modelName.contains("llama") {
             if model.name.contains("3.2-1B") {
                 print("📋 Using Llama 3.2 1B configuration")
                 return ModelConfiguration(
@@ -487,29 +541,29 @@ class AIInferenceManager: ObservableObject {
                     defaultPrompt: "Hello! How can I help you today?"
                 )
             }
-        } else if model.name.lowercased().contains("mistral") {
+        } else if modelName.contains("mistral") {
             print("📋 Using Mistral configuration")
             return ModelConfiguration(
                 id: "mlx-community/Mistral-7B-Instruct-v0.3-4bit",
                 overrideTokenizer: "PreTrainedTokenizer",
                 defaultPrompt: "Hello! How can I help you today?"
             )
-        } else if model.name.lowercased().contains("phi") {
+        } else if modelName.contains("phi") {
             print("📋 Using Phi configuration")
             return ModelConfiguration(
                 id: "mlx-community/Phi-3.5-mini-instruct-4bit",
                 overrideTokenizer: "PreTrainedTokenizer",
                 defaultPrompt: "Hello! How can I help you today?"
             )
-        } else if model.name.lowercased().contains("code") || model.type == .code {
-            if model.name.lowercased().contains("deepseek") {
+        } else if modelName.contains("code") || model.type == .code {
+            if modelName.contains("deepseek") {
                 print("📋 Using DeepSeek Coder configuration")
                 return ModelConfiguration(
                     id: "mlx-community/DeepSeek-Coder-1.3B-Instruct-4bit",
                     overrideTokenizer: "PreTrainedTokenizer",
                     defaultPrompt: "// Write a function to"
                 )
-            } else if model.name.lowercased().contains("starcoder") {
+            } else if modelName.contains("starcoder") {
                 print("📋 Using StarCoder configuration")
                 return ModelConfiguration(
                     id: "mlx-community/starcoder2-3b-4bit",
@@ -534,6 +588,16 @@ class AIInferenceManager: ObservableObject {
         }
     }
     
+    /// Create a fallback model configuration for when the main one fails
+    private func createFallbackModelConfiguration(for model: AIModel) -> ModelConfiguration {
+        print("🔄 Creating fallback model configuration for: \(model.name)")
+        return ModelConfiguration(
+            id: "mlx-community/Llama-3.2-1B-Instruct-4bit",
+            overrideTokenizer: "PreTrainedTokenizer",
+            defaultPrompt: "Hello! How can I help you today?"
+        )
+    }
+    
     /// Get model download directory
     public func getModelDownloadDirectory() -> URL {
         let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -549,6 +613,17 @@ class AIInferenceManager: ObservableObject {
     /// Get the local path for a specific model
     private func getLocalModelPath(for model: AIModel) -> URL {
         let modelsDir = getModelDownloadDirectory()
+        
+        // Validate model ID and filename
+        guard !model.id.isEmpty else {
+            print("❌ Model ID is empty, using fallback path")
+            return modelsDir.appendingPathComponent("unknown-model")
+        }
+        
+        guard !model.filename.isEmpty else {
+            print("❌ Model filename is empty, using fallback path")
+            return modelsDir.appendingPathComponent(model.id)
+        }
         
         // Create a more comprehensive path structure for the model
         let modelDirectory = modelsDir.appendingPathComponent(model.id, isDirectory: true)
