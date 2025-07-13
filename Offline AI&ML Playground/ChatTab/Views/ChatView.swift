@@ -82,11 +82,16 @@ class SimpleChatViewModel: ObservableObject {
         // First priority: Try to find the previously selected model
         if let savedModelID = lastSelectedModelID,
            let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
-            // Check if the saved model is a vision model that should be filtered out
+            // Check if the saved model is a vision or embedding model that should be filtered out
             if savedModel.name.lowercased().contains("mobilevit") ||
                savedModel.name.lowercased().contains("vision") ||
-               savedModel.tags.contains("vision") {
-                print("⚠️ Saved model is a vision model, will use fallback")
+               savedModel.tags.contains("vision") ||
+               savedModel.name.lowercased().contains("minilm") ||
+               savedModel.name.lowercased().contains("embedding") ||
+               savedModel.name.lowercased().contains("sentence") ||
+               savedModel.tags.contains("embedding") ||
+               savedModel.tags.contains("sentence-transformers") {
+                print("⚠️ Saved model is a vision or embedding model, will use fallback")
                 // Don't set this as selected model, will use fallback below
             } else {
                 selectedModel = savedModel
@@ -122,11 +127,16 @@ class SimpleChatViewModel: ObservableObject {
     }
     
     var availableModels: [AIModel] {
-        // Filter out vision models that can't be used for text generation
+        // Filter out vision and embedding models that can't be used for text generation
         return downloadManager.getDownloadedModels().filter { model in
             !model.name.lowercased().contains("mobilevit") &&
             !model.name.lowercased().contains("vision") &&
-            !model.tags.contains("vision")
+            !model.tags.contains("vision") &&
+            !model.name.lowercased().contains("minilm") &&
+            !model.name.lowercased().contains("embedding") &&
+            !model.name.lowercased().contains("sentence") &&
+            !model.tags.contains("embedding") &&
+            !model.tags.contains("sentence-transformers")
         }
     }
     
@@ -157,9 +167,11 @@ class SimpleChatViewModel: ObservableObject {
                 isModelLoading = false
                 generationError = "Failed to load model: \(error.localizedDescription)"
                 
-                // If it's a vision model error, provide more helpful guidance
+                // If it's a vision or embedding model error, provide more helpful guidance
                 if error.localizedDescription.contains("Vision models") {
                     generationError = "Vision models like MobileViT cannot be used for text generation. Please select a language model from the model picker."
+                } else if error.localizedDescription.contains("Embedding models") {
+                    generationError = "Embedding models like All-MiniLM cannot be used for text generation. Please select a language model from the model picker."
                 }
                 
                 selectedModel = nil
@@ -206,11 +218,16 @@ class SimpleChatViewModel: ObservableObject {
             // Current model no longer available, try to restore from UserDefaults
             if let savedModelID = lastSelectedModelID,
                let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
-                // Check if saved model is a vision model
+                // Check if saved model is a vision or embedding model
                 if savedModel.name.lowercased().contains("mobilevit") ||
                    savedModel.name.lowercased().contains("vision") ||
-                   savedModel.tags.contains("vision") {
-                    print("⚠️ Saved model is a vision model, using fallback")
+                   savedModel.tags.contains("vision") ||
+                   savedModel.name.lowercased().contains("minilm") ||
+                   savedModel.name.lowercased().contains("embedding") ||
+                   savedModel.name.lowercased().contains("sentence") ||
+                   savedModel.tags.contains("embedding") ||
+                   savedModel.tags.contains("sentence-transformers") {
+                    print("⚠️ Saved model is a vision or embedding model, using fallback")
                     // Use first available language model
                     if let firstModel = availableModels.first {
                         self.selectedModel = firstModel
@@ -244,11 +261,16 @@ class SimpleChatViewModel: ObservableObject {
         if selectedModel == nil && !availableModels.isEmpty {
             if let savedModelID = lastSelectedModelID,
                let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
-                // Check if saved model is a vision model
+                // Check if saved model is a vision or embedding model
                 if savedModel.name.lowercased().contains("mobilevit") ||
                    savedModel.name.lowercased().contains("vision") ||
-                   savedModel.tags.contains("vision") {
-                    print("⚠️ Saved model is a vision model, using fallback")
+                   savedModel.tags.contains("vision") ||
+                   savedModel.name.lowercased().contains("minilm") ||
+                   savedModel.name.lowercased().contains("embedding") ||
+                   savedModel.name.lowercased().contains("sentence") ||
+                   savedModel.tags.contains("embedding") ||
+                   savedModel.tags.contains("sentence-transformers") {
+                    print("⚠️ Saved model is a vision or embedding model, using fallback")
                     selectedModel = availableModels.first
                     print("🔄 Using first available language model")
                 } else {
