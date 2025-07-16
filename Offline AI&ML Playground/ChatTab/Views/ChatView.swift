@@ -148,7 +148,7 @@ class SimpleChatViewModel: ObservableObject {
         
         do {
             // Use AIInferenceManager for actual loading with progress
-            try await aiInferenceManager.loadModel(model.id)
+            try await aiInferenceManager.loadModel(model)
             
             await MainActor.run {
                 isModelLoading = false
@@ -418,7 +418,7 @@ class SimpleChatViewModel: ObservableObject {
             // Check if the inference manager has the model loaded
             if !aiInferenceManager.isModelLoaded {
                 print("📥 Model not loaded, loading now...")
-                try await aiInferenceManager.loadModel(model.id)
+                try await aiInferenceManager.loadModel(model)
             }
             
             // Use streaming generation from AIInferenceManager
