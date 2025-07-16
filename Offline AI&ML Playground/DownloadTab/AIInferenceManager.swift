@@ -1,11 +1,13 @@
 import Foundation
 import SwiftUI
+import Hub
+#if canImport(MLX)
 import MLX
 import MLXNN
 import MLXRandom
 import MLXLLM
 import MLXLMCommon
-import Hub
+#endif
 
 /// Manager for handling real on-device AI inference using MLX Swift
 @MainActor
@@ -693,28 +695,15 @@ class AIInferenceManager: ObservableObject {
     
     /// Get the model download directory with robust path handling for iOS simulator
     public func getModelDownloadDirectory() -> URL {
-        // Get the documents directory
+        // Use the same "Models" directory as ModelDownloadManager
         let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let modelsDir = documentsDir.appendingPathComponent("MLXModels")
-        
-        // Create directory if it doesn't exist
+        let modelsDir = documentsDir.appendingPathComponent("Models", isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: modelsDir, withIntermediateDirectories: true, attributes: nil)
             print("📁 Models directory created/verified: \(modelsDir.path)")
         } catch {
             print("❌ Error creating models directory: \(error)")
-            // Fallback to a simpler path
-            let fallbackDir = documentsDir.appendingPathComponent("Models")
-            do {
-                try FileManager.default.createDirectory(at: fallbackDir, withIntermediateDirectories: true, attributes: nil)
-                print("📁 Using fallback models directory: \(fallbackDir.path)")
-                return fallbackDir
-            } catch {
-                print("❌ Error creating fallback directory: \(error)")
-                return documentsDir
-            }
         }
-        
         return modelsDir
     }
     
@@ -767,29 +756,34 @@ class AIInferenceManager: ObservableObject {
         let sanitizedId = sanitizePath(model.id)
         let sanitizedFilename = sanitizePath(model.filename)
         
-        // Create a more comprehensive path structure for the model
-        let modelDirectory = modelsDir.appendingPathComponent(sanitizedId, isDirectory: true)
-        
-        // Check if it's a directory-based model (MLX style) or single file
-        if model.filename.hasSuffix(".gguf") || model.filename.hasSuffix(".bin") {
-            // Single file model
-            return modelsDir.appendingPathComponent("\(sanitizedId)-\(sanitizedFilename)")
-        } else {
-            // Multi-file model - check for standard MLX files
-            let configPath = modelDirectory.appendingPathComponent("config.json")
-            let modelPath = modelDirectory.appendingPathComponent("model.safetensors")
-            let tokenizerPath = modelDirectory.appendingPathComponent("tokenizer.json")
-            
-            // Return the directory if any of the key files exist
-            if FileManager.default.fileExists(atPath: configPath.path) ||
-               FileManager.default.fileExists(atPath: modelPath.path) ||
-               FileManager.default.fileExists(atPath: tokenizerPath.path) {
-                return modelDirectory
-            }
-            
-            // Fallback to single file approach
-            return modelsDir.appendingPathComponent(sanitizedFilename)
+        // 1. Check for id-only file saved by DownloadManager
+        let idOnlyPath = modelsDir.appendingPathComponent(sanitizedId)
+        if FileManager.default.fileExists(atPath: idOnlyPath.path) {
+            print("✅ Detected existing model file at \(idOnlyPath.path)")
+            return idOnlyPath
         }
+        
+        // 2. Single file model
+        if model.filename.hasSuffix(".gguf") || model.filename.hasSuffix(".bin") {
+            let singleFilePath = modelsDir.appendingPathComponent("\(sanitizedId)-\(sanitizedFilename)")
+            return singleFilePath
+        }
+        
+        // 3. Directory-based model
+        let modelDirectory = modelsDir.appendingPathComponent(sanitizedId, isDirectory: true)
+        let configPath = modelDirectory.appendingPathComponent("config.json")
+        let modelPath = modelDirectory.appendingPathComponent("model.safetensors")
+        let tokenizerPath = modelDirectory.appendingPathComponent("tokenizer.json")
+        
+        // Return the directory if it contains MLX files
+        if FileManager.default.fileExists(atPath: configPath.path) ||
+           FileManager.default.fileExists(atPath: modelPath.path) ||
+           FileManager.default.fileExists(atPath: tokenizerPath.path) {
+            return modelDirectory
+        }
+        
+        // 4. Fallback to single file
+        return modelsDir.appendingPathComponent(sanitizedFilename)
     }
     
     /// Check if a model is downloaded and available locally
