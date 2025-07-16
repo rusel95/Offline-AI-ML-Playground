@@ -11,10 +11,10 @@ import SwiftUI
 // MARK: - Model Action View
 struct ModelActionView: View {
     let model: AIModel
-    @ObservedObject var downloadManager: ModelDownloadManager
+    @ObservedObject var sharedManager: SharedModelManager
     
     var body: some View {
-        if let download = downloadManager.activeDownloads[model.id] {
+        if let download = sharedManager.activeDownloads[model.id] {
             // Currently downloading
             VStack(spacing: 12) {
                 HStack {
@@ -43,14 +43,14 @@ struct ModelActionView: View {
                     Spacer()
                     
                     Button("Cancel") {
-                        downloadManager.cancelDownload(model.id)
+                        sharedManager.cancelDownload(model.id)
                     }
                     .font(.caption)
                     .foregroundColor(.red)
                     .buttonStyle(.plain)
                 }
             }
-        } else if downloadManager.isModelDownloaded(model.id) {
+        } else if sharedManager.isModelDownloaded(model.id) {
             // Already downloaded
             HStack {
                 Image(systemName: "checkmark.circle.fill")
@@ -64,7 +64,7 @@ struct ModelActionView: View {
                 Spacer()
                 
                 Button("Delete") {
-                    downloadManager.deleteModel(model.id)
+                    sharedManager.deleteModel(model.id)
                 }
                 .font(.subheadline)
                 .foregroundColor(.red)
@@ -73,7 +73,7 @@ struct ModelActionView: View {
         } else {
             // Available for download
             Button(action: {
-                downloadManager.downloadModel(model)
+                sharedManager.downloadModel(model)
             }) {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.down.circle.fill")

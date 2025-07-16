@@ -11,7 +11,7 @@ import Foundation
 
 // MARK: - Main Download View
 struct SimpleDownloadView: View {
-    @StateObject private var downloadManager = ModelDownloadManager()
+    @ObservedObject private var sharedManager = SharedModelManager.shared
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     var body: some View {
@@ -35,7 +35,7 @@ struct SimpleDownloadView: View {
     
     @ViewBuilder
     private var activeDownloadsSection: some View {
-        if !downloadManager.activeDownloads.isEmpty {
+        if !sharedManager.activeDownloads.isEmpty {
             Section {
                 activeDownloadsList
             }
@@ -44,8 +44,8 @@ struct SimpleDownloadView: View {
     
     private var activeDownloadsList: some View {
         VStack(spacing: 8) {
-            ForEach(Array(downloadManager.activeDownloads.values), id: \.modelId) { download in
-                if let model = downloadManager.availableModels.first(where: { $0.id == download.modelId }) {
+            ForEach(Array(sharedManager.activeDownloads.values), id: \.modelId) { download in
+                if let model = sharedManager.availableModels.first(where: { $0.id == download.modelId }) {
                     activeDownloadRow(model: model, download: download)
                         .padding(.horizontal, 8)
                 }
@@ -56,7 +56,7 @@ struct SimpleDownloadView: View {
     }
     
     private func activeDownloadRow(model: AIModel, download: ModelDownload) -> some View {
-        DownloadProgressCard(model: model, download: download, downloadManager: downloadManager)
+        DownloadProgressCard(model: model, download: download, sharedManager: sharedManager)
             .listRowInsets(EdgeInsets())
             .listRowBackground(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -83,7 +83,7 @@ struct SimpleDownloadView: View {
     }
     
     private func modelsForProvider(_ provider: Provider) -> [AIModel] {
-        return downloadManager.availableModels.filter { $0.provider == provider }
+        return sharedManager.availableModels.filter { $0.provider == provider }
     }
     
     private func providerSection(for provider: Provider) -> some View {
@@ -123,7 +123,7 @@ struct SimpleDownloadView: View {
     private func availableModelRow(model: AIModel) -> some View {
         ModelCardView(
             model: model,
-            downloadManager: downloadManager
+            sharedManager: sharedManager
         )
         .listRowInsets(EdgeInsets())
         .listRowBackground(
@@ -133,7 +133,7 @@ struct SimpleDownloadView: View {
     }
     
     private var sidebarStorageHeader: some View {
-        StorageHeaderView(downloadManager: downloadManager)
+        StorageHeaderView(sharedManager: sharedManager)
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -212,7 +212,7 @@ struct SimpleDownloadView: View {
     
     private var macOSModelsGrid: some View {
         LazyVGrid(columns: macOSGridColumns, spacing: 20) {
-            ForEach(downloadManager.availableModels, id: \.id) { model in
+            ForEach(sharedManager.availableModels, id: \.id) { model in
                 macOSModelCard(for: model)
             }
         }
@@ -229,7 +229,7 @@ struct SimpleDownloadView: View {
     private func macOSModelCard(for model: AIModel) -> some View {
         ModelCardView(
             model: model,
-            downloadManager: downloadManager
+            sharedManager: sharedManager
         )
         .frame(maxWidth: 400, minHeight: 180)
     }

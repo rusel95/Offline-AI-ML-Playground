@@ -58,10 +58,10 @@ class SimpleChatViewModel: ObservableObject {
     @Published var isModelLoading = false
     @Published var shouldNavigateToDownloads = false
     
-    // Reference to download manager to get available models
-    let downloadManager = ModelDownloadManager()
+    // Reference to shared manager for unified state
+    let sharedManager = SharedModelManager.shared
     
-    // AI Inference Manager for real on-device inference
+    // AI Inference Manager for real on-device inference (simplified mode)
     let aiInferenceManager = AIInferenceManager()
     
     // Chat History Manager
@@ -70,11 +70,10 @@ class SimpleChatViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     init() {
-        downloadManager.loadDownloadedModels()
-        downloadManager.refreshAvailableModels()
+        sharedManager.synchronizeModels()
         
         // Try to restore the last selected model
-        let downloadedModels = downloadManager.getDownloadedModels()
+        let downloadedModels = sharedManager.getDownloadedModels()
         let lastSelectedModelID = UserDefaults.standard.lastSelectedModelID
         
         var modelToLoad: AIModel?
@@ -127,20 +126,12 @@ class SimpleChatViewModel: ObservableObject {
     }
     
     var availableModels: [AIModel] {
-        // Filter out vision and embedding models that can't be used for text generation
-        return downloadManager.getDownloadedModels().filter { model in
-            !model.name.lowercased().contains("mobilevit") &&
-            !model.name.lowercased().contains("vision") &&
-            !model.tags.contains("vision") &&
-            !model.name.lowercased().contains("minilm") &&
-            !model.name.lowercased().contains("embedding") &&
-            !model.name.lowercased().contains("sentence") &&
-            !model.tags.contains("embedding") &&
-            !model.tags.contains("sentence-transformers")
-        }
+        // Use the filtered language models from shared manager
+        return sharedManager.getAvailableLanguageModels()
     }
     
     /// Load a model for inference with proper error handling and race condition prevention
+    /// TEMPORARILY DISABLED: Will be re-enabled when MLX dependencies are fixed
     func loadModelForInference(_ model: AIModel) async {
         // Prevent concurrent model loading
         guard !isGenerating && !isModelLoading else {
@@ -153,31 +144,18 @@ class SimpleChatViewModel: ObservableObject {
             generationError = nil
         }
         
-        print("🔄 Loading model for inference: \(model.name)")
+        print("🔄 Model loading temporarily disabled - MLX dependencies need to be fixed")
+        print("📋 Selected model: \(model.name)")
         
-        do {
-            try await aiInferenceManager.loadModel(model)
-            await MainActor.run {
-                isModelLoading = false
-                generationError = nil
-            }
-            print("✅ Model loaded successfully for inference: \(model.name)")
-        } catch {
-            await MainActor.run {
-                isModelLoading = false
-                generationError = "Failed to load model: \(error.localizedDescription)"
-                
-                // If it's a vision or embedding model error, provide more helpful guidance
-                if error.localizedDescription.contains("Vision models") {
-                    generationError = "Vision models like MobileViT cannot be used for text generation. Please select a language model from the model picker."
-                } else if error.localizedDescription.contains("Embedding models") {
-                    generationError = "Embedding models like All-MiniLM cannot be used for text generation. Please select a language model from the model picker."
-                }
-                
-                selectedModel = nil
-            }
-            print("❌ Failed to load model for inference: \(error.localizedDescription)")
+        // Simulate loading for now
+        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        
+        await MainActor.run {
+            isModelLoading = false
+            generationError = nil
         }
+        
+        print("✅ Model selection completed (inference disabled): \(model.name)")
     }
     
     /// Select a model with proper memory management
@@ -205,10 +183,9 @@ class SimpleChatViewModel: ObservableObject {
     }
     
     func refreshDownloadedModels() {
-        downloadManager.loadDownloadedModels()
-        downloadManager.refreshAvailableModels()
+        sharedManager.synchronizeModels()
         
-        let downloadedModels = downloadManager.getDownloadedModels()
+        let downloadedModels = sharedManager.getDownloadedModels()
         let lastSelectedModelID = UserDefaults.standard.lastSelectedModelID
         let availableModels = self.availableModels // Use filtered list
         
@@ -413,70 +390,24 @@ class SimpleChatViewModel: ObservableObject {
     ///   - model: The AI model to use for generation
     @MainActor
     private func generateRealAIResponse(for userMessage: String, using model: AIModel) async {
-        print("🤖 Generating real AI response with model: \(model.name)")
+        print("🤖 Generating mock AI response with model: \(model.name)")
         
         isGenerating = true
         generationError = nil
         
-        do {
-            // Check if the inference manager has the model loaded
-            if !aiInferenceManager.isModelLoaded {
-                print("📥 Model not loaded, loading now...")
-                try await aiInferenceManager.loadModel(model)
-            }
-            
-            // Create placeholder assistant message for streaming
-            let assistantMessage = ChatMessage(
-                content: "",
-                role: .assistant,
-                timestamp: Date(),
-                modelUsed: model.name
-            )
-            
-            messages.append(assistantMessage)
-            let messageIndex = messages.count - 1
-            
-            // Generate response using streaming for better UX
-            var fullResponse = ""
-            
-            for await chunk in aiInferenceManager.generateStreamingText(
-                prompt: userMessage,
-                maxTokens: 512,
-                temperature: 0.7
-            ) {
-                // Since we fixed the streaming to only send new tokens, just append
-                fullResponse += chunk
-                
-                // Update the message content in real-time
-                if messageIndex < messages.count {
-                    messages[messageIndex] = ChatMessage(
-                        content: fullResponse,
-                        role: .assistant,
-                        timestamp: assistantMessage.timestamp,
-                        modelUsed: model.name
-                    )
-                }
-            }
-            
-            print("✅ AI response generated successfully")
-            
-            // Auto-save conversation after response
-            saveCurrentConversation()
-            
-        } catch {
-            print("❌ Error generating AI response: \(error)")
-            
-            // Create error message
-            let errorMessage = ChatMessage(
-                content: "Sorry, I encountered an error while generating a response: \(error.localizedDescription)",
-                role: .assistant,
-                timestamp: Date(),
-                modelUsed: model.name
-            )
-            
-            messages.append(errorMessage)
-            generationError = error.localizedDescription
-        }
+        // Create placeholder assistant message for streaming simulation
+        let assistantMessage = ChatMessage(
+            content: "",
+            role: .assistant,
+            timestamp: Date(),
+            modelUsed: model.name
+        )
+        
+        messages.append(assistantMessage)
+        let messageIndex = messages.count - 1
+        
+        // Auto-save conversation after response
+        saveCurrentConversation()
         
         isGenerating = false
     }

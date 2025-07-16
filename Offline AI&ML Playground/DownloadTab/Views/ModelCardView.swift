@@ -11,7 +11,7 @@ import SwiftUI
 // MARK: - Model Card View
 struct ModelCardView: View {
     let model: AIModel
-    @ObservedObject var downloadManager: ModelDownloadManager
+    @ObservedObject var sharedManager: SharedModelManager
     @State private var showingDetailedInfo = false
     
     var body: some View {
@@ -76,7 +76,7 @@ struct ModelCardView: View {
             }
             
             // Download status and action
-            ModelActionView(model: model, downloadManager: downloadManager)
+            ModelActionView(model: model, sharedManager: sharedManager)
         }
         .padding(16)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
@@ -212,28 +212,4 @@ struct ModelDetailedInfoView: View {
 }
 
 // MARK: - Preview Helper
-private class PreviewDownloadManager: ModelDownloadManager {
-    var mockDownloadedModels: Set<String> = []
-    var mockActiveDownloads: [String: ModelDownload] = [:]
-    
-    override func isModelDownloaded(_ modelId: String) -> Bool {
-        mockDownloadedModels.contains(modelId)
-    }
-    
-    func setDownloaded(_ modelId: String) {
-        mockDownloadedModels.insert(modelId)
-    }
-    
-    func setDownloading(_ modelId: String, progress: Double) {
-        let mockTask = URLSession.shared.downloadTask(with: URL(string: "https://example.com")!)
-        let download = ModelDownload(
-            modelId: modelId,
-            progress: progress,
-            totalBytes: 1_000_000_000,
-            downloadedBytes: Int64(progress * 1_000_000_000),
-            speed: 2_500_000, // 2.5 MB/s
-            task: mockTask
-        )
-        activeDownloads[modelId] = download
-    }
-}
+// Preview helpers temporarily removed until SharedModelManager integration is complete
