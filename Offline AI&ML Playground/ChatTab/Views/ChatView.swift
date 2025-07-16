@@ -25,7 +25,7 @@ extension UserDefaults {
 // MARK: - Chat Message
 struct ChatMessage: Identifiable, Codable {
     var id = UUID()
-    let content: String
+    var content: String
     let role: MessageRole
     let timestamp: Date
     let modelUsed: String?
@@ -131,7 +131,7 @@ class SimpleChatViewModel: ObservableObject {
     }
     
     /// Load a model for inference with proper error handling and race condition prevention
-    /// TEMPORARILY DISABLED: Will be re-enabled when MLX dependencies are fixed
+    /// Load a model for inference with proper loading indicator
     func loadModelForInference(_ model: AIModel) async {
         // Prevent concurrent model loading
         guard !isGenerating && !isModelLoading else {
@@ -144,18 +144,26 @@ class SimpleChatViewModel: ObservableObject {
             generationError = nil
         }
         
-        print("🔄 Model loading temporarily disabled - MLX dependencies need to be fixed")
-        print("📋 Selected model: \(model.name)")
+        print("🔄 Loading model for inference: \(model.name)")
         
-        // Simulate loading for now
-        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-        
-        await MainActor.run {
-            isModelLoading = false
-            generationError = nil
+        do {
+            // Use AIInferenceManager for actual loading with progress
+            try await aiInferenceManager.loadModel(model.id)
+            
+            await MainActor.run {
+                isModelLoading = false
+                generationError = nil
+            }
+            
+            print("✅ Model loaded successfully: \(model.name)")
+            
+        } catch {
+            await MainActor.run {
+                isModelLoading = false
+                generationError = "Failed to load model: \(error.localizedDescription)"
+            }
+            print("❌ Error loading model: \(error)")
         }
-        
-        print("✅ Model selection completed (inference disabled): \(model.name)")
     }
     
     /// Select a model with proper memory management
@@ -390,12 +398,12 @@ class SimpleChatViewModel: ObservableObject {
     ///   - model: The AI model to use for generation
     @MainActor
     private func generateRealAIResponse(for userMessage: String, using model: AIModel) async {
-        print("🤖 Generating mock AI response with model: \(model.name)")
+        print("🤖 Generating real AI response with model: \(model.name)")
         
         isGenerating = true
         generationError = nil
         
-        // Create placeholder assistant message for streaming simulation
+        // Create placeholder assistant message for streaming
         let assistantMessage = ChatMessage(
             content: "",
             role: .assistant,
@@ -405,6 +413,41 @@ class SimpleChatViewModel: ObservableObject {
         
         messages.append(assistantMessage)
         let messageIndex = messages.count - 1
+        
+        do {
+            // Check if the inference manager has the model loaded
+            if !aiInferenceManager.isModelLoaded {
+                print("📥 Model not loaded, loading now...")
+                try await aiInferenceManager.loadModel(model.id)
+            }
+            
+            // Use streaming generation from AIInferenceManager
+            for await chunk in aiInferenceManager.generateStreamingText(
+                prompt: userMessage,
+                maxTokens: 512,
+                temperature: 0.7
+            ) {
+                // Update the message content with streaming text
+                await MainActor.run {
+                    if messageIndex < messages.count {
+                        messages[messageIndex].content += chunk
+                    }
+                }
+            }
+            
+            print("✅ AI response generation completed")
+            
+        } catch {
+            print("❌ Error generating AI response: \(error)")
+            await MainActor.run {
+                generationError = "Failed to generate response: \(error.localizedDescription)"
+                
+                // Update message with error state
+                if messageIndex < messages.count {
+                    messages[messageIndex].content = "Sorry, I encountered an error while generating a response. Please try again."
+                }
+            }
+        }
         
         // Auto-save conversation after response
         saveCurrentConversation()
@@ -683,10 +726,3 @@ struct ScrollOffsetPreferenceKey: PreferenceKey {
         value = nextValue()
     }
 }
-
-#Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Conversation.self, StoredChatMessage.self, configurations: config)
-    SimpleChatView(selectedTab: .constant(.chat))
-        .modelContainer(container)
-} 

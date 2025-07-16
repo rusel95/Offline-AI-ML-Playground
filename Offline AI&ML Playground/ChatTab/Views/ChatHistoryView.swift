@@ -271,12 +271,3 @@ struct ConversationRowView: View {
         .buttonStyle(PlainButtonStyle())
     }
 }
-
-#Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Conversation.self, StoredChatMessage.self, configurations: config)
-    
-    return ChatHistoryView(modelContext: container.mainContext) { conversation in
-        print("Loading conversation: \(conversation.title)")
-    }
-} 

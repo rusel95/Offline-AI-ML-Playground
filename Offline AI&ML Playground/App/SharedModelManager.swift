@@ -104,13 +104,13 @@ class SharedModelManager: NSObject, ObservableObject {
             // DeepSeek Models
             AIModel(id: "deepseek-coder-1.3b", name: "DeepSeek Coder 1.3B", description: "DeepSeek's small code model", huggingFaceRepo: "TheBloke/deepseek-coder-1.3b-instruct-GGUF", filename: "deepseek-coder-1.3b-instruct.Q4_K_M.gguf", sizeInBytes: 783741952, type: .code, tags: ["code", "deepseek"], isGated: false, provider: .deepseek),
             
-            // Apple Models - Lightweight and Perfect for Testing!
-            AIModel(id: "mobilevit-small", name: "MobileViT Small", description: "Apple's efficient vision transformer optimized for mobile", huggingFaceRepo: "apple/mobilevit-small", filename: "pytorch_model.bin", sizeInBytes: 24000000, type: .general, tags: ["vision", "mobile", "apple", "efficient"], isGated: false, provider: .apple),
+            // Small Language Models - Perfect for Testing Chat!
+            AIModel(id: "gpt2-small", name: "GPT-2 Small", description: "OpenAI's original GPT-2 - tiny and perfect for testing", huggingFaceRepo: "TheBloke/gpt2-GGUF", filename: "gpt2.Q4_K_M.gguf", sizeInBytes: 124000000, type: .general, tags: ["language", "tiny", "testing"], isGated: false, provider: .openAI),
             
-            AIModel(id: "mobilevit-x-small", name: "MobileViT XS", description: "Apple's ultra-lightweight vision model", huggingFaceRepo: "apple/mobilevit-x-small", filename: "pytorch_model.bin", sizeInBytes: 12000000, type: .general, tags: ["vision", "mobile", "apple", "tiny"], isGated: false, provider: .apple),
+            AIModel(id: "distilgpt2", name: "DistilGPT-2", description: "Distilled GPT-2 - ultra-lightweight for mobile testing", huggingFaceRepo: "TheBloke/distilgpt2-GGUF", filename: "distilgpt2.Q4_K_M.gguf", sizeInBytes: 82000000, type: .general, tags: ["language", "distilled", "lightweight"], isGated: false, provider: .huggingFace),
             
-            // HuggingFace Lightweight Models
-            AIModel(id: "all-minilm-l6-v2", name: "All-MiniLM-L6-v2", description: "Lightweight sentence embeddings perfect for mobile", huggingFaceRepo: "sentence-transformers/all-MiniLM-L6-v2", filename: "pytorch_model.bin", sizeInBytes: 90917138, type: .general, tags: ["embeddings", "mobile", "lightweight"], isGated: false, provider: .huggingFace),
+            // More Tiny Language Models for Testing
+            AIModel(id: "pythia-70m", name: "Pythia 70M", description: "Ultra-tiny language model perfect for testing", huggingFaceRepo: "TheBloke/pythia-70m-GGUF", filename: "pythia-70m.Q4_K_M.gguf", sizeInBytes: 45000000, type: .general, tags: ["language", "pythia", "tiny"], isGated: false, provider: .huggingFace),
             
             // Mistral Models
             AIModel(id: "mistral-7b-instruct", name: "Mistral 7B Instruct", description: "Mistral AI's instruction model", huggingFaceRepo: "TheBloke/Mistral-7B-Instruct-v0.1-GGUF", filename: "mistral-7b-instruct-v0.1.Q4_K_M.gguf", sizeInBytes: 3800000000, type: .mistral, tags: ["instruct", "mistral"], isGated: false, provider: .mistral)

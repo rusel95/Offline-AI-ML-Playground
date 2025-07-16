@@ -1,6 +1,6 @@
 # 🚀 Offline AI & ML Playground
 
-![Version](https://img.shields.io/badge/version-0.0.9-blue.svg)
+![Version](https://img.shields.io/badge/version-0.0.10-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-iOS-lightgrey.svg)
 ![MLX](https://img.shields.io/badge/MLX%20Swift-optimized-orange.svg)
 ![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2Frusel95%2FOffline-AI-ML-Playground&label=visitors&countColor=%23263759&style=flat)
