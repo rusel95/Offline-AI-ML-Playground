@@ -107,7 +107,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
     override init() {
         // Setup directories
         self.documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        self.modelsDirectory = documentsDirectory.appendingPathComponent("MLXModels", isDirectory: true)
+        self.modelsDirectory = documentsDirectory.appendingPathComponent("Models", isDirectory: true)
         
         super.init()
         
