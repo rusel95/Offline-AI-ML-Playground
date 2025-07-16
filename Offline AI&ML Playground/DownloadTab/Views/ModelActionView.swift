@@ -98,10 +98,6 @@ private class PreviewDownloadManager: ModelDownloadManager {
     var mockDownloadedModels: Set<String> = []
     var mockActiveDownloads: [String: ModelDownload] = [:]
     
-    override init() {
-        super.init()
-    }
-    
     override func isModelDownloaded(_ modelId: String) -> Bool {
         mockDownloadedModels.contains(modelId)
     }

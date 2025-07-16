@@ -256,18 +256,6 @@ class AIInferenceManager: ObservableObject {
                         }
                     }
                     print("✅ Model container loaded successfully with minimal configuration")
-                } catch {
-                    print("❌ All MLX configurations failed: \(error)")
-                    print("🔄 Falling back to mock model system...")
-                    
-                    // Try mock model container as last resort
-                    if let mockContainer = createMockModelContainer(for: model) {
-                        modelContainer = mockContainer
-                        print("✅ Mock model container created successfully")
-                    } else {
-                        print("❌ Mock model container also failed")
-                        throw AIInferenceError.configurationError("All model loading attempts failed")
-                    }
                 }
             }
             

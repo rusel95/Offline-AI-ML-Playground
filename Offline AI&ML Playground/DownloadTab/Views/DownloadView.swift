@@ -15,14 +15,7 @@ struct SimpleDownloadView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     var body: some View {
-        // Use different layouts for different screen sizes
-        if horizontalSizeClass == .regular {
-            // iPad/macOS layout with sidebar
-            macOSLayout
-        } else {
-            // iPhone layout - simple and clean
-            iPhoneLayout
-        }
+        iPhoneLayout
     }
     
     // MARK: - iPhone Layout
@@ -38,12 +31,6 @@ struct SimpleDownloadView: View {
         .listStyle(.plain)
         .listRowSeparator(.hidden) // Hide all row separators
         .listSectionSeparator(.hidden) // Hide section separators (iOS 16+)
-        .onAppear {
-            downloadManager.refreshAvailableModels()
-        }
-        .refreshable {
-            downloadManager.refreshAvailableModels()
-        }
     }
     
     @ViewBuilder
@@ -145,27 +132,6 @@ struct SimpleDownloadView: View {
         )
     }
     
-    // MARK: - macOS Layout
-    private var macOSLayout: some View {
-        NavigationSplitView {
-            macOSSidebar
-        } detail: {
-            macOSDetailView
-        }
-        .navigationSplitViewStyle(.balanced)
-    }
-    
-    private var macOSSidebar: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            sidebarStorageHeader
-            modelCategoriesSection
-            Spacer()
-        }
-        .padding(.vertical, 20)
-        .frame(minWidth: 250, idealWidth: 300)
-        .background(.thickMaterial)
-    }
-    
     private var sidebarStorageHeader: some View {
         StorageHeaderView(downloadManager: downloadManager)
             .padding(.horizontal, 20)
@@ -242,9 +208,6 @@ struct SimpleDownloadView: View {
         }
         .background(.ultraThinMaterial)
         .navigationTitle("AI Models")
-        .onAppear {
-            downloadManager.refreshAvailableModels()
-        }
     }
     
     private var macOSModelsGrid: some View {

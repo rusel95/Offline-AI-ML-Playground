@@ -37,37 +37,3 @@ struct StorageHeaderView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
 }
-
-// MARK: - Preview Helper
-private class PreviewDownloadManager: ModelDownloadManager {
-    override init() {
-        super.init()
-        // Set some sample data for preview
-        self.storageUsed = 15_000_000_000 // 15GB used
-        self.freeStorage = 100_000_000_000 // 100GB free
-    }
-}
-
-// MARK: - Preview
-#Preview("Storage Header") {
-    VStack(spacing: 20) {
-        StorageHeaderView(downloadManager: PreviewDownloadManager())
-        
-        // Show different states
-        Group {
-            StorageHeaderView(downloadManager: {
-                let manager = PreviewDownloadManager()
-                manager.storageUsed = 5_000_000_000 // 5GB
-                return manager
-            }())
-            
-            StorageHeaderView(downloadManager: {
-                let manager = PreviewDownloadManager()
-                manager.storageUsed = 80_000_000_000 // 80GB (nearly full)
-                return manager
-            }())
-        }
-    }
-    .padding()
-    .background(Color.gray.opacity(0.1))
-} 
