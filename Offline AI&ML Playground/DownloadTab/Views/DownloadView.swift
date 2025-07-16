@@ -37,6 +37,7 @@ struct SimpleDownloadView: View {
         }
         .listStyle(.plain)
         .listRowSeparator(.hidden) // Hide all row separators
+        .listSectionSeparator(.hidden) // Hide section separators (iOS 16+)
         .onAppear {
             downloadManager.refreshAvailableModels()
         }
