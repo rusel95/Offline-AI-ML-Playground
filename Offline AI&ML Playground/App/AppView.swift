@@ -43,10 +43,9 @@ struct AppView: View {
             }
             .tag(Tab.settings)
         }
+        .preferredColorScheme(.dark) // Force dark mode always
     }
 }
-
-
 
 #Preview {
     AppView()
