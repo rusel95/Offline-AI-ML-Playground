@@ -73,7 +73,14 @@ struct ModelActionView: View {
         } else {
             // Available for download
             Button(action: {
-                sharedManager.downloadModel(model)
+                Task {
+                    do {
+                        try await sharedManager.downloadModel(model)
+                    } catch {
+                        print("❌ Error downloading model: \(error.localizedDescription)")
+                        // TODO: Show an error alert to the user
+                    }
+                }
             }) {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.down.circle.fill")

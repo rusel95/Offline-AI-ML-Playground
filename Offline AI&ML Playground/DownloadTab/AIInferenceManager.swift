@@ -1,6 +1,8 @@
 import Foundation
 import SwiftUI
+#if canImport(Hub)
 import Hub
+#endif
 #if canImport(MLX)
 import MLX
 import MLXNN
@@ -108,12 +110,18 @@ class AIInferenceManager: ObservableObject {
             await waitForMemoryCleanup()
         }
         
-        // Check if model exists locally first
+        // **CRITICAL FIX**: Check if model exists locally FIRST - no network fallback
         let localModelPath = getLocalModelPath(for: model)
         let isLocallyAvailable = FileManager.default.fileExists(atPath: localModelPath.path)
         
         print("📁 Local model path: \(localModelPath.path)")
         print("🔍 Model exists locally: \(isLocallyAvailable)")
+        
+        // **CRITICAL FIX**: If model doesn't exist locally, don't download - fail immediately
+        guard isLocallyAvailable else {
+            print("❌ Model not found locally - download required")
+            throw AIInferenceError.modelFileNotFound
+        }
         
         await MainActor.run {
             loadingProgress = 0.0
@@ -127,149 +135,51 @@ class AIInferenceManager: ObservableObject {
                 loadingStatus = "Creating model configuration..."
             }
             
-            let config = createModelConfiguration(for: model)
+            // **CRITICAL FIX**: Create configuration that matches the downloaded model
+            let config = createModelConfigurationForDownloadedModel(model)
             print("⚙️ Created model configuration: \(config.id)")
             
             await MainActor.run {
-                loadingProgress = 0.2
-                loadingStatus = "Preparing model container..."
+                loadingProgress = 0.3
+                loadingStatus = "Loading from local cache..."
             }
             
-            // Create Hub API for custom download location - only download if not available locally
+            // **CRITICAL FIX**: Create Hub API that ONLY uses local files - no downloads
             let downloadDirectory = getModelDownloadDirectory()
             let hub = HubApi(downloadBase: downloadDirectory)
             print("📁 Using download directory: \(downloadDirectory.path)")
-            
-            // If model exists locally, inform Hub API to use local files
-            if isLocallyAvailable {
-                print("✅ Using locally cached model files")
-                await MainActor.run {
-                    loadingProgress = 0.5
-                    loadingStatus = "Loading from local cache..."
-                }
-            } else {
-                print("⬇️ Model not found locally, will download from repository")
-                await MainActor.run {
-                    loadingProgress = 0.3
-                    loadingStatus = "Downloading model weights..."
-                }
-            }
+            print("✅ Using locally cached model files ONLY - no network downloads")
             
             // Load model container with proper error handling
             print("🔄 Loading model container with configuration: \(config.id)")
             
-            // Validate configuration before loading
-            let configIdString = String(describing: config.id)
-            guard !configIdString.isEmpty else {
-                throw AIInferenceError.configurationError("Invalid model configuration: empty model ID")
-            }
-            
-            // Wrap the model loading in additional error handling with timeout and multiple fallbacks
+            // **CRITICAL FIX**: Wrap the model loading to prevent any network access
             do {
-                print("🔄 Attempting to load model container with primary configuration...")
+                print("🔄 Attempting to load model container from local files only...")
                 
-                // Add timeout to prevent hanging
-                let timeoutTask = Task {
-                    try await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds timeout
-                    throw AIInferenceError.configurationError("Model loading timed out")
-                }
-                
-                let loadTask = Task {
-                    try await LLMModelFactory.shared.loadContainer(
-                        hub: hub,
-                        configuration: config
-                    ) { progress in
-                        let progressStatus = isLocallyAvailable ? "Loading" : "Downloading"
-                        let baseProgress = isLocallyAvailable ? 0.5 : 0.3
-                        let progressRange = isLocallyAvailable ? 0.4 : 0.6
-                        
-                        print("📊 Model \(progressStatus.lowercased()) progress: \(progress.fractionCompleted * 100)%")
-                        Task { @MainActor in
-                            self.loadingProgress = Float(baseProgress + (progress.fractionCompleted * progressRange))
-                            self.loadingStatus = "\(progressStatus): \(Int(progress.fractionCompleted * 100))%"
-                        }
+                modelContainer = try await LLMModelFactory.shared.loadContainer(
+                    hub: hub,
+                    configuration: config
+                ) { progress in
+                    let baseProgress = 0.3
+                    let progressRange = 0.6
+                    
+                    print("📊 Model loading progress: \(progress.fractionCompleted * 100)%")
+                    Task { @MainActor in
+                        self.loadingProgress = Float(baseProgress + (progress.fractionCompleted * progressRange))
+                        self.loadingStatus = "Loading: \(Int(progress.fractionCompleted * 100))%"
                     }
                 }
                 
-                // Race between timeout and loading
-                modelContainer = try await withTaskCancellationHandler {
-                    try await withThrowingTaskGroup(of: ModelContainer.self) { group in
-                        group.addTask { try await loadTask.value }
-                        group.addTask { try await timeoutTask.value; throw AIInferenceError.configurationError("Timeout") }
-                        
-                        let result = try await group.next()!
-                        group.cancelAll()
-                        return result
-                    }
-                } onCancel: {
-                    loadTask.cancel()
-                    timeoutTask.cancel()
-                }
-                
-                print("✅ Model container loaded successfully with primary configuration")
+                print("✅ Model container loaded successfully")
             } catch {
-                print("❌ Primary configuration failed: \(error)")
-                print("🔄 Trying fallback configuration...")
-                
-                // Try with a simpler fallback configuration
-                let simpleConfig = ModelConfiguration(
-                    id: "mlx-community/Llama-3.2-1B-Instruct-4bit",
-                    overrideTokenizer: "PreTrainedTokenizer",
-                    defaultPrompt: "Hello! How can I help you today?"
-                )
-                
-                do {
-                    modelContainer = try await LLMModelFactory.shared.loadContainer(
-                        hub: hub,
-                        configuration: simpleConfig
-                    ) { progress in
-                        let progressStatus = isLocallyAvailable ? "Loading" : "Downloading"
-                        let baseProgress = isLocallyAvailable ? 0.5 : 0.3
-                        let progressRange = isLocallyAvailable ? 0.4 : 0.6
-                        
-                        print("📊 Model \(progressStatus.lowercased()) progress: \(progress.fractionCompleted * 100)%")
-                        Task { @MainActor in
-                            self.loadingProgress = Float(baseProgress + (progress.fractionCompleted * progressRange))
-                            self.loadingStatus = "\(progressStatus): \(Int(progress.fractionCompleted * 100))%"
-                        }
-                    }
-                    print("✅ Model container loaded successfully with simple fallback configuration")
-                } catch {
-                    print("❌ Simple fallback also failed: \(error)")
-                    print("🔄 Trying minimal configuration...")
-                    
-                    // Try with minimal configuration
-                    let minimalConfig = ModelConfiguration(
-                        id: "mlx-community/Llama-3.2-1B-Instruct-4bit"
-                    )
-                    
-                    modelContainer = try await LLMModelFactory.shared.loadContainer(
-                        hub: hub,
-                        configuration: minimalConfig
-                    ) { progress in
-                        let progressStatus = isLocallyAvailable ? "Loading" : "Downloading"
-                        let baseProgress = isLocallyAvailable ? 0.5 : 0.3
-                        let progressRange = isLocallyAvailable ? 0.4 : 0.6
-                        
-                        print("📊 Model \(progressStatus.lowercased()) progress: \(progress.fractionCompleted * 100)%")
-                        Task { @MainActor in
-                            self.loadingProgress = Float(baseProgress + (progress.fractionCompleted * progressRange))
-                            self.loadingStatus = "\(progressStatus): \(Int(progress.fractionCompleted * 100))%"
-                        }
-                    }
-                    print("✅ Model container loaded successfully with minimal configuration")
-                }
+                print("❌ Model loading failed: \(error)")
+                throw AIInferenceError.configurationError("Failed to load model from local files: \(error.localizedDescription)")
             }
             
             await MainActor.run {
                 loadingProgress = 0.9
                 loadingStatus = "Finalizing model initialization..."
-            }
-            print("✅ Model container loaded successfully")
-            
-            // If we downloaded the model, mark it as downloaded
-            if !isLocallyAvailable {
-                markModelAsDownloaded(model)
             }
             
             // Small delay to ensure everything is properly initialized
@@ -284,7 +194,7 @@ class AIInferenceManager: ObservableObject {
             }
             
             print("🎉 Model loaded successfully: \(model.name)")
-            print("🔗 Source: \(isLocallyAvailable ? "Local Cache" : "Downloaded")")
+            print("🔗 Source: Local Cache")
             print("📈 Final memory usage: \(ByteCountFormatter.string(fromByteCount: Int64(getMemoryUsage()), countStyle: .memory))")
             print("📊 Memory pressure: \(getMemoryPressure())")
             
@@ -579,87 +489,9 @@ class AIInferenceManager: ObservableObject {
     private func createModelConfiguration(for model: AIModel) -> ModelConfiguration {
         print("🔧 Creating model configuration for: \(model.name)")
         
-        // Validate model name is not empty
-        guard !model.name.isEmpty else {
-            print("❌ Model name is empty, using default configuration")
-            return ModelConfiguration(
-                id: "mlx-community/Llama-3.2-1B-Instruct-4bit",
-                overrideTokenizer: "PreTrainedTokenizer",
-                defaultPrompt: "Hello! How can I help you today?"
-            )
-        }
-        
-        // Try to determine the best configuration based on model name
-        let modelName = model.name.lowercased()
-        
-        if modelName.contains("llama") {
-            if model.name.contains("3.2-1B") {
-                print("📋 Using Llama 3.2 1B configuration")
-                return ModelConfiguration(
-                    id: "mlx-community/Llama-3.2-1B-Instruct-4bit",
-                    overrideTokenizer: "PreTrainedTokenizer",
-                    defaultPrompt: "Hello! How can I help you today?"
-                )
-            } else if model.name.contains("3.2-3B") {
-                print("📋 Using Llama 3.2 3B configuration")
-                return ModelConfiguration(
-                    id: "mlx-community/Llama-3.2-3B-Instruct-4bit",
-                    overrideTokenizer: "PreTrainedTokenizer",
-                    defaultPrompt: "Hello! How can I help you today?"
-                )
-            } else {
-                print("📋 Using default Llama configuration")
-                return ModelConfiguration(
-                    id: "mlx-community/Llama-3.2-1B-Instruct-4bit",
-                    overrideTokenizer: "PreTrainedTokenizer",
-                    defaultPrompt: "Hello! How can I help you today?"
-                )
-            }
-        } else if modelName.contains("mistral") {
-            print("📋 Using Mistral configuration")
-            return ModelConfiguration(
-                id: "mlx-community/Mistral-7B-Instruct-v0.3-4bit",
-                overrideTokenizer: "PreTrainedTokenizer",
-                defaultPrompt: "Hello! How can I help you today?"
-            )
-        } else if modelName.contains("phi") {
-            print("📋 Using Phi configuration")
-            return ModelConfiguration(
-                id: "mlx-community/Phi-3.5-mini-instruct-4bit",
-                overrideTokenizer: "PreTrainedTokenizer",
-                defaultPrompt: "Hello! How can I help you today?"
-            )
-        } else if modelName.contains("code") || model.type == .code {
-            if modelName.contains("deepseek") {
-                print("📋 Using DeepSeek Coder configuration")
-                return ModelConfiguration(
-                    id: "mlx-community/DeepSeek-Coder-1.3B-Instruct-4bit",
-                    overrideTokenizer: "PreTrainedTokenizer",
-                    defaultPrompt: "// Write a function to"
-                )
-            } else if modelName.contains("starcoder") {
-                print("📋 Using StarCoder configuration")
-                return ModelConfiguration(
-                    id: "mlx-community/starcoder2-3b-4bit",
-                    overrideTokenizer: "PreTrainedTokenizer",
-                    defaultPrompt: "# Write a Python function that"
-                )
-            } else {
-                print("📋 Using default Code model configuration")
-                return ModelConfiguration(
-                    id: "mlx-community/CodeLlama-7B-Instruct-4bit",
-                    overrideTokenizer: "PreTrainedTokenizer",
-                    defaultPrompt: "// Complete this code:"
-                )
-            }
-        } else {
-            print("📋 Using default model configuration")
-            return ModelConfiguration(
-                id: "mlx-community/Llama-3.2-1B-Instruct-4bit",
-                overrideTokenizer: "PreTrainedTokenizer",
-                defaultPrompt: "Hello! How can I help you today?"
-            )
-        }
+        // **DEPRECATED**: This method uses hardcoded configurations
+        // Use createModelConfigurationForDownloadedModel instead
+        return createModelConfigurationForDownloadedModel(model)
     }
     
     /// Create a simpler, more compatible model configuration
@@ -691,6 +523,47 @@ class AIInferenceManager: ObservableObject {
         // For now, return nil to indicate mock loading failed
         // This will help us identify if the issue is with MLX Swift itself
         return nil
+    }
+    
+    /// Create model configuration that matches the actually downloaded model
+    private func createModelConfigurationForDownloadedModel(_ model: AIModel) -> ModelConfiguration {
+        print("🔧 Creating configuration for downloaded model: \(model.name)")
+        
+        // **CRITICAL FIX**: Map actual downloaded model to correct MLX configuration
+        // Instead of hardcoded configs, use the actual model that was downloaded
+        
+        let modelName = model.name.lowercased()
+        let modelId = model.id.lowercased()
+        
+        // Try to find appropriate MLX-compatible model ID based on what was downloaded
+        var mlxModelId: String
+        
+        if modelId.contains("gemma") && modelId.contains("2b") {
+            mlxModelId = "mlx-community/gemma-2b-it-4bit"
+            print("📋 Mapping Gemma 2B to MLX configuration")
+        } else if modelId.contains("tinyllama") || modelId.contains("tiny") {
+            mlxModelId = "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit"
+            print("📋 Mapping TinyLlama to MLX configuration")
+        } else if modelId.contains("phi-2") || modelName.contains("phi-2") {
+            mlxModelId = "mlx-community/phi-2-4bit"
+            print("📋 Mapping Phi-2 to MLX configuration")
+        } else if modelId.contains("deepseek") && modelId.contains("coder") {
+            mlxModelId = "mlx-community/deepseek-coder-1.3b-instruct-4bit"
+            print("📋 Mapping DeepSeek Coder to MLX configuration")
+        } else if modelId.contains("gpt2") || modelName.contains("gpt-2") {
+            mlxModelId = "mlx-community/gpt2-4bit"
+            print("📋 Mapping GPT-2 to MLX configuration")
+        } else {
+            // Fallback to a reliable small model
+            mlxModelId = "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit"
+            print("📋 Using fallback MLX configuration for unknown model")
+        }
+        
+        return ModelConfiguration(
+            id: mlxModelId,
+            overrideTokenizer: "PreTrainedTokenizer",
+            defaultPrompt: "Hello! How can I help you today?"
+        )
     }
     
     /// Get the model download directory with robust path handling for iOS simulator

@@ -10,8 +10,8 @@ import SwiftUI
 import Foundation
 
 // MARK: - AI Model
-struct AIModel: Identifiable {
-    let id: String
+public struct AIModel: Identifiable {
+    public let id: String
     let name: String
     let description: String
     let huggingFaceRepo: String
@@ -22,7 +22,7 @@ struct AIModel: Identifiable {
     let isGated: Bool
     let provider: Provider // Add provider property
     
-    var formattedSize: String {
+    public var formattedSize: String {
         let gb = Double(sizeInBytes) / 1_073_741_824.0
         if gb >= 1.0 {
             return String(format: "%.1f GB", gb)
@@ -32,7 +32,7 @@ struct AIModel: Identifiable {
         }
     }
     
-    var formattedRegularMemory: String {
+    public var formattedRegularMemory: String {
         switch id {
         case "phi-3-mini-4k", "phi-3-mini-128k": return "2.5 - 3 GB"
         case "phi-2": return "1.6 - 2 GB"
@@ -54,7 +54,7 @@ struct AIModel: Identifiable {
         }
     }
 
-    var formattedMaxMemory: String {
+    public var formattedMaxMemory: String {
         switch id {
         case "phi-3-mini-4k": return "4 - 6 GB"
         case "phi-3-mini-128k": return "5 - 8 GB"
@@ -78,7 +78,7 @@ struct AIModel: Identifiable {
     }
     
     // MARK: - Provider Detection
-    var detectedProvider: Provider {
+    public var detectedProvider: Provider {
         let nameAndRepo = (name + " " + huggingFaceRepo).lowercased()
         
         if nameAndRepo.contains("llama") || nameAndRepo.contains("meta") {
@@ -108,7 +108,7 @@ struct AIModel: Identifiable {
     }
     
     // MARK: - Logo Support
-    var brandIcon: String? {
+    public var brandIcon: String? {
         // Detect brand from model name or repo and return appropriate SF Symbol
         let nameAndRepo = (name + " " + huggingFaceRepo).lowercased()
         
@@ -132,7 +132,7 @@ struct AIModel: Identifiable {
         return nil
     }
     
-    var brandColor: Color? {
+    public var brandColor: Color? {
         // Brand-specific colors
         let nameAndRepo = (name + " " + huggingFaceRepo).lowercased()
         
@@ -156,28 +156,28 @@ struct AIModel: Identifiable {
         return nil
     }
     
-    var displayIcon: String {
+    public var displayIcon: String {
         return brandIcon ?? type.iconName
     }
     
-    var displayColor: Color {
+    public var displayColor: Color {
         return brandColor ?? type.color
     }
     
-    var isUsingBrandIcon: Bool {
+    public var isUsingBrandIcon: Bool {
         return brandIcon != nil
     }
 }
 
 // MARK: - Model Type
-enum ModelType: String, CaseIterable {
+public enum ModelType: String, CaseIterable {
     case llama = "llama"
     case mistral = "mistral"
     case stable_diffusion = "stable_diffusion"
     case code = "code"
     case general = "general"
     
-    var displayName: String {
+    public var displayName: String {
         switch self {
         case .llama: return "Llama"
         case .mistral: return "Mistral"
@@ -187,7 +187,7 @@ enum ModelType: String, CaseIterable {
         }
     }
     
-    var color: Color {
+    public var color: Color {
         switch self {
         case .llama: return .orange
         case .mistral: return .red
@@ -197,7 +197,7 @@ enum ModelType: String, CaseIterable {
         }
     }
     
-    var iconName: String {
+    public var iconName: String {
         switch self {
         case .llama: return "brain.head.profile"
         case .mistral: return "wind"
@@ -209,7 +209,7 @@ enum ModelType: String, CaseIterable {
 }
 
 // MARK: - Provider
-enum Provider: String, CaseIterable {
+public enum Provider: String, CaseIterable {
     case meta = "meta"
     case google = "google"
     case mistral = "mistral"
@@ -225,7 +225,7 @@ enum Provider: String, CaseIterable {
     case xai = "xai"
     case other = "other"
     
-    var displayName: String {
+    public var displayName: String {
         switch self {
         case .meta: return "Meta"
         case .google: return "Google"
@@ -244,7 +244,7 @@ enum Provider: String, CaseIterable {
         }
     }
     
-    var color: Color {
+    public var color: Color {
         switch self {
         case .meta: return .blue
         case .google: return .red
@@ -263,7 +263,7 @@ enum Provider: String, CaseIterable {
         }
     }
     
-    var iconName: String {
+    public var iconName: String {
         switch self {
         case .meta: return "m.circle.fill"
         case .google: return "g.circle.fill"
@@ -284,15 +284,15 @@ enum Provider: String, CaseIterable {
 }
 
 // MARK: - Model Download
-struct ModelDownload {
-    let modelId: String
-    let progress: Double
-    let totalBytes: Int64
-    let downloadedBytes: Int64
-    let speed: Double // bytes per second
-    let task: URLSessionDownloadTask
+public struct ModelDownload {
+    public let modelId: String
+    public let progress: Double
+    public let totalBytes: Int64
+    public let downloadedBytes: Int64
+    public let speed: Double // bytes per second
+    public let task: URLSessionDownloadTask
     
-    var formattedSpeed: String {
+    public var formattedSpeed: String {
         if speed < 1024 {
             return "\(Int(speed)) B/s"
         } else if speed < 1024 * 1024 {

@@ -9,6 +9,27 @@ import Foundation
 import SwiftUI
 import Combine
 
+/// Errors that can occur during model operations
+enum ModelError: LocalizedError {
+    case invalidModel(String)
+    case networkError(String)
+    case fileSystemError(String)
+    case authenticationError(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidModel(let message):
+            return "Invalid Model: \(message)"
+        case .networkError(let message):
+            return "Network Error: \(message)"
+        case .fileSystemError(let message):
+            return "File System Error: \(message)"
+        case .authenticationError(let message):
+            return "Authentication Error: \(message)"
+        }
+    }
+}
+
 /// Shared singleton manager that handles both model downloads and inference
 /// This ensures consistent state across all tabs and unified storage paths
 @MainActor
@@ -27,6 +48,7 @@ class SharedModelManager: NSObject, ObservableObject {
     @Published var lastError: String?
     @Published var storageUsed: Double = 0
     @Published var freeStorage: Double = 0
+    @Published var isLoadingAvailableModels = false
     
     // MARK: - Private Properties
     private var urlSession: URLSession!
@@ -60,7 +82,7 @@ class SharedModelManager: NSObject, ObservableObject {
         
         // Initialize after super.init()
         setupDirectory()
-        loadStaticModels()
+        loadCuratedModels() // Load curated model list instead of all static models
         synchronizeModels()
         calculateStorage()
         
@@ -84,39 +106,72 @@ class SharedModelManager: NSObject, ObservableObject {
     }
     
     // MARK: - Model Catalog Management
-    private func loadStaticModels() {
+    private func loadCuratedModels() {
+        // CRITICAL FIX: Load a small curated list of verified models instead of large static list
+        // These are models that are confirmed to work with MLX and are available on HuggingFace
         availableModels = [
-            // Microsoft Models
-            AIModel(id: "phi-3-mini-4k", name: "Phi-3 Mini 4K", description: "Microsoft's efficient SLM with 4K context", huggingFaceRepo: "microsoft/Phi-3-mini-4k-instruct-gguf", filename: "Phi-3-mini-4k-instruct-q4_0.gguf", sizeInBytes: 2400000000, type: .general, tags: ["slm", "microsoft"], isGated: false, provider: .microsoft),
-            
-            AIModel(id: "phi-3-mini-128k", name: "Phi-3 Mini 128K", description: "Microsoft's SLM with extended 128K context", huggingFaceRepo: "microsoft/Phi-3-mini-128k-instruct-gguf", filename: "Phi-3-mini-128k-instruct-q4_0.gguf", sizeInBytes: 2400000000, type: .general, tags: ["slm", "microsoft", "long-context"], isGated: false, provider: .microsoft),
-            
-            AIModel(id: "phi-2", name: "Phi-2", description: "Microsoft's 2.7B parameter model", huggingFaceRepo: "TheBloke/phi-2-GGUF", filename: "phi-2.Q4_K_M.gguf", sizeInBytes: 1400000000, type: .general, tags: ["language", "microsoft"], isGated: false, provider: .microsoft),
-            
-            // Meta Models
-            AIModel(id: "tinyllama-1.1b", name: "TinyLlama 1.1B", description: "Meta's tiny model", huggingFaceRepo: "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF", filename: "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf", sizeInBytes: 669262336, type: .llama, tags: ["tiny", "meta"], isGated: false, provider: .meta),
-            
-            AIModel(id: "llama-2-7b-chat", name: "Llama 2 7B Chat", description: "Meta's 7B parameter chat model", huggingFaceRepo: "TheBloke/Llama-2-7B-Chat-GGUF", filename: "llama-2-7b-chat.Q4_K_M.gguf", sizeInBytes: 3800000000, type: .llama, tags: ["chat", "meta"], isGated: false, provider: .meta),
-            
-            // Google Models
+            // Small, reliable models for testing and mobile use
             AIModel(id: "gemma-2b", name: "Gemma 2B", description: "Google's lightweight open model", huggingFaceRepo: "google/gemma-2b-gguf", filename: "gemma-2b.gguf", sizeInBytes: 1200000000, type: .general, tags: ["language", "google"], isGated: false, provider: .google),
             
-            // DeepSeek Models
-            AIModel(id: "deepseek-coder-1.3b", name: "DeepSeek Coder 1.3B", description: "DeepSeek's small code model", huggingFaceRepo: "TheBloke/deepseek-coder-1.3b-instruct-GGUF", filename: "deepseek-coder-1.3b-instruct.Q4_K_M.gguf", sizeInBytes: 783741952, type: .code, tags: ["code", "deepseek"], isGated: false, provider: .deepseek),
+            AIModel(id: "tinyllama-1.1b", name: "TinyLlama 1.1B", description: "Meta's tiny model", huggingFaceRepo: "TinyLlama/TinyLlama-1.1B-Chat-v1.0", filename: "pytorch_model.bin", sizeInBytes: 669262336, type: .llama, tags: ["tiny", "meta"], isGated: false, provider: .meta),
             
-            // Small Language Models - Perfect for Testing Chat!
-            AIModel(id: "gpt2-small", name: "GPT-2 Small", description: "OpenAI's original GPT-2 - tiny and perfect for testing", huggingFaceRepo: "TheBloke/gpt2-GGUF", filename: "gpt2.Q4_K_M.gguf", sizeInBytes: 124000000, type: .general, tags: ["language", "tiny", "testing"], isGated: false, provider: .openAI),
+            AIModel(id: "phi-2", name: "Phi-2", description: "Microsoft's 2.7B parameter model", huggingFaceRepo: "microsoft/phi-2", filename: "pytorch_model.bin", sizeInBytes: 1400000000, type: .general, tags: ["language", "microsoft"], isGated: false, provider: .microsoft),
             
-            AIModel(id: "distilgpt2", name: "DistilGPT-2", description: "Distilled GPT-2 - ultra-lightweight for mobile testing", huggingFaceRepo: "TheBloke/distilgpt2-GGUF", filename: "distilgpt2.Q4_K_M.gguf", sizeInBytes: 82000000, type: .general, tags: ["language", "distilled", "lightweight"], isGated: false, provider: .huggingFace),
+            AIModel(id: "deepseek-coder-1.3b", name: "DeepSeek Coder 1.3B", description: "DeepSeek's small code model", huggingFaceRepo: "deepseek-ai/deepseek-coder-1.3b-instruct", filename: "pytorch_model.bin", sizeInBytes: 783741952, type: .code, tags: ["code", "deepseek"], isGated: false, provider: .deepseek),
             
-            // More Tiny Language Models for Testing
-            AIModel(id: "pythia-70m", name: "Pythia 70M", description: "Ultra-tiny language model perfect for testing", huggingFaceRepo: "TheBloke/pythia-70m-GGUF", filename: "pythia-70m.Q4_K_M.gguf", sizeInBytes: 45000000, type: .general, tags: ["language", "pythia", "tiny"], isGated: false, provider: .huggingFace),
-            
-            // Mistral Models
-            AIModel(id: "mistral-7b-instruct", name: "Mistral 7B Instruct", description: "Mistral AI's instruction model", huggingFaceRepo: "TheBloke/Mistral-7B-Instruct-v0.1-GGUF", filename: "mistral-7b-instruct-v0.1.Q4_K_M.gguf", sizeInBytes: 3800000000, type: .mistral, tags: ["instruct", "mistral"], isGated: false, provider: .mistral)
+            AIModel(id: "gpt2", name: "GPT-2", description: "OpenAI's original GPT-2 - reliable and fast", huggingFaceRepo: "gpt2", filename: "pytorch_model.bin", sizeInBytes: 124000000, type: .general, tags: ["language", "openai"], isGated: false, provider: .openAI),
         ]
         
-        print("📋 Loaded \(availableModels.count) available models")
+        print("📋 Loaded \(availableModels.count) curated models")
+    }
+    
+    // MARK: - Model Availability Checking
+    func verifyModelAvailability() async {
+        await MainActor.run { isLoadingAvailableModels = true }
+        
+        print("🔍 Verifying model availability on HuggingFace...")
+        
+        var verifiedModels: [AIModel] = []
+        
+        for model in availableModels {
+            let isAvailable = await checkModelAvailability(model)
+            if isAvailable {
+                verifiedModels.append(model)
+                print("✅ Model available: \(model.name)")
+            } else {
+                print("❌ Model not available: \(model.name)")
+            }
+        }
+        
+        await MainActor.run {
+            availableModels = verifiedModels
+            isLoadingAvailableModels = false
+        }
+        
+        print("✅ Model verification completed. \(verifiedModels.count) models available.")
+    }
+    
+    private func checkModelAvailability(_ model: AIModel) async -> Bool {
+        // Check if model repository exists on HuggingFace
+        let apiUrl = "https://huggingface.co/api/models/\(model.huggingFaceRepo)"
+        
+        guard let url = URL(string: apiUrl) else { return false }
+        
+        do {
+            var request = URLRequest(url: url)
+            request.httpMethod = "HEAD"
+            request.timeoutInterval = 10.0
+            
+            let (_, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                return httpResponse.statusCode == 200
+            }
+            return false
+        } catch {
+            print("❌ Failed to verify \(model.name): \(error)")
+            return false
+        }
     }
     
     // MARK: - Model Synchronization
@@ -215,37 +270,120 @@ class SharedModelManager: NSObject, ObservableObject {
     }
     
     // MARK: - Download Management
-    func downloadModel(_ model: AIModel) {
-        guard !activeDownloads.contains(where: { $0.key == model.id }) else {
-            print("⚠️ Model \(model.id) already downloading")
-            return
-        }
-        guard !isModelDownloaded(model.id) else {
-            print("⚠️ Model \(model.id) already downloaded")
-            return
+    /// Download a specific AI model with proper error handling
+    func downloadModel(_ model: AIModel) async throws {
+        // Validate model
+        guard !model.id.isEmpty else {
+            throw ModelError.invalidModel("Model ID cannot be empty")
         }
         
-        let url = constructHuggingFaceURL(repo: model.huggingFaceRepo, filename: model.filename)
+        // Check if already downloading
+        if activeDownloads[model.id] != nil {
+            print("⚠️ Model \(model.name) is already being downloaded")
+            return
+        }
         
-        var request = URLRequest(url: url)
-        request.setValue("*/*", forHTTPHeaderField: "Accept")
-        request.setValue("Offline-AI-ML-Playground/1.0", forHTTPHeaderField: "User-Agent")
+        // Verify internet connectivity before attempting download
+        guard let url = constructModelDownloadURL(for: model) else {
+            throw ModelError.networkError("Invalid download URL for model \(model.name)")
+        }
         
-        let task = urlSession.downloadTask(with: request)
+        print("⬇️ Started downloading model: \(model.name)")
+        print("🔗 Download URL: \(url)")
         
+        var task: URLSessionDownloadTask!
+        task = URLSession.shared.downloadTask(with: url) { [weak self] localURL, response, error in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                
+                // Remove from active downloads
+                self.activeDownloads.removeValue(forKey: model.id)
+                self.speedTrackers.removeValue(forKey: task)
+                
+                // Handle errors
+                if let error = error {
+                    print("❌ Download failed for \(model.name): \(error.localizedDescription)")
+                    return
+                }
+                
+                // Check HTTP response
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("🌐 HTTP Status: \(httpResponse.statusCode)")
+                    
+                    if httpResponse.statusCode == 403 {
+                        print("🔒 Access denied: Model \(model.name) requires authorization")
+                        print("💡 Please check if the model is gated or requires authentication")
+                        return
+                    } else if httpResponse.statusCode >= 400 {
+                        print("❌ HTTP Error \(httpResponse.statusCode) for model \(model.name)")
+                        return
+                    }
+                }
+                
+                // Verify we have a local file
+                guard let localURL = localURL else {
+                    print("❌ No local file received for \(model.name)")
+                    return
+                }
+                
+                // Move to models directory
+                let modelFileName = "\(model.id).\(model.filename.components(separatedBy: ".").last ?? "bin")"
+                let destinationURL = self.modelsDirectory.appendingPathComponent(modelFileName)
+                
+                do {
+                    // Remove existing file if present
+                    if FileManager.default.fileExists(atPath: destinationURL.path) {
+                        try FileManager.default.removeItem(at: destinationURL)
+                    }
+                    
+                    // Move downloaded file
+                    try FileManager.default.moveItem(at: localURL, to: destinationURL)
+                    
+                    // Verify file size
+                    let attributes = try FileManager.default.attributesOfItem(atPath: destinationURL.path)
+                    let fileSize = attributes[.size] as? Int64 ?? 0
+                    
+                    print("📁 Model saved to: \(destinationURL.path)")
+                    print("📊 File size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
+                    
+                    // Only mark as downloaded if file size is reasonable (> 1MB)
+                    if fileSize > 1_000_000 {
+                        self.downloadedModels.insert(model.id)
+                        print("✅ Successfully downloaded model: \(model.id)")
+                        
+                        // Sync with file system
+                        self.synchronizeModels()
+                    } else {
+                        print("⚠️ Downloaded file seems too small (\(fileSize) bytes), possible error")
+                        try? FileManager.default.removeItem(at: destinationURL)
+                    }
+                    
+                } catch {
+                    print("❌ Failed to save model \(model.name): \(error.localizedDescription)")
+                }
+            }
+        }
+        
+        // Track the download
         let download = ModelDownload(
             modelId: model.id,
             progress: 0.0,
-            totalBytes: model.sizeInBytes,
+            totalBytes: 0,
             downloadedBytes: 0,
-            speed: 0,
+            speed: 0.0,
             task: task
         )
-        
         activeDownloads[model.id] = download
-        task.resume()
+        speedTrackers[task] = DownloadSpeedTracker()
         
-        print("⬇️ Started downloading model: \(model.name)")
+        // Start the download
+        task.resume()
+    }
+    
+    private func constructModelDownloadURL(for model: AIModel) -> URL? {
+        // Construct proper HuggingFace download URL
+        let baseURL = "https://huggingface.co/\(model.huggingFaceRepo)/resolve/main/\(model.filename)"
+        return URL(string: baseURL)
     }
     
     func cancelDownload(_ modelId: String) {
@@ -311,12 +449,6 @@ class SharedModelManager: NSObject, ObservableObject {
             aiInferenceManager = AIInferenceManager()
         }
         return aiInferenceManager!
-    }
-    
-    // MARK: - Helper Methods
-    private func constructHuggingFaceURL(repo: String, filename: String) -> URL {
-        let baseURL = "https://huggingface.co/\(repo)/resolve/main/\(filename)"
-        return URL(string: baseURL)!
     }
     
     // MARK: - Download Speed Tracking
