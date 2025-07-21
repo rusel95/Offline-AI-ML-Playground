@@ -8,6 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		852C2E092E2020F3004D03BD /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 852C2E082E2020F3004D03BD /* README.md */; };
+		85325C312E2E36FA0081A0A5 /* productContext.md in Resources */ = {isa = PBXBuildFile; fileRef = 85325C2A2E2E36FA0081A0A5 /* productContext.md */; };
+		85325C322E2E36FA0081A0A5 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 85325C2D2E2E36FA0081A0A5 /* README.md */; };
+		85325C332E2E36FA0081A0A5 /* techContext.md in Resources */ = {isa = PBXBuildFile; fileRef = 85325C2F2E2E36FA0081A0A5 /* techContext.md */; };
+		85325C342E2E36FA0081A0A5 /* progress.md in Resources */ = {isa = PBXBuildFile; fileRef = 85325C2B2E2E36FA0081A0A5 /* progress.md */; };
+		85325C352E2E36FA0081A0A5 /* activeContext.md in Resources */ = {isa = PBXBuildFile; fileRef = 85325C292E2E36FA0081A0A5 /* activeContext.md */; };
+		85325C362E2E36FA0081A0A5 /* systemPatterns.md in Resources */ = {isa = PBXBuildFile; fileRef = 85325C2E2E2E36FA0081A0A5 /* systemPatterns.md */; };
+		85325C372E2E36FA0081A0A5 /* projectbrief.md in Resources */ = {isa = PBXBuildFile; fileRef = 85325C2C2E2E36FA0081A0A5 /* projectbrief.md */; };
 		85C974C52E1BC88F00143F63 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974C42E1BC88F00143F63 /* MLX */; };
 		85C974C72E1BC88F00143F63 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974C62E1BC88F00143F63 /* MLXNN */; };
 		85C974C82E1BC88F00143F63 /* MLXRandom in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974C32E1BC88F00143F63 /* MLXRandom */; };
@@ -37,6 +44,13 @@
 
 /* Begin PBXFileReference section */
 		852C2E082E2020F3004D03BD /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		85325C292E2E36FA0081A0A5 /* activeContext.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = activeContext.md; sourceTree = "<group>"; };
+		85325C2A2E2E36FA0081A0A5 /* productContext.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = productContext.md; sourceTree = "<group>"; };
+		85325C2B2E2E36FA0081A0A5 /* progress.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = progress.md; sourceTree = "<group>"; };
+		85325C2C2E2E36FA0081A0A5 /* projectbrief.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = projectbrief.md; sourceTree = "<group>"; };
+		85325C2D2E2E36FA0081A0A5 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		85325C2E2E2E36FA0081A0A5 /* systemPatterns.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = systemPatterns.md; sourceTree = "<group>"; };
+		85325C2F2E2E36FA0081A0A5 /* techContext.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = techContext.md; sourceTree = "<group>"; };
 		857668CE2E166CED0098BDAA /* Offline AI&ML Playground.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Offline AI&ML Playground.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		857668E22E166CEF0098BDAA /* Offline AI&ML PlaygroundTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Offline AI&ML PlaygroundTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		857668EC2E166CEF0098BDAA /* Offline AI&ML PlaygroundUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Offline AI&ML PlaygroundUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -106,10 +120,25 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		85325C302E2E36FA0081A0A5 /* memory-bank */ = {
+			isa = PBXGroup;
+			children = (
+				85325C292E2E36FA0081A0A5 /* activeContext.md */,
+				85325C2A2E2E36FA0081A0A5 /* productContext.md */,
+				85325C2B2E2E36FA0081A0A5 /* progress.md */,
+				85325C2C2E2E36FA0081A0A5 /* projectbrief.md */,
+				85325C2D2E2E36FA0081A0A5 /* README.md */,
+				85325C2E2E2E36FA0081A0A5 /* systemPatterns.md */,
+				85325C2F2E2E36FA0081A0A5 /* techContext.md */,
+			);
+			path = "memory-bank";
+			sourceTree = "<group>";
+		};
 		857668C52E166CED0098BDAA = {
 			isa = PBXGroup;
 			children = (
 				852C2E082E2020F3004D03BD /* README.md */,
+				85325C302E2E36FA0081A0A5 /* memory-bank */,
 				857668D02E166CED0098BDAA /* Offline AI&ML Playground */,
 				857668E52E166CEF0098BDAA /* Offline AI&ML PlaygroundTests */,
 				857668EF2E166CEF0098BDAA /* Offline AI&ML PlaygroundUITests */,
@@ -259,6 +288,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				852C2E092E2020F3004D03BD /* README.md in Resources */,
+				85325C312E2E36FA0081A0A5 /* productContext.md in Resources */,
+				85325C322E2E36FA0081A0A5 /* README.md in Resources */,
+				85325C332E2E36FA0081A0A5 /* techContext.md in Resources */,
+				85325C342E2E36FA0081A0A5 /* progress.md in Resources */,
+				85325C352E2E36FA0081A0A5 /* activeContext.md in Resources */,
+				85325C362E2E36FA0081A0A5 /* systemPatterns.md in Resources */,
+				85325C372E2E36FA0081A0A5 /* projectbrief.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
