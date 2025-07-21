@@ -94,7 +94,7 @@ struct PerformanceSettingsView: View {
                                     .font(.subheadline)
                                     .fontWeight(.medium)
                                 
-                                ProgressView(value: performanceMonitor.currentStats.appMemoryPercentage, total: 5.0)
+                                ProgressView(value: min(max(performanceMonitor.currentStats.appMemoryPercentage, 0.0), 5.0), total: 5.0)
                                     .progressViewStyle(LinearProgressViewStyle(tint: appMemoryUsageColor(performanceMonitor.currentStats.appMemoryPercentage)))
                                     .scaleEffect(y: 0.8)
                             }

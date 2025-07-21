@@ -11,12 +11,12 @@ import Foundation
 
 // MARK: - Download Manager
 @MainActor
-class ModelDownloadManager: NSObject, ObservableObject {
-    @Published var availableModels: [AIModel] = []
-    @Published var downloadedModels: Set<String> = []
-    @Published var activeDownloads: [String: ModelDownload] = [:]
-    @Published var storageUsed: Double = 0
-    @Published var freeStorage: Double = 0 // Will be set dynamically
+public class ModelDownloadManager: NSObject, ObservableObject {
+    @Published public var availableModels: [AIModel] = []
+    @Published public var downloadedModels: Set<String> = []
+    @Published public var activeDownloads: [String: ModelDownload] = [:]
+    @Published public var storageUsed: Double = 0
+    @Published public var freeStorage: Double = 0 // Will be set dynamically
     
     private var urlSession: URLSession!
     private let documentsDirectory: URL
@@ -104,7 +104,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
         AIModel(id: "stablelm-3b", name: "StableLM 3B", description: "Stability AI's 3B language model", huggingFaceRepo: "TheBloke/stablelm-3b-4e1t-GGUF", filename: "stablelm-3b-4e1t.Q4_K_M.gguf", sizeInBytes: 1800000000, type: .general, tags: ["language", "stabilityai"], isGated: false, provider: .stabilityAI),
     ]
     
-    override init() {
+    override public init() {
         // Setup directories
         self.documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         self.modelsDirectory = documentsDirectory.appendingPathComponent("Models", isDirectory: true)
@@ -138,11 +138,11 @@ class ModelDownloadManager: NSObject, ObservableObject {
     
     // MARK: - Public Methods
     
-    func getDownloadedModels() -> [AIModel] {
+    public func getDownloadedModels() -> [AIModel] {
         return availableModels.filter { downloadedModels.contains($0.id) }
     }
     
-    func refreshAvailableModels() {
+    public func refreshAvailableModels() {
         // iPhone-compatible, lightweight models for mobile deployment
         // availableModels = [
         //     // META MODELS (4+ models)
@@ -403,7 +403,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
         // ]
     }
     
-    func verifyModelAvailability(_ model: AIModel) async -> Bool {
+    public func verifyModelAvailability(_ model: AIModel) async -> Bool {
         let url = constructHuggingFaceURL(repo: model.huggingFaceRepo, filename: model.filename)
         
         do {
@@ -424,7 +424,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
         }
     }
     
-    func downloadModel(_ model: AIModel) {
+    public func downloadModel(_ model: AIModel) {
         guard !activeDownloads.contains(where: { $0.key == model.id }) else { 
             return 
         }
@@ -454,14 +454,14 @@ class ModelDownloadManager: NSObject, ObservableObject {
         task.resume()
     }
     
-    func cancelDownload(_ modelId: String) {
+    public func cancelDownload(_ modelId: String) {
         guard let download = activeDownloads[modelId] else { return }
         download.task.cancel()
         activeDownloads.removeValue(forKey: modelId)
         speedTrackers.removeValue(forKey: download.task)
     }
     
-    func deleteModel(_ modelId: String) {
+    public func deleteModel(_ modelId: String) {
         let modelURL = modelsDirectory.appendingPathComponent(modelId)
         try? FileManager.default.removeItem(at: modelURL)
         downloadedModels.remove(modelId)
@@ -469,7 +469,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
         updateTotalStorage()
     }
     
-    func isModelDownloaded(_ modelId: String) -> Bool {
+    public func isModelDownloaded(_ modelId: String) -> Bool {
         // First check our in-memory set
         if downloadedModels.contains(modelId) {
             // Verify the file actually exists on disk
@@ -500,13 +500,13 @@ class ModelDownloadManager: NSObject, ObservableObject {
     }
     
     /// Get the local path for a downloaded model
-    func getLocalModelPath(modelId: String) -> URL? {
+    public func getLocalModelPath(modelId: String) -> URL? {
         guard isModelDownloaded(modelId) else { return nil }
         return modelsDirectory.appendingPathComponent(modelId)
     }
     
     /// Synchronize downloaded models with actual files on disk
-    func synchronizeDownloadedModels() {
+    public func synchronizeDownloadedModels() {
         print("🔄 Synchronizing downloaded models with file system...")
         
         guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
@@ -547,7 +547,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
         }
     }
     
-    func loadDownloadedModels() {
+    public func loadDownloadedModels() {
         guard FileManager.default.fileExists(atPath: modelsDirectory.path) else { return }
         
         do {
@@ -558,17 +558,17 @@ class ModelDownloadManager: NSObject, ObservableObject {
         }
     }
     
-    var formattedStorageUsed: String {
+    public var formattedStorageUsed: String {
         ByteCountFormatter.string(fromByteCount: Int64(storageUsed), countStyle: .file)
     }
     
-    var formattedFreeStorage: String {
+    public var formattedFreeStorage: String {
         ByteCountFormatter.string(fromByteCount: Int64(freeStorage), countStyle: .file)
     }
     
     // MARK: - Testing and Debugging Methods
     
-    func testModelURL(_ model: AIModel) async {
+    public func testModelURL(_ model: AIModel) async {
         let url = constructHuggingFaceURL(repo: model.huggingFaceRepo, filename: model.filename)
         print("🧪 Testing URL for \(model.name)")
         print("📍 URL: \(url.absoluteString)")
@@ -603,7 +603,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
         print("---")
     }
     
-    func testAllModelURLs() async {
+    public func testAllModelURLs() async {
         print("🧪 Testing all Hugging Face model URLs...")
         print(String(repeating: "=", count: 50))
         
@@ -665,7 +665,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
     }
     
     /// Update the total storage property to reflect the device's free storage
-    func updateTotalStorage() {
+    public func updateTotalStorage() {
         if let systemAttributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
            let freeSpace = systemAttributes[.systemFreeSize] as? NSNumber {
             self.freeStorage = freeSpace.doubleValue
@@ -677,7 +677,7 @@ class ModelDownloadManager: NSObject, ObservableObject {
 
 // MARK: - URLSessionDownloadDelegate
 extension ModelDownloadManager: URLSessionDownloadDelegate {
-    nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+    nonisolated public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         // Find the model being downloaded first (synchronously)
         var targetModelId: String?
         
@@ -751,7 +751,7 @@ extension ModelDownloadManager: URLSessionDownloadDelegate {
         }
     }
     
-    nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+    nonisolated public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         
         Task { @MainActor in
             for (modelId, download) in activeDownloads {
@@ -785,7 +785,7 @@ extension ModelDownloadManager: URLSessionDownloadDelegate {
         }
     }
     
-    nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    nonisolated public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error = error {
             print("❌ Download failed with error: \(error)")
             print("❌ Error details: \(error.localizedDescription)")

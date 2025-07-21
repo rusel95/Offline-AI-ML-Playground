@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import Offline_AI_ML_Playground
 
 /// Errors that can occur during model operations
 enum ModelError: LocalizedError {
@@ -107,19 +108,19 @@ class SharedModelManager: NSObject, ObservableObject {
     
     // MARK: - Model Catalog Management
     private func loadCuratedModels() {
-        // CRITICAL FIX: Load a small curated list of verified models instead of large static list
-        // These are models that are confirmed to work with MLX and are available on HuggingFace
+        // CRITICAL FIX: Load working GGUF models with correct URLs
+        // These are verified to work with MLX and are available on HuggingFace
         availableModels = [
             // Small, reliable models for testing and mobile use
-            AIModel(id: "gemma-2b", name: "Gemma 2B", description: "Google's lightweight open model", huggingFaceRepo: "google/gemma-2b-gguf", filename: "gemma-2b.gguf", sizeInBytes: 1200000000, type: .general, tags: ["language", "google"], isGated: false, provider: .google),
+            AIModel(id: "gemma-2b", name: "Gemma 2B", description: "Google's lightweight open model", huggingFaceRepo: "TheBloke/gemma-2b-it-GGUF", filename: "gemma-2b-it.Q4_K_M.gguf", sizeInBytes: 1200000000, type: .general, tags: ["language", "google"], isGated: false, provider: .google),
             
-            AIModel(id: "tinyllama-1.1b", name: "TinyLlama 1.1B", description: "Meta's tiny model", huggingFaceRepo: "TinyLlama/TinyLlama-1.1B-Chat-v1.0", filename: "pytorch_model.bin", sizeInBytes: 669262336, type: .llama, tags: ["tiny", "meta"], isGated: false, provider: .meta),
+            AIModel(id: "tinyllama-1.1b", name: "TinyLlama 1.1B", description: "Meta's tiny model", huggingFaceRepo: "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF", filename: "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf", sizeInBytes: 669262336, type: .llama, tags: ["tiny", "meta"], isGated: false, provider: .meta),
             
-            AIModel(id: "phi-2", name: "Phi-2", description: "Microsoft's 2.7B parameter model", huggingFaceRepo: "microsoft/phi-2", filename: "pytorch_model.bin", sizeInBytes: 1400000000, type: .general, tags: ["language", "microsoft"], isGated: false, provider: .microsoft),
+            AIModel(id: "phi-2", name: "Phi-2", description: "Microsoft's 2.7B parameter model", huggingFaceRepo: "TheBloke/phi-2-GGUF", filename: "phi-2.Q4_K_M.gguf", sizeInBytes: 1400000000, type: .general, tags: ["language", "microsoft"], isGated: false, provider: .microsoft),
             
-            AIModel(id: "deepseek-coder-1.3b", name: "DeepSeek Coder 1.3B", description: "DeepSeek's small code model", huggingFaceRepo: "deepseek-ai/deepseek-coder-1.3b-instruct", filename: "pytorch_model.bin", sizeInBytes: 783741952, type: .code, tags: ["code", "deepseek"], isGated: false, provider: .deepseek),
+            AIModel(id: "deepseek-coder-1.3b", name: "DeepSeek Coder 1.3B", description: "DeepSeek's small code model", huggingFaceRepo: "TheBloke/deepseek-coder-1.3b-instruct-GGUF", filename: "deepseek-coder-1.3b-instruct.Q4_K_M.gguf", sizeInBytes: 783741952, type: .code, tags: ["code", "deepseek"], isGated: false, provider: .deepseek),
             
-            AIModel(id: "gpt2", name: "GPT-2", description: "OpenAI's original GPT-2 - reliable and fast", huggingFaceRepo: "gpt2", filename: "pytorch_model.bin", sizeInBytes: 124000000, type: .general, tags: ["language", "openai"], isGated: false, provider: .openAI),
+            AIModel(id: "gpt2", name: "GPT-2", description: "OpenAI's original GPT-2 - reliable and fast", huggingFaceRepo: "TheBloke/gpt2-GGUF", filename: "gpt2.Q4_K_M.gguf", sizeInBytes: 124000000, type: .general, tags: ["language", "openai"], isGated: false, provider: .openAI),
         ]
         
         print("📋 Loaded \(availableModels.count) curated models")
@@ -291,8 +292,10 @@ class SharedModelManager: NSObject, ObservableObject {
         print("⬇️ Started downloading model: \(model.name)")
         print("🔗 Download URL: \(url)")
         
+        var request = URLRequest(url: url)
+        
         var task: URLSessionDownloadTask!
-        task = URLSession.shared.downloadTask(with: url) { [weak self] localURL, response, error in
+        task = URLSession.shared.downloadTask(with: request) { [weak self] localURL, response, error in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 
@@ -310,7 +313,11 @@ class SharedModelManager: NSObject, ObservableObject {
                 if let httpResponse = response as? HTTPURLResponse {
                     print("🌐 HTTP Status: \(httpResponse.statusCode)")
                     
-                    if httpResponse.statusCode == 403 {
+                    if httpResponse.statusCode == 401 {
+                        print("❌ HTTP Error 401 for model \(model.name)")
+                        print("Access to model \(model.huggingFaceRepo) is restricted and you are not in the authorized list. Visit https://huggingface.co/\(model.huggingFaceRepo) to ask for access.")
+                        return
+                    } else if httpResponse.statusCode == 403 {
                         print("🔒 Access denied: Model \(model.name) requires authorization")
                         print("💡 Please check if the model is gated or requires authentication")
                         return

@@ -12,15 +12,15 @@ import Foundation
 // MARK: - AI Model
 public struct AIModel: Identifiable {
     public let id: String
-    let name: String
-    let description: String
-    let huggingFaceRepo: String
-    let filename: String
-    let sizeInBytes: Int64
-    let type: ModelType
-    let tags: [String]
-    let isGated: Bool
-    let provider: Provider // Add provider property
+    public let name: String
+    public let description: String
+    public let huggingFaceRepo: String
+    public let filename: String
+    public let sizeInBytes: Int64
+    public let type: ModelType
+    public let tags: [String]
+    public let isGated: Bool
+    public let provider: Provider // Add provider property
     
     public var formattedSize: String {
         let gb = Double(sizeInBytes) / 1_073_741_824.0
