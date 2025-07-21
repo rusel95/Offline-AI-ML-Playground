@@ -130,12 +130,21 @@ class SimpleChatViewModel: ObservableObject {
         return sharedManager.getAvailableLanguageModels()
     }
     
-    /// Load a model for inference with proper error handling and race condition prevention
     /// Load a model for inference with proper loading indicator
     func loadModelForInference(_ model: AIModel) async {
         // Prevent concurrent model loading
         guard !isGenerating && !isModelLoading else {
             print("⚠️ Cannot load model: already generating or loading")
+            return
+        }
+        
+        // **CRITICAL**: Ensure model is actually downloaded locally before attempting to load
+        let downloadedModels = sharedManager.getDownloadedModels()
+        guard downloadedModels.contains(where: { $0.id == model.id }) else {
+            await MainActor.run {
+                generationError = "Model '\(model.name)' is not downloaded. Please download it from the Download tab first."
+            }
+            print("❌ Model not locally available for Chat tab: \(model.name)")
             return
         }
         
@@ -148,6 +157,7 @@ class SimpleChatViewModel: ObservableObject {
         
         do {
             // Use AIInferenceManager for actual loading with progress
+            // This should NEVER trigger a download since we verified the model exists locally
             try await aiInferenceManager.loadModel(model)
             
             await MainActor.run {

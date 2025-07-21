@@ -8,7 +8,6 @@
 import Foundation
 import SwiftUI
 import Combine
-import Offline_AI_ML_Playground
 
 /// Errors that can occur during model operations
 enum ModelError: LocalizedError {
@@ -191,25 +190,27 @@ class SharedModelManager: NSObject, ObservableObject {
             )
             let filesOnDisk = Set(contents.map { $0.lastPathComponent })
             
+            // CRITICAL FIX: Match model IDs with files that start with the model ID
+            let modelIdsOnDisk = Set(availableModels.compactMap { model in
+                // Check if any file on disk starts with this model's ID
+                let hasMatchingFile = filesOnDisk.contains { filename in
+                    filename.hasPrefix(model.id) && filename.contains(".")
+                }
+                return hasMatchingFile ? model.id : nil
+            })
+            
             // Remove tracked models that don't exist on disk
-            let modelsToRemove = downloadedModels.subtracting(filesOnDisk)
+            let modelsToRemove = downloadedModels.subtracting(modelIdsOnDisk)
             for modelId in modelsToRemove {
                 print("🗑️ Removing missing model from tracking: \(modelId)")
                 downloadedModels.remove(modelId)
             }
             
             // Add untracked models found on disk
-            let modelsToAdd = filesOnDisk.subtracting(downloadedModels)
+            let modelsToAdd = modelIdsOnDisk.subtracting(downloadedModels)
             for modelId in modelsToAdd {
-                let modelPath = modelsDirectory.appendingPathComponent(modelId)
-                
-                // Verify it's a valid model file (at least 1MB)
-                if let attributes = try? FileManager.default.attributesOfItem(atPath: modelPath.path),
-                   let fileSize = attributes[.size] as? Int64,
-                   fileSize > 1024 * 1024 {
-                    print("✅ Adding found model to tracking: \(modelId)")
-                    downloadedModels.insert(modelId)
-                }
+                print("✅ Adding found model to tracking: \(modelId)")
+                downloadedModels.insert(modelId)
             }
             
             print("📊 Synchronized: \(downloadedModels.count) models tracked")
@@ -292,86 +293,13 @@ class SharedModelManager: NSObject, ObservableObject {
         print("⬇️ Started downloading model: \(model.name)")
         print("🔗 Download URL: \(url)")
         
-        var request = URLRequest(url: url)
+        let request = URLRequest(url: url)
         
-        var task: URLSessionDownloadTask!
-        task = URLSession.shared.downloadTask(with: request) { [weak self] localURL, response, error in
-            Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                
-                // Remove from active downloads
-                self.activeDownloads.removeValue(forKey: model.id)
-                self.speedTrackers.removeValue(forKey: task)
-                
-                // Handle errors
-                if let error = error {
-                    print("❌ Download failed for \(model.name): \(error.localizedDescription)")
-                    return
-                }
-                
-                // Check HTTP response
-                if let httpResponse = response as? HTTPURLResponse {
-                    print("🌐 HTTP Status: \(httpResponse.statusCode)")
-                    
-                    if httpResponse.statusCode == 401 {
-                        print("❌ HTTP Error 401 for model \(model.name)")
-                        print("Access to model \(model.huggingFaceRepo) is restricted and you are not in the authorized list. Visit https://huggingface.co/\(model.huggingFaceRepo) to ask for access.")
-                        return
-                    } else if httpResponse.statusCode == 403 {
-                        print("🔒 Access denied: Model \(model.name) requires authorization")
-                        print("💡 Please check if the model is gated or requires authentication")
-                        return
-                    } else if httpResponse.statusCode >= 400 {
-                        print("❌ HTTP Error \(httpResponse.statusCode) for model \(model.name)")
-                        return
-                    }
-                }
-                
-                // Verify we have a local file
-                guard let localURL = localURL else {
-                    print("❌ No local file received for \(model.name)")
-                    return
-                }
-                
-                // Move to models directory
-                let modelFileName = "\(model.id).\(model.filename.components(separatedBy: ".").last ?? "bin")"
-                let destinationURL = self.modelsDirectory.appendingPathComponent(modelFileName)
-                
-                do {
-                    // Remove existing file if present
-                    if FileManager.default.fileExists(atPath: destinationURL.path) {
-                        try FileManager.default.removeItem(at: destinationURL)
-                    }
-                    
-                    // Move downloaded file
-                    try FileManager.default.moveItem(at: localURL, to: destinationURL)
-                    
-                    // Verify file size
-                    let attributes = try FileManager.default.attributesOfItem(atPath: destinationURL.path)
-                    let fileSize = attributes[.size] as? Int64 ?? 0
-                    
-                    print("📁 Model saved to: \(destinationURL.path)")
-                    print("📊 File size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
-                    
-                    // Only mark as downloaded if file size is reasonable (> 1MB)
-                    if fileSize > 1_000_000 {
-                        self.downloadedModels.insert(model.id)
-                        print("✅ Successfully downloaded model: \(model.id)")
-                        
-                        // Sync with file system
-                        self.synchronizeModels()
-                    } else {
-                        print("⚠️ Downloaded file seems too small (\(fileSize) bytes), possible error")
-                        try? FileManager.default.removeItem(at: destinationURL)
-                    }
-                    
-                } catch {
-                    print("❌ Failed to save model \(model.name): \(error.localizedDescription)")
-                }
-            }
-        }
+        // CRITICAL FIX: Use the custom URLSession with delegate for progress updates
+        // Remove completion handler so delegate methods are called
+        let task = self.urlSession.downloadTask(with: request)
         
-        // Track the download
+        // Create download tracking object
         let download = ModelDownload(
             modelId: model.id,
             progress: 0.0,
@@ -380,11 +308,11 @@ class SharedModelManager: NSObject, ObservableObject {
             speed: 0.0,
             task: task
         )
-        activeDownloads[model.id] = download
-        speedTrackers[task] = DownloadSpeedTracker()
         
-        // Start the download
+        activeDownloads[model.id] = download
         task.resume()
+        
+        print("🚀 Download task started for \(model.name)")
     }
     
     private func constructModelDownloadURL(for model: AIModel) -> URL? {
