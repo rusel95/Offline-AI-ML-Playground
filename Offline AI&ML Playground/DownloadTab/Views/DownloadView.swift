@@ -24,62 +24,73 @@ struct SimpleDownloadView: View {
     }
     
     private var mainContentList: some View {
-        List {
-            activeDownloadsSection
-            availableModelsSection
+        ScrollView {
+            LazyVStack(spacing: 20) {
+                activeDownloadsSection
+                availableModelsSection
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .listStyle(.plain)
-        .listRowSeparator(.hidden) // Hide all row separators
-        .listSectionSeparator(.hidden) // Hide section separators (iOS 16+)
+        .background(Color(.systemBackground))
     }
     
     @ViewBuilder
     private var activeDownloadsSection: some View {
         if !sharedManager.activeDownloads.isEmpty {
-            Section {
-                activeDownloadsList
-            }
-        }
-    }
-    
-    private var activeDownloadsList: some View {
-        VStack(spacing: 8) {
-            ForEach(Array(sharedManager.activeDownloads.values), id: \.modelId) { download in
-                if let model = sharedManager.availableModels.first(where: { $0.id == download.modelId }) {
-                    activeDownloadRow(model: model, download: download)
-                        .padding(.horizontal, 8)
+            VStack(alignment: .leading, spacing: 16) {
+                // Section header with modern styling
+                HStack {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .foregroundStyle(.blue)
+                        .font(.title2)
+                    Text("Active Downloads")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    Spacer()
+                }
+                .padding(.horizontal, 4)
+                
+                // Downloads list with beautiful card styling
+                VStack(spacing: 12) {
+                    ForEach(Array(sharedManager.activeDownloads.values), id: \.modelId) { download in
+                        if let model = sharedManager.availableModels.first(where: { $0.id == download.modelId }) {
+                            DownloadProgressCard(model: model, download: download, sharedManager: sharedManager)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(.regularMaterial)
+                                        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+                                )
+                        }
+                    }
                 }
             }
         }
-        .listRowInsets(EdgeInsets())
-        .listRowBackground(Color.clear)
-    }
-    
-    private func activeDownloadRow(model: AIModel, download: ModelDownload) -> some View {
-        DownloadProgressCard(model: model, download: download, sharedManager: sharedManager)
-            .listRowInsets(EdgeInsets())
-            .listRowBackground(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.accentColor.opacity(0.05))
-            )
     }
     
     private var availableModelsSection: some View {
-        Section {
-            availableModelsList
-        }
-    }
-    
-    private var availableModelsList: some View {
-        VStack(spacing: 16) {
-            ForEach(Provider.allCases, id: \.self) { provider in
-                if !modelsForProvider(provider).isEmpty {
-                    providerSection(for: provider)
+        VStack(alignment: .leading, spacing: 20) {
+            // Section header with modern styling
+            HStack {
+                Image(systemName: "cpu.fill")
+                    .foregroundStyle(.purple)
+                    .font(.title2)
+                Text("Available Models")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+            
+            // Provider sections with improved spacing
+            VStack(spacing: 24) {
+                ForEach(Provider.allCases, id: \.self) { provider in
+                    if !modelsForProvider(provider).isEmpty {
+                        providerSection(for: provider)
+                    }
                 }
             }
         }
-        .listRowInsets(EdgeInsets())
-        .listRowBackground(Color.clear)
     }
     
     private func modelsForProvider(_ provider: Provider) -> [AIModel] {
@@ -87,50 +98,43 @@ struct SimpleDownloadView: View {
     }
     
     private func providerSection(for provider: Provider) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Provider header
-            HStack {
-                Image(systemName: provider.iconName)
-                    .foregroundStyle(provider.color)
-                    .font(.title3)
-                
-                Text(provider.displayName)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                // Remove the model count badge
-                // Text("\(modelsForProvider(provider).count) models")
-                //     .font(.caption)
-                //     .foregroundStyle(.secondary)
-                //     .padding(.horizontal, 8)
-                //     .padding(.vertical, 4)
-                //     .background(.quaternary, in: Capsule())
+        VStack(alignment: .leading, spacing: 16) {
+            // Provider header with elegant styling
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: provider.iconName)
+                        .foregroundStyle(provider.color)
+                        .font(.title2)
+                        .frame(width: 28, height: 28)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(provider.displayName)
+                            .font(.headline)
+                            .fontWeight(.bold)
+                        Text("\(modelsForProvider(provider).count) models available")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(provider.color.opacity(0.1))
+                )
             }
-            .padding(.horizontal, 8)
             
-            // Models for this provider
-            VStack(spacing: 8) {
+            // Models for this provider with card styling
+            VStack(spacing: 12) {
                 ForEach(modelsForProvider(provider), id: \.id) { model in
-                    availableModelRow(model: model)
-                        .padding(.horizontal, 8)
+                    ModelCardView(model: model, sharedManager: sharedManager)
                 }
             }
         }
     }
     
-    private func availableModelRow(model: AIModel) -> some View {
-        ModelCardView(
-            model: model,
-            sharedManager: sharedManager
-        )
-        .listRowInsets(EdgeInsets())
-        .listRowBackground(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.regularMaterial)
-        )
-    }
     
     private var sidebarStorageHeader: some View {
         StorageHeaderView(sharedManager: sharedManager)
