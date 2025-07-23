@@ -167,6 +167,179 @@ public struct AIModel: Identifiable {
     public var isUsingBrandIcon: Bool {
         return brandIcon != nil
     }
+    
+    // MARK: - Enhanced Model Information
+    
+    /// Detailed use cases based on model type and capabilities
+    public var useCases: [String] {
+        switch type {
+        case .llama:
+            return [
+                "General conversation and chat",
+                "Question answering",
+                "Text summarization",
+                "Creative writing",
+                "Language translation",
+                "Instruction following"
+            ]
+        case .mistral:
+            return [
+                "Advanced reasoning tasks",
+                "Complex instruction following",
+                "Multi-turn conversations",
+                "Creative content generation",
+                "Text analysis and interpretation",
+                "Educational assistance"
+            ]
+        case .code:
+            return [
+                "Code generation and completion",
+                "Bug detection and fixing",
+                "Code explanation and documentation",
+                "Algorithm implementation",
+                "Code review and optimization",
+                "Programming tutorials"
+            ]
+        case .stable_diffusion:
+            return [
+                "Text-to-image generation",
+                "Image editing and enhancement",
+                "Artistic style transfer",
+                "Concept visualization",
+                "Creative design assistance",
+                "Image inpainting"
+            ]
+        case .general:
+            return [
+                "General purpose AI tasks",
+                "Text processing and analysis",
+                "Information extraction",
+                "Content moderation",
+                "Research assistance",
+                "Educational support"
+            ]
+        }
+    }
+    
+    /// Strengths of the model
+    public var strengths: [String] {
+        var modelStrengths: [String] = []
+        
+        // Size-based strengths
+        let sizeGB = Double(sizeInBytes) / 1_073_741_824.0
+        if sizeGB < 1.0 {
+            modelStrengths.append("Ultra-lightweight and fast")
+            modelStrengths.append("Low memory usage")
+        } else if sizeGB < 2.0 {
+            modelStrengths.append("Lightweight and efficient")
+            modelStrengths.append("Mobile-optimized")
+        } else if sizeGB < 5.0 {
+            modelStrengths.append("Balanced performance and size")
+            modelStrengths.append("Good accuracy-to-size ratio")
+        } else {
+            modelStrengths.append("High-quality responses")
+            modelStrengths.append("Advanced capabilities")
+        }
+        
+        // Type-based strengths
+        switch type {
+        case .code:
+            modelStrengths.append("Specialized for programming")
+            modelStrengths.append("Multi-language support")
+        case .llama:
+            modelStrengths.append("Meta's proven architecture")
+            modelStrengths.append("Well-documented and tested")
+        case .mistral:
+            modelStrengths.append("European AI excellence")
+            modelStrengths.append("Instruction-tuned")
+        case .stable_diffusion:
+            modelStrengths.append("Creative image generation")
+            modelStrengths.append("Artistic capabilities")
+        case .general:
+            modelStrengths.append("Versatile applications")
+            modelStrengths.append("Broad knowledge base")
+        }
+        
+        // Provider-based strengths
+        switch provider {
+        case .meta:
+            modelStrengths.append("Open-source leader")
+        case .microsoft:
+            modelStrengths.append("Enterprise-grade quality")
+        case .google:
+            modelStrengths.append("Research-backed development")
+        case .deepseek:
+            modelStrengths.append("Specialized AI expertise")
+        case .mistral:
+            modelStrengths.append("European privacy standards")
+        default:
+            break
+        }
+        
+        return Array(Set(modelStrengths)) // Remove duplicates
+    }
+    
+    /// Performance characteristics
+    public var performanceProfile: PerformanceProfile {
+        let sizeGB = Double(sizeInBytes) / 1_073_741_824.0
+        
+        if sizeGB < 1.0 {
+            return PerformanceProfile(
+                speed: .fast,
+                memoryUsage: .low,
+                accuracy: .good,
+                powerEfficiency: .excellent
+            )
+        } else if sizeGB < 2.0 {
+            return PerformanceProfile(
+                speed: .fast,
+                memoryUsage: .moderate,
+                accuracy: .good,
+                powerEfficiency: .good
+            )
+        } else if sizeGB < 5.0 {
+            return PerformanceProfile(
+                speed: .moderate,
+                memoryUsage: .moderate,
+                accuracy: .excellent,
+                powerEfficiency: .moderate
+            )
+        } else {
+            return PerformanceProfile(
+                speed: .slow,
+                memoryUsage: .high,
+                accuracy: .excellent,
+                powerEfficiency: .low
+            )
+        }
+    }
+    
+    /// Recommended use cases with difficulty levels
+    public var recommendedTasks: [RecommendedTask] {
+        switch type {
+        case .code:
+            return [
+                RecommendedTask(title: "Code Completion", difficulty: .beginner, description: "Auto-complete code as you type"),
+                RecommendedTask(title: "Bug Fixing", difficulty: .intermediate, description: "Identify and fix code issues"),
+                RecommendedTask(title: "Algorithm Design", difficulty: .advanced, description: "Design complex algorithms and data structures"),
+                RecommendedTask(title: "Code Review", difficulty: .intermediate, description: "Review code for best practices and improvements")
+            ]
+        case .llama, .mistral, .general:
+            return [
+                RecommendedTask(title: "Q&A Assistant", difficulty: .beginner, description: "Answer questions on various topics"),
+                RecommendedTask(title: "Content Writing", difficulty: .intermediate, description: "Write articles, emails, and creative content"),
+                RecommendedTask(title: "Research Helper", difficulty: .advanced, description: "Analyze complex topics and provide insights"),
+                RecommendedTask(title: "Language Translation", difficulty: .intermediate, description: "Translate between different languages")
+            ]
+        case .stable_diffusion:
+            return [
+                RecommendedTask(title: "Image Generation", difficulty: .beginner, description: "Create images from text descriptions"),
+                RecommendedTask(title: "Style Transfer", difficulty: .intermediate, description: "Apply artistic styles to images"),
+                RecommendedTask(title: "Concept Art", difficulty: .advanced, description: "Generate concept art and illustrations"),
+                RecommendedTask(title: "Logo Design", difficulty: .intermediate, description: "Create logos and brand elements")
+            ]
+        }
+    }
 }
 
 // MARK: - Model Type
@@ -299,6 +472,107 @@ public struct ModelDownload {
             return "\(Int(speed / 1024)) KB/s"
         } else {
             return String(format: "%.1f MB/s", speed / (1024 * 1024))
+        }
+    }
+}
+
+// MARK: - Supporting Types for Enhanced Model Information
+
+/// Performance characteristics of a model
+public struct PerformanceProfile {
+    public let speed: PerformanceLevel
+    public let memoryUsage: PerformanceLevel
+    public let accuracy: PerformanceLevel
+    public let powerEfficiency: PerformanceLevel
+    
+    public init(speed: PerformanceLevel, memoryUsage: PerformanceLevel, accuracy: PerformanceLevel, powerEfficiency: PerformanceLevel) {
+        self.speed = speed
+        self.memoryUsage = memoryUsage
+        self.accuracy = accuracy
+        self.powerEfficiency = powerEfficiency
+    }
+}
+
+/// Performance level enumeration
+public enum PerformanceLevel: String, CaseIterable {
+    case excellent = "Excellent"
+    case good = "Good"
+    case moderate = "Moderate"
+    case low = "Low"
+    case fast = "Fast"
+    case slow = "Slow"
+    case high = "High"
+    
+    public var color: Color {
+        switch self {
+        case .excellent, .fast, .good:
+            return .green
+        case .moderate:
+            return .orange
+        case .low, .slow, .high:
+            return .red
+        }
+    }
+    
+    public var iconName: String {
+        switch self {
+        case .excellent, .fast:
+            return "checkmark.circle.fill"
+        case .good:
+            return "checkmark.circle"
+        case .moderate:
+            return "minus.circle"
+        case .low, .slow:
+            return "xmark.circle"
+        case .high:
+            return "exclamationmark.circle.fill"
+        }
+    }
+}
+
+/// Recommended task with difficulty level
+public struct RecommendedTask {
+    public let title: String
+    public let difficulty: TaskDifficulty
+    public let description: String
+    
+    public init(title: String, difficulty: TaskDifficulty, description: String) {
+        self.title = title
+        self.difficulty = difficulty
+        self.description = description
+    }
+}
+
+/// Task difficulty levels
+public enum TaskDifficulty: String, CaseIterable {
+    case beginner = "Beginner"
+    case intermediate = "Intermediate"
+    case advanced = "Advanced"
+    case expert = "Expert"
+    
+    public var color: Color {
+        switch self {
+        case .beginner:
+            return .green
+        case .intermediate:
+            return .blue
+        case .advanced:
+            return .orange
+        case .expert:
+            return .red
+        }
+    }
+    
+    public var iconName: String {
+        switch self {
+        case .beginner:
+            return "1.circle.fill"
+        case .intermediate:
+            return "2.circle.fill"
+        case .advanced:
+            return "3.circle.fill"
+        case .expert:
+            return "4.circle.fill"
         }
     }
 }

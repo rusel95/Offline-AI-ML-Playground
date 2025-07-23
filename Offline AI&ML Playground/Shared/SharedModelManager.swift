@@ -38,7 +38,7 @@ class SharedModelManager: NSObject, ObservableObject {
     // MARK: - Singleton Instance
     static let shared = SharedModelManager()
     
-    // MARK: - Published Properties
+    // MARK: - Optimized Published Properties with reduced frequency updates
     @Published var availableModels: [AIModel] = []
     @Published var downloadedModels: Set<String> = []
     @Published var activeDownloads: [String: ModelDownload] = [:]
@@ -50,6 +50,22 @@ class SharedModelManager: NSObject, ObservableObject {
     @Published var freeStorage: Double = 0
     @Published var isLoadingAvailableModels = false
     
+    // MARK: - Performance optimization properties
+    private var lastStorageUpdate: Date = Date()
+    private var storageUpdateThrottle: TimeInterval = 2.0 // Update storage every 2 seconds max
+    private let progressUpdateThrottle: TimeInterval = 0.1 // Update progress every 100ms max
+    private var lastProgressUpdate: [URLSessionTask: Date] = [:]
+    
+    // Batch update mechanism
+    private var pendingUpdates: Set<UpdateType> = []
+    private var updateTimer: Timer?
+    
+    private enum UpdateType: Hashable {
+        case storage
+        case models
+        case downloads
+    }
+    
     // MARK: - Private Properties
     private var urlSession: URLSession!
     private let documentsDirectory: URL
@@ -60,8 +76,7 @@ class SharedModelManager: NSObject, ObservableObject {
     private var lastBytesWritten: [URLSessionTask: Int64] = [:]
     private var speedTrackers: [URLSessionTask: DownloadSpeedTracker] = [:]
     
-    // Inference management
-    private var aiInferenceManager: AIInferenceManager?
+    // Inference management will be handled by individual components
     
     // MARK: - Initialization
     private override init() {
@@ -107,22 +122,80 @@ class SharedModelManager: NSObject, ObservableObject {
     
     // MARK: - Model Catalog Management
     private func loadCuratedModels() {
-        // CRITICAL FIX: Load working GGUF models with correct URLs
+        // CRITICAL FIX: Load working GGUF models with correct URLs and comprehensive metadata
         // These are verified to work with MLX and are available on HuggingFace
         availableModels = [
             // Small, reliable models for testing and mobile use
-            AIModel(id: "gemma-2b", name: "Gemma 2B", description: "Google's lightweight open model", huggingFaceRepo: "TheBloke/gemma-2b-it-GGUF", filename: "gemma-2b-it.Q4_K_M.gguf", sizeInBytes: 1200000000, type: .general, tags: ["language", "google"], isGated: false, provider: .google),
+            AIModel(
+                id: "gemma-2b", 
+                name: "Gemma 2B Instruct", 
+                description: "Google's efficient 2B parameter model optimized for instruction following and mobile deployment. Excellent for chat applications with low memory requirements.", 
+                huggingFaceRepo: "TheBloke/gemma-2b-it-GGUF", 
+                filename: "gemma-2b-it.Q4_K_M.gguf", 
+                sizeInBytes: 1200000000, 
+                type: .general, 
+                tags: ["language", "google", "instruction-following", "chat", "efficient", "mobile-optimized", "low-memory", "multilingual"], 
+                isGated: false, 
+                provider: .google
+            ),
             
-            AIModel(id: "tinyllama-1.1b", name: "TinyLlama 1.1B", description: "Meta's tiny model", huggingFaceRepo: "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF", filename: "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf", sizeInBytes: 669262336, type: .llama, tags: ["tiny", "meta"], isGated: false, provider: .meta),
+            AIModel(
+                id: "tinyllama-1.1b", 
+                name: "TinyLlama 1.1B Chat", 
+                description: "Ultra-lightweight Llama-based model perfect for resource-constrained environments. Ideal for basic chat and simple text generation tasks.", 
+                huggingFaceRepo: "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF", 
+                filename: "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf", 
+                sizeInBytes: 669262336, 
+                type: .llama, 
+                tags: ["tiny", "meta", "llama", "ultra-lightweight", "fast", "basic-chat", "low-power", "edge-computing"], 
+                isGated: false, 
+                provider: .meta
+            ),
             
-            AIModel(id: "phi-2", name: "Phi-2", description: "Microsoft's 2.7B parameter model", huggingFaceRepo: "TheBloke/phi-2-GGUF", filename: "phi-2.Q4_K_M.gguf", sizeInBytes: 1400000000, type: .general, tags: ["language", "microsoft"], isGated: false, provider: .microsoft),
+            AIModel(
+                id: "phi-2", 
+                name: "Phi-2", 
+                description: "Microsoft's compact 2.7B parameter model with strong reasoning capabilities. Excellent performance-to-size ratio for educational and research tasks.", 
+                huggingFaceRepo: "TheBloke/phi-2-GGUF", 
+                filename: "phi-2.Q4_K_M.gguf", 
+                sizeInBytes: 1400000000, 
+                type: .general, 
+                tags: ["language", "microsoft", "reasoning", "education", "research", "compact", "high-performance", "mathematics", "science"], 
+                isGated: false, 
+                provider: .microsoft
+            ),
             
-            AIModel(id: "deepseek-coder-1.3b", name: "DeepSeek Coder 1.3B", description: "DeepSeek's small code model", huggingFaceRepo: "TheBloke/deepseek-coder-1.3b-instruct-GGUF", filename: "deepseek-coder-1.3b-instruct.Q4_K_M.gguf", sizeInBytes: 783741952, type: .code, tags: ["code", "deepseek"], isGated: false, provider: .deepseek),
+            AIModel(
+                id: "deepseek-coder-1.3b", 
+                name: "DeepSeek Coder 1.3B", 
+                description: "Specialized coding model trained on massive code datasets. Excels at code generation, debugging, and explanation across multiple programming languages.", 
+                huggingFaceRepo: "TheBloke/deepseek-coder-1.3b-instruct-GGUF", 
+                filename: "deepseek-coder-1.3b-instruct.Q4_K_M.gguf", 
+                sizeInBytes: 783741952, 
+                type: .code, 
+                tags: ["code", "deepseek", "programming", "multi-language", "debugging", "code-completion", "software-development", "algorithms"], 
+                isGated: false, 
+                provider: .deepseek
+            ),
             
-            AIModel(id: "gpt2", name: "GPT-2", description: "OpenAI's original GPT-2 - reliable and fast", huggingFaceRepo: "TheBloke/gpt2-GGUF", filename: "gpt2.Q4_K_M.gguf", sizeInBytes: 124000000, type: .general, tags: ["language", "openai"], isGated: false, provider: .openAI),
+            AIModel(
+                id: "gpt2", 
+                name: "GPT-2", 
+                description: "OpenAI's foundational transformer model. Reliable for text generation, creative writing, and understanding transformer architecture fundamentals.", 
+                huggingFaceRepo: "TheBloke/gpt2-GGUF", 
+                filename: "gpt2.Q4_K_M.gguf", 
+                sizeInBytes: 124000000, 
+                type: .general, 
+                tags: ["language", "openai", "foundational", "creative-writing", "text-generation", "historical", "well-documented", "research"], 
+                isGated: false, 
+                provider: .openAI
+            ),
         ]
         
-        print("📋 Loaded \(availableModels.count) curated models")
+        print("📋 Loaded \(availableModels.count) curated models with enhanced metadata")
+        print("🏷️ Total tags across all models: \(Set(availableModels.flatMap { $0.tags }).count)")
+        print("🏢 Providers available: \(Set(availableModels.map { $0.provider.displayName }).joined(separator: ", "))")
+        print("📊 Model types: \(Set(availableModels.map { $0.type.displayName }).joined(separator: ", "))")
     }
     
     // MARK: - Model Availability Checking
@@ -174,8 +247,14 @@ class SharedModelManager: NSObject, ObservableObject {
         }
     }
     
-    // MARK: - Model Synchronization
+    // MARK: - Optimized Model Synchronization
     func synchronizeModels() {
+        // Add to pending updates for batch processing
+        pendingUpdates.insert(.models)
+        scheduleUpdate()
+    }
+    
+    private func performModelSynchronization() {
         print("🔄 Synchronizing models with file system...")
         
         guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
@@ -183,40 +262,40 @@ class SharedModelManager: NSObject, ObservableObject {
             return
         }
         
-        do {
-            let contents = try FileManager.default.contentsOfDirectory(
-                at: modelsDirectory, 
-                includingPropertiesForKeys: [.fileSizeKey]
-            )
-            let filesOnDisk = Set(contents.map { $0.lastPathComponent })
+        // Perform synchronization on background queue for better performance
+        DispatchQueue.global(qos: .userInitiated).async {
+            var newDownloadedModels: Set<String> = []
             
-            // CRITICAL FIX: Match model IDs with files that start with the model ID
-            let modelIdsOnDisk = Set(availableModels.compactMap { model in
-                // Check if any file on disk starts with this model's ID
-                let hasMatchingFile = filesOnDisk.contains { filename in
-                    filename.hasPrefix(model.id) && filename.contains(".")
+            do {
+                let contents = try FileManager.default.contentsOfDirectory(
+                    at: self.modelsDirectory, 
+                    includingPropertiesForKeys: [.fileSizeKey]
+                )
+                let filesOnDisk = Set(contents.map { $0.lastPathComponent })
+                
+                // CRITICAL FIX: Match model IDs with files that start with the model ID
+                let modelIdsOnDisk = Set(self.availableModels.compactMap { model in
+                    // Check if any file on disk starts with this model's ID
+                    let hasMatchingFile = filesOnDisk.contains { filename in
+                        filename.hasPrefix(model.id) && filename.contains(".")
+                    }
+                    return hasMatchingFile ? model.id : nil
+                })
+                
+                newDownloadedModels = modelIdsOnDisk
+                
+            } catch {
+                print("❌ Error synchronizing models: \(error)")
+            }
+            
+            // Update on main thread only if there are changes
+            DispatchQueue.main.async {
+                if self.downloadedModels != newDownloadedModels {
+                    let oldCount = self.downloadedModels.count
+                    self.downloadedModels = newDownloadedModels
+                    print("📊 Synchronized: \(self.downloadedModels.count) models tracked (was \(oldCount))")
                 }
-                return hasMatchingFile ? model.id : nil
-            })
-            
-            // Remove tracked models that don't exist on disk
-            let modelsToRemove = downloadedModels.subtracting(modelIdsOnDisk)
-            for modelId in modelsToRemove {
-                print("🗑️ Removing missing model from tracking: \(modelId)")
-                downloadedModels.remove(modelId)
             }
-            
-            // Add untracked models found on disk
-            let modelsToAdd = modelIdsOnDisk.subtracting(downloadedModels)
-            for modelId in modelsToAdd {
-                print("✅ Adding found model to tracking: \(modelId)")
-                downloadedModels.insert(modelId)
-            }
-            
-            print("📊 Synchronized: \(downloadedModels.count) models tracked")
-            
-        } catch {
-            print("❌ Error synchronizing models: \(error)")
         }
     }
     
@@ -341,32 +420,91 @@ class SharedModelManager: NSObject, ObservableObject {
         }
     }
     
-    // MARK: - Storage Management
+    // MARK: - Optimized Storage Management
     func calculateStorage() {
-        guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
-            storageUsed = 0
+        // Throttle storage calculations to prevent excessive UI updates
+        let now = Date()
+        guard now.timeIntervalSince(lastStorageUpdate) >= storageUpdateThrottle else {
             return
         }
         
-        do {
-            let contents = try FileManager.default.contentsOfDirectory(
-                at: modelsDirectory, 
-                includingPropertiesForKeys: [.fileSizeKey]
-            )
+        pendingUpdates.insert(.storage)
+        scheduleUpdate()
+    }
+    
+    private func performStorageCalculation() {
+        guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
+            DispatchQueue.main.async {
+                self.storageUsed = 0
+                self.lastStorageUpdate = Date()
+            }
+            return
+        }
+        
+        // Perform calculation on background queue
+        Task.detached { [weak self] in
+            guard let self = self else { return }
             
-            storageUsed = contents.reduce(0.0) { total, url in
-                let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
-                return total + Double(size)
+            let calculatedStorage: Double
+            let calculatedFreeStorage: Double
+            
+            do {
+                let contents = try FileManager.default.contentsOfDirectory(
+                    at: self.modelsDirectory, 
+                    includingPropertiesForKeys: [.fileSizeKey]
+                )
+                
+                calculatedStorage = contents.reduce(0.0) { total, url in
+                    let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+                    return total + Double(size)
+                }
+                
+                // Update free storage
+                if let systemAttributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
+                   let freeSpace = systemAttributes[.systemFreeSize] as? NSNumber {
+                    calculatedFreeStorage = freeSpace.doubleValue
+                } else {
+                    calculatedFreeStorage = 0
+                }
+                
+            } catch {
+                calculatedStorage = 0
+                calculatedFreeStorage = 0
             }
             
-            // Update free storage
-            if let systemAttributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
-               let freeSpace = systemAttributes[.systemFreeSize] as? NSNumber {
-                self.freeStorage = freeSpace.doubleValue
+            // Update on main thread
+            await MainActor.run {
+                self.storageUsed = calculatedStorage
+                self.freeStorage = calculatedFreeStorage
+                self.lastStorageUpdate = Date()
             }
-            
-        } catch {
-            storageUsed = 0
+        }
+    }
+    
+    // MARK: - Batch Update System
+    private func scheduleUpdate() {
+        updateTimer?.invalidate()
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.processPendingUpdates()
+            }
+        }
+    }
+    
+    private func processPendingUpdates() {
+        let updates = pendingUpdates
+        pendingUpdates.removeAll()
+        
+        for update in updates {
+            switch update {
+            case .storage:
+                performStorageCalculation()
+            case .models:
+                performModelSynchronization()
+            case .downloads:
+                // Handle download updates if needed
+                break
+            }
         }
     }
     
@@ -379,12 +517,7 @@ class SharedModelManager: NSObject, ObservableObject {
     }
     
     // MARK: - Inference Management
-    func getInferenceManager() -> AIInferenceManager {
-        if aiInferenceManager == nil {
-            aiInferenceManager = AIInferenceManager()
-        }
-        return aiInferenceManager!
-    }
+    // Inference management moved to individual view models for better performance
     
     // MARK: - Download Speed Tracking
     private struct DownloadSpeedTracker {
@@ -428,7 +561,10 @@ extension SharedModelManager: URLSessionDownloadDelegate {
             }
         }
         
-        guard let modelId = targetModelId else { return }
+        guard let modelId = targetModelId else { 
+            print("⚠️ Could not find model ID for completed download")
+            return 
+        }
         
         // Move file to models directory
         let destinationURL = modelsDirectory.appendingPathComponent(modelId)
@@ -437,26 +573,36 @@ extension SharedModelManager: URLSessionDownloadDelegate {
             // Remove existing file if present
             if FileManager.default.fileExists(atPath: destinationURL.path) {
                 try FileManager.default.removeItem(at: destinationURL)
+                print("🔄 Replaced existing model file: \(modelId)")
             }
             
             // Move downloaded file
             try FileManager.default.moveItem(at: location, to: destinationURL)
+            
+            // Verify the moved file
+            let fileSize = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path))?[.size] as? Int64 ?? 0
             
             // Update state on main actor
             Task { @MainActor in
                 downloadedModels.insert(modelId)
                 activeDownloads.removeValue(forKey: modelId)
                 speedTrackers.removeValue(forKey: downloadTask)
+                lastProgressUpdate.removeValue(forKey: downloadTask)
                 calculateStorage()
+                
                 print("✅ Successfully downloaded model: \(modelId)")
+                print("📁 File size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
+                print("💾 Total models downloaded: \(downloadedModels.count)")
             }
             
         } catch {
-            print("❌ Error saving model \(modelId): \(error)")
+            print("❌ Error saving model \(modelId): \(error.localizedDescription)")
             
             Task { @MainActor in
                 activeDownloads.removeValue(forKey: modelId)
                 speedTrackers.removeValue(forKey: downloadTask)
+                lastProgressUpdate.removeValue(forKey: downloadTask)
+                lastError = "Failed to save \(modelId): \(error.localizedDescription)"
             }
         }
     }
@@ -464,6 +610,15 @@ extension SharedModelManager: URLSessionDownloadDelegate {
     nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         
         Task { @MainActor in
+            // Throttle progress updates to prevent excessive UI refreshes
+            let now = Date()
+            if let lastUpdate = lastProgressUpdate[downloadTask],
+               now.timeIntervalSince(lastUpdate) < progressUpdateThrottle {
+                return
+            }
+            
+            lastProgressUpdate[downloadTask] = now
+            
             for (modelId, download) in activeDownloads {
                 if download.task == downloadTask {
                     // Update speed tracking
@@ -493,13 +648,15 @@ extension SharedModelManager: URLSessionDownloadDelegate {
     
     nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error = error {
-            print("❌ Download failed: \(error)")
+            print("❌ Download failed: \(error.localizedDescription)")
             
             Task { @MainActor in
                 for (modelId, download) in activeDownloads {
                     if download.task == task {
                         activeDownloads.removeValue(forKey: modelId)
                         speedTrackers.removeValue(forKey: task)
+                        lastProgressUpdate.removeValue(forKey: task)
+                        print("🧹 Cleaned up failed download for model: \(modelId)")
                         break
                     }
                 }

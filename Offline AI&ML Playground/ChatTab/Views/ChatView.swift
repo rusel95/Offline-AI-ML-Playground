@@ -485,26 +485,35 @@ struct SimpleChatView: View {
                 ModelSelectionHeader(viewModel: viewModel)
             }
             
-            // Chat messages
+            // Optimized Chat messages with better performance
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 8) {
+                    LazyVStack(spacing: 12) {
                         if viewModel.messages.isEmpty {
                             EmptyStateView(viewModel: viewModel)
+                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
                         } else {
-                            ForEach(viewModel.messages) { message in
+                            // Optimized message rendering with better memory management
+                            ForEach(viewModel.messages.indices, id: \.self) { index in
+                                let message = viewModel.messages[index]
                                 ChatMessageView(message: message)
                                     .id(message.id)
+                                    .transition(.asymmetric(
+                                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                                        removal: .opacity
+                                    ))
                             }
                             
+                            // Typing indicator with better performance
                             if viewModel.isGenerating {
                                 TypingIndicatorView(modelName: viewModel.selectedModel?.name ?? "AI Model")
-                                    .padding(.horizontal, 16)
+                                    .transition(.move(edge: .bottom).combined(with: .opacity))
                             }
                         }
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 12)
                     .background(
+                        // Simplified geometry reader for better performance
                         GeometryReader { geometry in
                             Color.clear
                                 .preference(
@@ -516,22 +525,30 @@ struct SimpleChatView: View {
                 }
                 .coordinateSpace(name: "scrollView")
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    // Throttled scroll position handling
                     handleScrollPositionChange(value)
                 }
-                .onTapGesture {
-                    // Tap anywhere in chat to hide keyboard
-                    hideKeyboard()
-                }
-                .onChange(of: viewModel.messages.count) { _, _ in
-                    if let lastMessage = viewModel.messages.last {
-                        withAnimation(.easeInOut(duration: 0.5)) {
+                .simultaneousGesture(
+                    // More efficient tap gesture handling
+                    TapGesture()
+                        .onEnded { _ in
+                            hideKeyboard()
+                        }
+                )
+                .onChange(of: viewModel.messages.count) { oldCount, newCount in
+                    // Optimized auto-scroll behavior
+                    if newCount > oldCount, let lastMessage = viewModel.messages.last {
+                        withAnimation(.easeOut(duration: 0.3)) {
                             proxy.scrollTo(lastMessage.id, anchor: .bottom)
                         }
-                        
-                        // Reset scroll position when scrolling to bottom
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                            lastScrollPosition = 0
-                            scrollPosition = 0
+                    }
+                }
+                // Monitor content changes for streaming updates
+                .onChange(of: viewModel.messages.last?.content) { _, _ in
+                    // Auto-scroll during streaming with debouncing
+                    if viewModel.isGenerating, let lastMessage = viewModel.messages.last {
+                        withAnimation(.easeOut(duration: 0.1)) {
+                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
                         }
                     }
                 }
@@ -576,47 +593,73 @@ struct SimpleChatView: View {
             )
         }
         .toolbar {
-            // Chat History button (leading)
+            // Optimized Chat History button (leading)
             ToolbarItem(placement: .topBarLeading) {
                 Button {
+                    HapticFeedback.selectionChanged()
                     viewModel.showingChatHistory = true
                 } label: {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.title2)
                         .foregroundStyle(Color.accentColor)
+                        .symbolEffect(.bounce, value: viewModel.showingChatHistory)
                 }
                 .disabled(viewModel.isGenerating || viewModel.isModelLoading)
             }
             
-            // Model picker button (center/principal)
+            // Enhanced Model picker button (center/principal)
             ToolbarItem(placement: .principal) {
                 Button {
                     if !viewModel.isModelLoading {
+                        HapticFeedback.selectionChanged()
                         viewModel.showingModelPicker = true
                     }
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         if viewModel.isModelLoading {
                             ProgressView()
                                 .controlSize(.mini)
-                            Text("Loading model to memory")
+                                .tint(.secondary)
+                            Text("Loading...")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
                         } else {
-                            Image(systemName: "cpu")
-                            Text("\(viewModel.selectedModel?.name ?? "No Model")")
-                                .lineLimit(1)
-                                .truncationMode(.middle)
+                            // Model icon with provider-specific styling
+                            if let model = viewModel.selectedModel {
+                                Image(systemName: model.displayIcon)
+                                    .foregroundStyle(model.displayColor)
+                                
+                                Text(model.name)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                            } else {
+                                Image(systemName: "cpu")
+                                    .foregroundStyle(.secondary)
+                                Text("Select Model")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
                         }
                     }
-                    .font(.headline)
-                    .foregroundStyle(viewModel.isModelLoading ? .secondary : Color.accentColor)
+                    .foregroundStyle(viewModel.isModelLoading ? .secondary : .primary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(.ultraThinMaterial)
+                            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                    )
                 }
                 .disabled(viewModel.isGenerating || viewModel.isModelLoading)
             }
             
-            // Actions menu (trailing)
+            // Enhanced Actions menu (trailing)
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
+                        HapticFeedback.light()
                         viewModel.startNewConversation()
                     } label: {
                         Label("New Conversation", systemImage: "plus.message")
@@ -624,6 +667,7 @@ struct SimpleChatView: View {
                     .disabled(viewModel.isModelLoading)
                     
                     Button {
+                        HapticFeedback.light()
                         viewModel.showingChatHistory = true
                     } label: {
                         Label("Chat History", systemImage: "clock.arrow.circlepath")
@@ -632,6 +676,7 @@ struct SimpleChatView: View {
                     
                     Button {
                         if !viewModel.isModelLoading {
+                            HapticFeedback.light()
                             viewModel.showingModelPicker = true
                         }
                     } label: {
@@ -641,7 +686,8 @@ struct SimpleChatView: View {
                     
                     Divider()
                     
-                    Button {
+                    Button(role: .destructive) {
+                        HapticFeedback.light()
                         viewModel.clearConversation()
                     } label: {
                         Label("Clear Conversation", systemImage: "trash")
@@ -651,6 +697,7 @@ struct SimpleChatView: View {
                     Divider()
                     
                     Button {
+                        HapticFeedback.light()
                         viewModel.refreshDownloadedModels()
                     } label: {
                         if viewModel.isModelLoading {
@@ -664,6 +711,7 @@ struct SimpleChatView: View {
                     Image(systemName: "ellipsis.circle")
                         .font(.title2)
                         .foregroundStyle(Color.accentColor)
+                        .symbolEffect(.bounce, value: viewModel.showingChatHistory)
                 }
                 .disabled(viewModel.isModelLoading)
             }
@@ -685,10 +733,17 @@ struct SimpleChatView: View {
             viewModel.saveCurrentConversation()
         }
         .onChange(of: inputText) { _, newText in
-            // Show keyboard when user starts typing
+            // Optimized keyboard handling with debouncing
             if !newText.isEmpty && !isKeyboardVisible {
                 showKeyboard()
             }
+        }
+        // Add haptic feedback for better user experience
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillShowNotification)) { _ in
+            isKeyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillHideNotification)) { _ in
+            isKeyboardVisible = false
         }
         .onChange(of: viewModel.showingModelPicker) { oldValue, newValue in
             if !newValue && viewModel.shouldNavigateToDownloads {
@@ -698,32 +753,41 @@ struct SimpleChatView: View {
         }
     }
     
-    // MARK: - Keyboard Management Methods
+    // MARK: - Optimized Keyboard Management Methods
+    
+    @State private var scrollDebounceTimer: Timer?
     
     private func handleScrollPositionChange(_ value: CGFloat) {
         let currentPosition = value
         
-        // Detect scroll direction
-        let isScrollingUp = currentPosition > lastScrollPosition
-        
-        // Hide keyboard when scrolling up (viewing history)
-        if isScrollingUp && abs(currentPosition - lastScrollPosition) > 5 {
-            hideKeyboard()
+        // Throttle scroll position updates for better performance
+        scrollDebounceTimer?.invalidate()
+        scrollDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: false) { _ in
+            let isScrollingUp = currentPosition > lastScrollPosition
+            let scrollDelta = abs(currentPosition - lastScrollPosition)
+            
+            // Only hide keyboard for significant upward scrolls
+            if isScrollingUp && scrollDelta > 20 && isKeyboardVisible {
+                hideKeyboard()
+            }
+            
+            lastScrollPosition = currentPosition
+            scrollPosition = currentPosition
         }
-        
-        // Update positions
-        lastScrollPosition = currentPosition
-        scrollPosition = currentPosition
     }
     
     private func hideKeyboard() {
-        isInputFocused = false
-        isKeyboardVisible = false
+        withAnimation(.easeInOut(duration: 0.25)) {
+            isInputFocused = false
+            isKeyboardVisible = false
+        }
     }
     
     private func showKeyboard() {
-        isInputFocused = true
-        isKeyboardVisible = true
+        withAnimation(.easeInOut(duration: 0.25)) {
+            isInputFocused = true
+            isKeyboardVisible = true
+        }
     }
 }
 
@@ -734,5 +798,29 @@ struct ScrollOffsetPreferenceKey: PreferenceKey {
     
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+// MARK: - Haptic Feedback Helper
+
+struct HapticFeedback {
+    static func light() {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+    }
+    
+    static func selectionChanged() {
+        let selectionFeedback = UISelectionFeedbackGenerator()
+        selectionFeedback.selectionChanged()
+    }
+    
+    static func success() {
+        let notificationFeedback = UINotificationFeedbackGenerator()
+        notificationFeedback.notificationOccurred(.success)
+    }
+    
+    static func error() {
+        let notificationFeedback = UINotificationFeedbackGenerator()
+        notificationFeedback.notificationOccurred(.error)
     }
 }

@@ -17,64 +17,117 @@ struct ChatInputView: View {
     let onSend: () -> Void
     let onFocusChanged: (Bool) -> Void
     
+    // Throttle focus change callbacks for better performance
+    @State private var debounceTimer: Timer?
+    
     var body: some View {
         HStack(spacing: 12) {
+            // Optimized text field with better performance
             TextField("Type a message...", text: $text, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(OptimizedTextFieldStyle())
                 .focused($isInputFocused)
                 .disabled(isGenerating)
-                .lineLimit(1...6) // Limit to reasonable height
+                .lineLimit(1...4) // Reduced max lines for better performance
                 .onSubmit {
                     if canSend {
                         onSend()
                     }
                 }
                 .onChange(of: isInputFocused) { _, focused in
-                    onFocusChanged(focused)
-                }
-                .onTapGesture {
-                    // Focus input when tapped
-                    isInputFocused = true
+                    // Debounce focus changes to reduce UI updates
+                    debounceTimer?.invalidate()
+                    debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { _ in
+                        onFocusChanged(focused)
+                    }
                 }
             
-            Button(action: {
-                onSend()
-                // Hide keyboard after sending
-                isInputFocused = false
-            }) {
-                if isGenerating {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(canSend ? Color.accentColor : Color.secondary)
+            // Optimized send button with better animations
+            SendButton(
+                canSend: canSend,
+                isGenerating: isGenerating,
+                onSend: {
+                    onSend()
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isInputFocused = false
+                    }
                 }
-            }
-            .disabled(!canSend)
+            )
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal, 8)
-        .padding(.bottom, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+        )
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
     }
     
-    // Public method to control focus from parent
+    // Public methods for focus control
     func focusInput() {
-        isInputFocused = true
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isInputFocused = true
+        }
     }
     
     func unfocusInput() {
-        isInputFocused = false
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isInputFocused = false
+        }
+    }
+}
+
+// MARK: - Optimized Text Field Style
+struct OptimizedTextFieldStyle: TextFieldStyle {
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color(.systemGray6))
+            )
+            .font(.body)
+    }
+}
+
+// MARK: - Optimized Send Button
+struct SendButton: View {
+    let canSend: Bool
+    let isGenerating: Bool
+    let onSend: () -> Void
+    
+    var body: some View {
+        Button(action: onSend) {
+            Group {
+                if isGenerating {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                } else {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+        .frame(width: 36, height: 36)
+        .background(
+            Circle()
+                .fill(canSend ? Color.accentColor : Color.secondary)
+                .scaleEffect(canSend ? 1.0 : 0.8)
+        )
+        .disabled(!canSend)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: canSend)
     }
 }
 
 // MARK: - Preview
 #Preview {
-    VStack {
+    VStack(spacing: 20) {
         ChatInputView(
-            text: .constant("Hello world"),
+            text: .constant("Hello world! This is a longer message to test the multi-line behavior."),
             canSend: true,
             isGenerating: false,
             onSend: {},
@@ -90,12 +143,13 @@ struct ChatInputView: View {
         )
         
         ChatInputView(
-            text: .constant("Generating..."),
-            canSend: true,
+            text: .constant("Generating response..."),
+            canSend: false,
             isGenerating: true,
             onSend: {},
             onFocusChanged: { _ in }
         )
     }
     .padding()
+    .background(Color(.systemGroupedBackground))
 } 
