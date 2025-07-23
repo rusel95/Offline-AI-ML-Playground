@@ -70,9 +70,29 @@ class SimpleChatViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     init() {
+        // Start model synchronization
         sharedManager.synchronizeModels()
         
-        // Try to restore the last selected model
+        // Set up reactive model loading after synchronization completes
+        setupModelLoadingObserver()
+    }
+    
+    private func setupModelLoadingObserver() {
+        // Observe changes to downloadedModels to handle model restoration after sync
+        sharedManager.$downloadedModels
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] downloadedModelIds in
+                guard let self = self else { return }
+                
+                // Only proceed if we don't already have a selected model and there are downloaded models
+                guard self.selectedModel == nil && !downloadedModelIds.isEmpty else { return }
+                
+                self.restoreOrSelectDefaultModel()
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func restoreOrSelectDefaultModel() {
         let downloadedModels = sharedManager.getDownloadedModels()
         let lastSelectedModelID = UserDefaults.standard.lastSelectedModelID
         
@@ -203,84 +223,64 @@ class SimpleChatViewModel: ObservableObject {
     func refreshDownloadedModels() {
         sharedManager.synchronizeModels()
         
-        let downloadedModels = sharedManager.getDownloadedModels()
-        let lastSelectedModelID = UserDefaults.standard.lastSelectedModelID
-        let availableModels = self.availableModels // Use filtered list
-        
-        // Check if currently selected model is still available
-        if let selectedModel = selectedModel,
-           !downloadedModels.contains(where: { $0.id == selectedModel.id }) {
-            // Current model no longer available, try to restore from UserDefaults
-            if let savedModelID = lastSelectedModelID,
-               let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
-                // Check if saved model is a vision or embedding model
-                if savedModel.name.lowercased().contains("mobilevit") ||
-                   savedModel.name.lowercased().contains("vision") ||
-                   savedModel.tags.contains("vision") ||
-                   savedModel.name.lowercased().contains("minilm") ||
-                   savedModel.name.lowercased().contains("embedding") ||
-                   savedModel.name.lowercased().contains("sentence") ||
-                   savedModel.tags.contains("embedding") ||
-                   savedModel.tags.contains("sentence-transformers") {
-                    print("⚠️ Saved model is a vision or embedding model, using fallback")
-                    // Use first available language model
-                    if let firstModel = availableModels.first {
-                        self.selectedModel = firstModel
-                        print("🔄 Using first available language model: \(firstModel.name)")
-                        Task {
-                            await loadModelForInference(firstModel)
+        // Use a short delay to allow synchronization to complete before checking models
+        Task {
+            // Small delay to allow file system synchronization to complete
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+            
+            await MainActor.run {
+                let downloadedModels = sharedManager.getDownloadedModels()
+                let lastSelectedModelID = UserDefaults.standard.lastSelectedModelID
+                let availableModels = self.availableModels // Use filtered list
+                
+                // Check if currently selected model is still available
+                if let selectedModel = selectedModel,
+                   !downloadedModels.contains(where: { $0.id == selectedModel.id }) {
+                    // Current model no longer available, try to restore from UserDefaults
+                    if let savedModelID = lastSelectedModelID,
+                       let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
+                        // Check if saved model is a vision or embedding model
+                        if savedModel.name.lowercased().contains("mobilevit") ||
+                           savedModel.name.lowercased().contains("vision") ||
+                           savedModel.tags.contains("vision") ||
+                           savedModel.name.lowercased().contains("minilm") ||
+                           savedModel.name.lowercased().contains("embedding") ||
+                           savedModel.name.lowercased().contains("sentence") ||
+                           savedModel.tags.contains("embedding") ||
+                           savedModel.tags.contains("sentence-transformers") {
+                            print("⚠️ Saved model is a vision or embedding model, using fallback")
+                            // Use first available language model
+                            if let firstModel = availableModels.first {
+                                self.selectedModel = firstModel
+                                print("🔄 Using first available language model: \(firstModel.name)")
+                                Task {
+                                    await loadModelForInference(firstModel)
+                                }
+                            }
+                        } else {
+                            self.selectedModel = savedModel
+                            print("🔄 Current model unavailable, restored saved model: \(savedModel.name)")
+                            Task {
+                                await loadModelForInference(savedModel)
+                            }
                         }
                     }
-                } else {
-                    self.selectedModel = savedModel
-                    print("🔄 Current model unavailable, restored saved model: \(savedModel.name)")
-                    Task {
-                        await loadModelForInference(savedModel)
+                    // Fallback to first available model
+                    else {
+                        self.selectedModel = availableModels.first
+                        print("🔄 No saved model available, using first language model")
+                        
+                        if let newModel = self.selectedModel {
+                            Task {
+                                await loadModelForInference(newModel)
+                            }
+                        }
                     }
                 }
-            }
-            // Fallback to first available model
-            else {
-                self.selectedModel = availableModels.first
-                print("🔄 No saved model available, using first language model")
                 
-                if let newModel = self.selectedModel {
-                    Task {
-                        await loadModelForInference(newModel)
-                    }
-                }
-            }
-        }
-        
-        // If no model selected but models are available, try to restore preference
-        if selectedModel == nil && !availableModels.isEmpty {
-            if let savedModelID = lastSelectedModelID,
-               let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
-                // Check if saved model is a vision or embedding model
-                if savedModel.name.lowercased().contains("mobilevit") ||
-                   savedModel.name.lowercased().contains("vision") ||
-                   savedModel.tags.contains("vision") ||
-                   savedModel.name.lowercased().contains("minilm") ||
-                   savedModel.name.lowercased().contains("embedding") ||
-                   savedModel.name.lowercased().contains("sentence") ||
-                   savedModel.tags.contains("embedding") ||
-                   savedModel.tags.contains("sentence-transformers") {
-                    print("⚠️ Saved model is a vision or embedding model, using fallback")
-                    selectedModel = availableModels.first
-                    print("🔄 Using first available language model")
-                } else {
-                    selectedModel = savedModel
-                    print("🔄 Restored saved model on refresh: \(savedModel.name)")
-                }
-            } else {
-                selectedModel = availableModels.first
-                print("🔄 No saved preference, using first available language model")
-            }
-            
-            // Load the selected model for inference
-            if let newModel = selectedModel {
-                Task {
-                    await loadModelForInference(newModel)
+                // If no model selected but models are available, try to restore preference
+                if selectedModel == nil && !availableModels.isEmpty {
+                    self.restoreOrSelectDefaultModel()
                 }
             }
         }
@@ -615,7 +615,7 @@ struct SimpleChatView: View {
                             ProgressView()
                                 .controlSize(.mini)
                                 .tint(.secondary)
-                            Text("Loading...")
+                            Text("Loading to memory...")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                         } else {
