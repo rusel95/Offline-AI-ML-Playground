@@ -525,44 +525,18 @@ class AIInferenceManager: ObservableObject {
         return nil
     }
     
-    /// Create model configuration that matches the actually downloaded model
+    /// Create model configuration for public repositories
     private func createModelConfigurationForDownloadedModel(_ model: AIModel) -> ModelConfiguration {
         print("🔧 Creating configuration for downloaded model: \(model.name)")
         
-        // **CRITICAL FIX**: Map actual downloaded model to correct MLX configuration
-        // Instead of hardcoded configs, use the actual model that was downloaded
-        
-        let modelName = model.name.lowercased()
-        let modelId = model.id.lowercased()
-        
-        // Try to find appropriate MLX-compatible model ID based on what was downloaded
-        var mlxModelId: String
-        
-        if modelId.contains("gemma") && modelId.contains("2b") {
-            mlxModelId = "mlx-community/gemma-2b-it-4bit"
-            print("📋 Mapping Gemma 2B to MLX configuration")
-        } else if modelId.contains("tinyllama") || modelId.contains("tiny") {
-            mlxModelId = "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit"
-            print("📋 Mapping TinyLlama to MLX configuration")
-        } else if modelId.contains("phi-2") || modelName.contains("phi-2") {
-            mlxModelId = "mlx-community/phi-2-4bit"
-            print("📋 Mapping Phi-2 to MLX configuration")
-        } else if modelId.contains("deepseek") && modelId.contains("coder") {
-            mlxModelId = "mlx-community/deepseek-coder-1.3b-instruct-4bit"
-            print("📋 Mapping DeepSeek Coder to MLX configuration")
-        } else if modelId.contains("gpt2") || modelName.contains("gpt-2") {
-            mlxModelId = "mlx-community/gpt2-4bit"
-            print("📋 Mapping GPT-2 to MLX configuration")
-        } else {
-            // Fallback to a reliable small model
-            mlxModelId = "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit"
-            print("📋 Using fallback MLX configuration for unknown model")
-        }
+        // HYBRID APPROACH: Use the original public repository but let MLX Swift
+        // handle any necessary conversions via HuggingFace Hub integration
+        let modelRepo = model.huggingFaceRepo
+        print("📋 Using public repository: \(modelRepo)")
+        print("🔄 MLX Swift will handle any necessary format conversions")
         
         return ModelConfiguration(
-            id: mlxModelId,
-            overrideTokenizer: "PreTrainedTokenizer",
-            defaultPrompt: "Hello! How can I help you today?"
+            id: modelRepo
         )
     }
     

@@ -142,17 +142,6 @@ struct ModelDetailedInfoView: View {
                     .padding()
                 }
             }
-            .navigationTitle("Model Details")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        HapticFeedback.light()
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                }
-            }
         }
     }
     

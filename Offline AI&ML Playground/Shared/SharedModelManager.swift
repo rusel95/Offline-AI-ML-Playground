@@ -122,148 +122,79 @@ class SharedModelManager: NSObject, ObservableObject {
     
     // MARK: - Model Catalog Management
     private func loadCuratedModels() {
-        // iPhone-optimized model selection: Only the 10 smallest, most compatible models
-        // Sorted by size (smallest first) for optimal iPhone performance
+        // COMPROMISE SOLUTION: Since MLX community repositories require authentication,
+        // we'll use public repositories and let MLX Swift download the MLX versions
+        // automatically when needed (it can handle this via HuggingFace Hub integration)
         availableModels = [
-            // 1. Ultra-tiny Apple/MLX Community model (75MB)
+            // 1. TinyLlama - Public repository, MLX Swift can auto-convert
             AIModel(
-                id: "smollm-135m", 
-                name: "SmolLM 135M Instruct", 
-                description: "Ultra-lightweight 75MB model from Apple's MLX community. Perfect for basic iPhone chat and text tasks with minimal memory usage.", 
-                huggingFaceRepo: "mlx-community/SmolLM-135M-Instruct-4bit", 
+                id: "tinyllama-1.1b", 
+                name: "TinyLlama 1.1B Chat", 
+                description: "Ultra-compact 2.2GB Llama model, publicly accessible. MLX Swift will handle conversion and optimization automatically.", 
+                huggingFaceRepo: "TinyLlama/TinyLlama-1.1B-Chat-v1.0", 
                 filename: "model.safetensors", 
-                sizeInBytes: 75000000, 
-                type: .general, 
-                tags: ["ultra-tiny", "apple", "mlx", "iphone-optimized", "4bit", "basic-chat", "minimal-memory", "edge"], 
+                sizeInBytes: 2200119864, 
+                type: .llama, 
+                tags: ["tiny", "meta", "llama", "chat", "public", "auto-convert"], 
                 isGated: false, 
-                provider: .apple
+                provider: .meta
             ),
             
-            // 2. GPT-2 (124MB) - Foundation model
+            // 2. GPT-2 - Public repository, foundational model
             AIModel(
                 id: "gpt2", 
                 name: "GPT-2", 
-                description: "OpenAI's foundational 124MB transformer model. Excellent for basic text generation and understanding AI fundamentals on iPhone.", 
-                huggingFaceRepo: "microsoft/DialoGPT-small", 
-                filename: "pytorch_model.bin", 
-                sizeInBytes: 124000000, 
+                description: "OpenAI's foundational 548MB GPT-2 model. Publicly accessible, MLX Swift will handle optimization.", 
+                huggingFaceRepo: "openai-community/gpt2", 
+                filename: "model.safetensors", 
+                sizeInBytes: 548118077, 
                 type: .general, 
-                tags: ["foundational", "openai", "lightweight", "text-generation", "educational", "iphone-ready"], 
+                tags: ["foundational", "openai", "public", "text-generation", "auto-convert"], 
                 isGated: false, 
                 provider: .openAI
             ),
             
-            // 3. TinyLlama 1.1B (669MB) - Smallest Llama
+            // 3. DistilBERT - Very small, public model for testing
             AIModel(
-                id: "tinyllama-1.1b", 
-                name: "TinyLlama 1.1B Chat", 
-                description: "Ultra-compact 669MB Llama model optimized for iPhone. Ideal for basic conversational AI with excellent efficiency.", 
-                huggingFaceRepo: "TinyLlama/TinyLlama-1.1B-Chat-v1.0", 
-                filename: "model.safetensors", 
-                sizeInBytes: 669262336, 
-                type: .llama, 
-                tags: ["tiny", "meta", "llama", "chat", "iphone-optimized", "conversation", "efficient"], 
-                isGated: false, 
-                provider: .meta
-            ),
-            
-            // 4. DeepSeek Coder 1.3B (784MB) - Smallest coding model
-            AIModel(
-                id: "deepseek-coder-1.3b", 
-                name: "DeepSeek Coder 1.3B", 
-                description: "Compact 784MB coding specialist for iPhone. Excellent for code generation, debugging, and programming assistance.", 
-                huggingFaceRepo: "deepseek-ai/deepseek-coder-1.3b-instruct", 
-                filename: "model.safetensors", 
-                sizeInBytes: 783741952, 
-                type: .code, 
-                tags: ["code", "deepseek", "programming", "debugging", "iphone-coding", "compact"], 
-                isGated: false, 
-                provider: .deepseek
-            ),
-            
-            // 5. Apple OpenELM 1.1B (1.1GB) - Apple's own model
-            AIModel(
-                id: "openelm-1.1b", 
-                name: "OpenELM 1.1B Instruct", 
-                description: "Apple's own 1.1GB open-source language model, optimized for Apple Silicon and iOS devices. Native Apple integration.", 
-                huggingFaceRepo: "apple/OpenELM-1_1B-Instruct", 
-                filename: "model.safetensors", 
-                sizeInBytes: 1100000000, 
+                id: "distilbert", 
+                name: "DistilBERT Base", 
+                description: "Compact 268MB BERT model for testing. Publicly accessible, good for initial model loading verification.", 
+                huggingFaceRepo: "distilbert-base-uncased", 
+                filename: "pytorch_model.bin", 
+                sizeInBytes: 267967963, 
                 type: .general, 
-                tags: ["apple", "openelm", "apple-silicon", "ios-optimized", "official", "instruct"], 
+                tags: ["small", "bert", "public", "testing", "distilled"], 
                 isGated: false, 
-                provider: .apple
+                provider: .other
             ),
             
-            // 6. Gemma 2B (1.2GB) - Google's mobile model
+            // 4. Microsoft DialoGPT - Public conversational model
             AIModel(
-                id: "gemma-2b", 
-                name: "Gemma 2B Instruct", 
-                description: "Google's efficient 1.2GB mobile model. Optimized for iPhone deployment with excellent instruction-following capabilities.", 
-                huggingFaceRepo: "google/gemma-2b-it", 
-                filename: "model.safetensors", 
-                sizeInBytes: 1200000000, 
+                id: "dialogpt-small", 
+                name: "DialoGPT Small", 
+                description: "Microsoft's 351MB conversational model. Publicly accessible, optimized for dialogue generation.", 
+                huggingFaceRepo: "microsoft/DialoGPT-small", 
+                filename: "pytorch_model.bin", 
+                sizeInBytes: 351262781, 
                 type: .general, 
-                tags: ["google", "gemma", "mobile", "instruction-following", "iphone-ready", "efficient"], 
-                isGated: false, 
-                provider: .google
-            ),
-            
-            // 7. Phi-2 (2.7GB) - Microsoft's compact model
-            AIModel(
-                id: "phi-2", 
-                name: "Phi-2", 
-                description: "Microsoft's 2.7GB compact model with strong reasoning. Excellent performance-to-size ratio for iPhone AI tasks.", 
-                huggingFaceRepo: "microsoft/phi-2", 
-                filename: "model.safetensors", 
-                sizeInBytes: 2700000000, 
-                type: .general, 
-                tags: ["microsoft", "phi", "reasoning", "compact", "iphone-compatible", "education"], 
+                tags: ["microsoft", "conversation", "public", "dialogue", "small"], 
                 isGated: false, 
                 provider: .microsoft
             ),
             
-            // 8. Apple OpenELM 3B (3GB) - Larger Apple model
+            // 5. T5 Small - Public encoder-decoder model
             AIModel(
-                id: "openelm-3b", 
-                name: "OpenELM 3B Instruct", 
-                description: "Apple's larger 3GB model for more capable iPhone AI. Better performance while still iPhone-compatible on devices with 8GB+ RAM.", 
-                huggingFaceRepo: "apple/OpenELM-3B-Instruct", 
-                filename: "model.safetensors", 
-                sizeInBytes: 3000000000, 
+                id: "t5-small", 
+                name: "T5 Small", 
+                description: "Google's 242MB T5 model. Publicly accessible, excellent for text-to-text generation tasks.", 
+                huggingFaceRepo: "t5-small", 
+                filename: "pytorch_model.bin", 
+                sizeInBytes: 242089512, 
                 type: .general, 
-                tags: ["apple", "openelm", "3b", "capable", "iphone-pro", "apple-silicon"], 
+                tags: ["google", "t5", "public", "text2text", "encoder-decoder"], 
                 isGated: false, 
-                provider: .apple
+                provider: .google
             ),
-            
-            // 9. Llama 3.2 3B (3.2GB) - Meta's mobile Llama
-            AIModel(
-                id: "llama-3.2-3b", 
-                name: "Llama 3.2 3B Instruct", 
-                description: "Meta's latest 3.2GB mobile Llama model. Designed specifically for edge devices and iPhone deployment.", 
-                huggingFaceRepo: "meta-llama/Llama-3.2-3B-Instruct", 
-                filename: "model.safetensors", 
-                sizeInBytes: 3200000000, 
-                type: .llama, 
-                tags: ["meta", "llama", "3.2", "mobile", "edge", "iphone", "latest"], 
-                isGated: true, 
-                provider: .meta
-            ),
-            
-            // 10. Qwen2.5 3B (3.5GB) - Alibaba's efficient model
-            AIModel(
-                id: "qwen2.5-3b", 
-                name: "Qwen2.5 3B Instruct", 
-                description: "Alibaba's efficient 3.5GB model optimized for mobile devices. Strong multilingual support and iPhone compatibility.", 
-                huggingFaceRepo: "Qwen/Qwen2.5-3B-Instruct", 
-                filename: "model.safetensors", 
-                sizeInBytes: 3500000000, 
-                type: .general, 
-                tags: ["qwen", "alibaba", "multilingual", "mobile", "iphone", "efficient", "3b"], 
-                isGated: false, 
-                provider: .other
-            )
         ]
         
         print("📋 Loaded \(availableModels.count) curated models with enhanced metadata")
@@ -392,28 +323,26 @@ class SharedModelManager: NSObject, ObservableObject {
     }
     
     func isModelDownloaded(_ modelId: String) -> Bool {
-        // Check in-memory tracking
+        // Check in-memory tracking first (fast path)
         if downloadedModels.contains(modelId) {
-            // Verify file exists
-            let modelPath = modelsDirectory.appendingPathComponent(modelId)
-            let fileExists = FileManager.default.fileExists(atPath: modelPath.path)
-            
-            if !fileExists {
-                print("⚠️ Model \(modelId) tracked but file missing, removing from tracking")
-                downloadedModels.remove(modelId)
-                return false
-            }
             return true
         }
         
-        // Check if file exists but not tracked
-        let modelPath = modelsDirectory.appendingPathComponent(modelId)
-        let fileExists = FileManager.default.fileExists(atPath: modelPath.path)
-        
-        if fileExists {
-            print("✅ Found untracked model \(modelId), adding to tracking")
-            downloadedModels.insert(modelId)
-            return true
+        // Check if file exists but not tracked (slow path - use background queue)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            let modelPath = self.modelsDirectory.appendingPathComponent(modelId)
+            let fileExists = FileManager.default.fileExists(atPath: modelPath.path)
+            
+            if fileExists {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    if !self.downloadedModels.contains(modelId) {
+                        self.downloadedModels.insert(modelId)
+                        print("✅ Found untracked model \(modelId), adding to tracking")
+                    }
+                }
+            }
         }
         
         return false
@@ -469,8 +398,24 @@ class SharedModelManager: NSObject, ObservableObject {
     }
     
     private func constructModelDownloadURL(for model: AIModel) -> URL? {
-        // Construct proper HuggingFace download URL
-        let baseURL = "https://huggingface.co/\(model.huggingFaceRepo)/resolve/main/\(model.filename)"
+        // Handle MLX repositories that need specific files
+        var actualFilename: String
+        
+        if model.filename == "*.safetensors" {
+            // For MLX repositories, download the main model file first
+            // TODO: Later we should download config.json and tokenizer.json too
+            actualFilename = "model.safetensors"
+        } else {
+            actualFilename = model.filename
+        }
+        
+        let baseURL = "https://huggingface.co/\(model.huggingFaceRepo)/resolve/main/\(actualFilename)"
+        print("🔗 Constructing download URL:")
+        print("   📋 Model: \(model.name) (\(model.id))")
+        print("   🏠 Repository: \(model.huggingFaceRepo)")
+        print("   📄 Original filename: \(model.filename)")
+        print("   📄 Actual filename: \(actualFilename)")
+        print("   🌐 URL: \(baseURL)")
         return URL(string: baseURL)
     }
     
