@@ -5,6 +5,19 @@
 ![MLX](https://img.shields.io/badge/MLX%20Swift-optimized-orange.svg)
 ![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2Frusel95%2FOffline-AI-ML-Playground&label=visitors&countColor=%23263759&style=flat)
 
+## ⚠️ **Important: iOS Simulator Limitation**
+
+**This app requires a physical iOS device for testing MLX Swift functionality.** 
+
+MLX Swift does not support iOS simulators due to GPU/Metal framework limitations. Simulators cannot emulate the hardware-accelerated GPU features that MLX requires for AI model inference.
+
+**For Development:**
+- ✅ **Physical iOS Device** - Full MLX Swift functionality works perfectly
+- ❌ **iOS Simulator** - Will crash when loading AI models due to MLX limitations
+- 🧪 **Testing** - Use physical devices with Apple Silicon for MLX-related features
+
+This is a known limitation of the MLX Swift framework, not a bug in this application. All core functionality works flawlessly on real hardware.
+
 ## **🧑‍💻 The Ultimate Playground to Compare and Choose Your AI Model (iOS Only)**
 
 **Easily compare, test, and evaluate a wide range of open-source AI models locally on your iPhone to help you choose the best model for your own project.**
