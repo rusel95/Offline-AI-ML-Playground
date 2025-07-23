@@ -122,74 +122,148 @@ class SharedModelManager: NSObject, ObservableObject {
     
     // MARK: - Model Catalog Management
     private func loadCuratedModels() {
-        // CRITICAL FIX: Load working GGUF models with correct URLs and comprehensive metadata
-        // These are verified to work with MLX and are available on HuggingFace
+        // iPhone-optimized model selection: Only the 10 smallest, most compatible models
+        // Sorted by size (smallest first) for optimal iPhone performance
         availableModels = [
-            // Small, reliable models for testing and mobile use
+            // 1. Ultra-tiny Apple/MLX Community model (75MB)
             AIModel(
-                id: "gemma-2b", 
-                name: "Gemma 2B Instruct", 
-                description: "Google's efficient 2B parameter model optimized for instruction following and mobile deployment. Excellent for chat applications with low memory requirements.", 
-                huggingFaceRepo: "TheBloke/gemma-2b-it-GGUF", 
-                filename: "gemma-2b-it.Q4_K_M.gguf", 
-                sizeInBytes: 1200000000, 
+                id: "smollm-135m", 
+                name: "SmolLM 135M Instruct", 
+                description: "Ultra-lightweight 75MB model from Apple's MLX community. Perfect for basic iPhone chat and text tasks with minimal memory usage.", 
+                huggingFaceRepo: "mlx-community/SmolLM-135M-Instruct-4bit", 
+                filename: "model.safetensors", 
+                sizeInBytes: 75000000, 
                 type: .general, 
-                tags: ["language", "google", "instruction-following", "chat", "efficient", "mobile-optimized", "low-memory", "multilingual"], 
+                tags: ["ultra-tiny", "apple", "mlx", "iphone-optimized", "4bit", "basic-chat", "minimal-memory", "edge"], 
                 isGated: false, 
-                provider: .google
+                provider: .apple
             ),
             
+            // 2. GPT-2 (124MB) - Foundation model
+            AIModel(
+                id: "gpt2", 
+                name: "GPT-2", 
+                description: "OpenAI's foundational 124MB transformer model. Excellent for basic text generation and understanding AI fundamentals on iPhone.", 
+                huggingFaceRepo: "microsoft/DialoGPT-small", 
+                filename: "pytorch_model.bin", 
+                sizeInBytes: 124000000, 
+                type: .general, 
+                tags: ["foundational", "openai", "lightweight", "text-generation", "educational", "iphone-ready"], 
+                isGated: false, 
+                provider: .openAI
+            ),
+            
+            // 3. TinyLlama 1.1B (669MB) - Smallest Llama
             AIModel(
                 id: "tinyllama-1.1b", 
                 name: "TinyLlama 1.1B Chat", 
-                description: "Ultra-lightweight Llama-based model perfect for resource-constrained environments. Ideal for basic chat and simple text generation tasks.", 
-                huggingFaceRepo: "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF", 
-                filename: "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf", 
+                description: "Ultra-compact 669MB Llama model optimized for iPhone. Ideal for basic conversational AI with excellent efficiency.", 
+                huggingFaceRepo: "TinyLlama/TinyLlama-1.1B-Chat-v1.0", 
+                filename: "model.safetensors", 
                 sizeInBytes: 669262336, 
                 type: .llama, 
-                tags: ["tiny", "meta", "llama", "ultra-lightweight", "fast", "basic-chat", "low-power", "edge-computing"], 
+                tags: ["tiny", "meta", "llama", "chat", "iphone-optimized", "conversation", "efficient"], 
                 isGated: false, 
                 provider: .meta
             ),
             
-            AIModel(
-                id: "phi-2", 
-                name: "Phi-2", 
-                description: "Microsoft's compact 2.7B parameter model with strong reasoning capabilities. Excellent performance-to-size ratio for educational and research tasks.", 
-                huggingFaceRepo: "TheBloke/phi-2-GGUF", 
-                filename: "phi-2.Q4_K_M.gguf", 
-                sizeInBytes: 1400000000, 
-                type: .general, 
-                tags: ["language", "microsoft", "reasoning", "education", "research", "compact", "high-performance", "mathematics", "science"], 
-                isGated: false, 
-                provider: .microsoft
-            ),
-            
+            // 4. DeepSeek Coder 1.3B (784MB) - Smallest coding model
             AIModel(
                 id: "deepseek-coder-1.3b", 
                 name: "DeepSeek Coder 1.3B", 
-                description: "Specialized coding model trained on massive code datasets. Excels at code generation, debugging, and explanation across multiple programming languages.", 
-                huggingFaceRepo: "TheBloke/deepseek-coder-1.3b-instruct-GGUF", 
-                filename: "deepseek-coder-1.3b-instruct.Q4_K_M.gguf", 
+                description: "Compact 784MB coding specialist for iPhone. Excellent for code generation, debugging, and programming assistance.", 
+                huggingFaceRepo: "deepseek-ai/deepseek-coder-1.3b-instruct", 
+                filename: "model.safetensors", 
                 sizeInBytes: 783741952, 
                 type: .code, 
-                tags: ["code", "deepseek", "programming", "multi-language", "debugging", "code-completion", "software-development", "algorithms"], 
+                tags: ["code", "deepseek", "programming", "debugging", "iphone-coding", "compact"], 
                 isGated: false, 
                 provider: .deepseek
             ),
             
+            // 5. Apple OpenELM 1.1B (1.1GB) - Apple's own model
             AIModel(
-                id: "gpt2", 
-                name: "GPT-2", 
-                description: "OpenAI's foundational transformer model. Reliable for text generation, creative writing, and understanding transformer architecture fundamentals.", 
-                huggingFaceRepo: "TheBloke/gpt2-GGUF", 
-                filename: "gpt2.Q4_K_M.gguf", 
-                sizeInBytes: 124000000, 
+                id: "openelm-1.1b", 
+                name: "OpenELM 1.1B Instruct", 
+                description: "Apple's own 1.1GB open-source language model, optimized for Apple Silicon and iOS devices. Native Apple integration.", 
+                huggingFaceRepo: "apple/OpenELM-1_1B-Instruct", 
+                filename: "model.safetensors", 
+                sizeInBytes: 1100000000, 
                 type: .general, 
-                tags: ["language", "openai", "foundational", "creative-writing", "text-generation", "historical", "well-documented", "research"], 
+                tags: ["apple", "openelm", "apple-silicon", "ios-optimized", "official", "instruct"], 
                 isGated: false, 
-                provider: .openAI
+                provider: .apple
             ),
+            
+            // 6. Gemma 2B (1.2GB) - Google's mobile model
+            AIModel(
+                id: "gemma-2b", 
+                name: "Gemma 2B Instruct", 
+                description: "Google's efficient 1.2GB mobile model. Optimized for iPhone deployment with excellent instruction-following capabilities.", 
+                huggingFaceRepo: "google/gemma-2b-it", 
+                filename: "model.safetensors", 
+                sizeInBytes: 1200000000, 
+                type: .general, 
+                tags: ["google", "gemma", "mobile", "instruction-following", "iphone-ready", "efficient"], 
+                isGated: false, 
+                provider: .google
+            ),
+            
+            // 7. Phi-2 (2.7GB) - Microsoft's compact model
+            AIModel(
+                id: "phi-2", 
+                name: "Phi-2", 
+                description: "Microsoft's 2.7GB compact model with strong reasoning. Excellent performance-to-size ratio for iPhone AI tasks.", 
+                huggingFaceRepo: "microsoft/phi-2", 
+                filename: "model.safetensors", 
+                sizeInBytes: 2700000000, 
+                type: .general, 
+                tags: ["microsoft", "phi", "reasoning", "compact", "iphone-compatible", "education"], 
+                isGated: false, 
+                provider: .microsoft
+            ),
+            
+            // 8. Apple OpenELM 3B (3GB) - Larger Apple model
+            AIModel(
+                id: "openelm-3b", 
+                name: "OpenELM 3B Instruct", 
+                description: "Apple's larger 3GB model for more capable iPhone AI. Better performance while still iPhone-compatible on devices with 8GB+ RAM.", 
+                huggingFaceRepo: "apple/OpenELM-3B-Instruct", 
+                filename: "model.safetensors", 
+                sizeInBytes: 3000000000, 
+                type: .general, 
+                tags: ["apple", "openelm", "3b", "capable", "iphone-pro", "apple-silicon"], 
+                isGated: false, 
+                provider: .apple
+            ),
+            
+            // 9. Llama 3.2 3B (3.2GB) - Meta's mobile Llama
+            AIModel(
+                id: "llama-3.2-3b", 
+                name: "Llama 3.2 3B Instruct", 
+                description: "Meta's latest 3.2GB mobile Llama model. Designed specifically for edge devices and iPhone deployment.", 
+                huggingFaceRepo: "meta-llama/Llama-3.2-3B-Instruct", 
+                filename: "model.safetensors", 
+                sizeInBytes: 3200000000, 
+                type: .llama, 
+                tags: ["meta", "llama", "3.2", "mobile", "edge", "iphone", "latest"], 
+                isGated: true, 
+                provider: .meta
+            ),
+            
+            // 10. Qwen2.5 3B (3.5GB) - Alibaba's efficient model
+            AIModel(
+                id: "qwen2.5-3b", 
+                name: "Qwen2.5 3B Instruct", 
+                description: "Alibaba's efficient 3.5GB model optimized for mobile devices. Strong multilingual support and iPhone compatibility.", 
+                huggingFaceRepo: "Qwen/Qwen2.5-3B-Instruct", 
+                filename: "model.safetensors", 
+                sizeInBytes: 3500000000, 
+                type: .general, 
+                tags: ["qwen", "alibaba", "multilingual", "mobile", "iphone", "efficient", "3b"], 
+                isGated: false, 
+                provider: .other
+            )
         ]
         
         print("📋 Loaded \(availableModels.count) curated models with enhanced metadata")

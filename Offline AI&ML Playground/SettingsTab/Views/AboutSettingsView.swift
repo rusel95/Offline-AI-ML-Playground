@@ -15,19 +15,29 @@ struct AboutSettingsView: View {
     }
     
     var body: some View {
-        Section("About") {
-            HStack {
-                Image(systemName: "info.circle")
-                    .foregroundColor(.blue)
-                Text("Version")
-                Spacer()
-                Text(appVersion)
-                    .foregroundColor(.secondary)
-                    .font(.system(.body, design: .monospaced))
-            }
-            
-            Text("Made with ❤️ by Ruslan Popesku")
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Version")
+                    Spacer()
+                    Text(appVersion)
+                        .foregroundColor(.secondary)
+                        .font(.system(.body, design: .monospaced))
+                        .fontWeight(.medium)
+                }
+                
+                Divider()
+                
+                Text("Made with ❤️ by Ruslan Popesku")
                     .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.regularMaterial)
+                    .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+            )
         }
     }
 }

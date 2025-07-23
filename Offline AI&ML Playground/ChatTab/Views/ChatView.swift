@@ -480,11 +480,6 @@ struct SimpleChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Model selection header
-            if viewModel.selectedModel != nil {
-                ModelSelectionHeader(viewModel: viewModel)
-            }
-            
             // Optimized Chat messages with better performance
             ScrollViewReader { proxy in
                 ScrollView {

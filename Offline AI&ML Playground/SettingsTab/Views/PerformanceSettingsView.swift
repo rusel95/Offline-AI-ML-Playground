@@ -13,9 +13,9 @@ struct PerformanceSettingsView: View {
     @StateObject private var performanceMonitor = PerformanceMonitor()
     
     var body: some View {
-        Group {
-            // Real-time Performance Statistics Section
-            Section("System Performance") {
+        VStack(spacing: 16) {
+            // Real-time Performance Statistics Card
+            VStack(alignment: .leading, spacing: 16) {
                 VStack(spacing: 8) {
                     // Performance monitoring toggle
                     HStack {
@@ -161,11 +161,15 @@ struct PerformanceSettingsView: View {
                     
                 }
             }
-            
-
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.regularMaterial)
+                    .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+            )
         }
         .onAppear {
-            // Auto-start monitoring when view appears
+            // Auto-start monitoring when view appears  
             performanceMonitor.startMonitoring()
         }
         .onDisappear {

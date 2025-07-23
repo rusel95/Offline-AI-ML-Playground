@@ -34,20 +34,29 @@ public struct AIModel: Identifiable {
     
     public var formattedRegularMemory: String {
         switch id {
-        case "phi-3-mini-4k", "phi-3-mini-128k": return "2.5 - 3 GB"
-        case "phi-2": return "1.6 - 2 GB"
+        // iPhone-optimized models (smallest to largest)
+        case "smollm-135m": return "0.08 - 0.12 GB"
+        case "gpt2": return "0.15 - 0.25 GB"
         case "tinyllama-1.1b": return "0.7 - 0.9 GB"
+        case "deepseek-coder-1.3b": return "0.8 - 1.0 GB"
+        case "openelm-1.1b": return "1.1 - 1.3 GB"
+        case "gemma-2b": return "1.2 - 1.5 GB"
+        case "phi-2": return "2.7 - 3.2 GB"
+        case "openelm-3b": return "3.0 - 3.5 GB"
+        case "llama-3.2-3b": return "3.2 - 3.8 GB"
+        case "qwen2.5-3b": return "3.5 - 4.0 GB"
+        
+        // Legacy models (for backward compatibility)
+        case "phi-3-mini-4k", "phi-3-mini-128k": return "2.5 - 3 GB"
         case "llama-2-7b", "deepseek-llm-7b": return "4 - 5 GB"
         case "codellama-7b": return "4.5 - 5.5 GB"
         case "llama-3-70b": return "40 - 50 GB"
         case "mistral-7b-instruct", "mistral-7b-openorca": return "4.5 - 5.5 GB"
-        case "deepseek-coder-1.3b": return "0.8 - 1 GB"
         case "starcoder2-3b": return "1.8 - 2.2 GB"
         case "distilbert": return "0.3 - 0.4 GB"
         case "mobilevit": return "0.06 - 0.1 GB"
         case "all-minilm-l6-v2": return "0.1 - 0.15 GB"
         case "grok-beta": return "9 - 12 GB"
-        // Add more as needed for ~32 models, default for others
         default: 
             let gb = Double(sizeInBytes) / 1_073_741_824
             return String(format: "%.1f - %.1f GB", gb * 1.1, gb * 1.5)

@@ -20,19 +20,22 @@ struct StorageSettingsView: View {
     @StateObject private var inferenceManager = AIInferenceManager()
     
     var body: some View {
-        Section("Storage Management") {
-            // Storage usage section
-            Section {
-                VStack(alignment: .leading) {
+        VStack(spacing: 16) {
+            // Storage Management Card
+            VStack(alignment: .leading, spacing: 16) {
+                // Storage usage section
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Storage Used")
+                        .font(.headline)
+                        .fontWeight(.semibold)
                     Text("\(formattedTotalStorageUsed) | \(downloadManager.formattedFreeStorage) free left")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-            }
-            
-            // Clear all models section
-            Section {
+                
+                Divider()
+                
+                // Clear all models section
                 Button {
                     showingClearModelsAlert = true
                 } label: {
@@ -41,11 +44,20 @@ struct StorageSettingsView: View {
                             .foregroundColor(.red)
                         Text("Clear All Models")
                         Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(PlainButtonStyle())
             }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.regularMaterial)
+                    .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+            )
         }
         .onAppear {
             downloadManager.calculateStorageUsed()
