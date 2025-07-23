@@ -103,47 +103,95 @@ This is a known limitation of the MLX Swift framework, not a bug in this applica
 
 ## 🤖 Available AI Models
 
-### **Language Models**
-- **🦙 Llama Models** - TinyLlama 1.1B Chat (lightweight, mobile-optimized)
-- **🌪️ Mistral Models** - Mistral 7B Instruct, Mistral 7B OpenOrca (high-quality instruction following)
-- **🧠 General Models** - DistilBERT, MobileViT, sentence embeddings
+### **CRITICAL ARCHITECTURE: HYBRID PUBLIC REPOSITORY + MLX AUTO-CONVERSION**
 
-### **Code Models** 
-- **💻 DeepSeek Coder 1.3B** - Lightweight code generation (747MB)
-- **⭐ StarCoder2 3B** - Advanced coding with 600+ languages (1.6GB)
-- **🦙 CodeLlama 7B** - Meta's specialized code model (3.8GB)
+**The app uses a hybrid approach to solve authentication and format compatibility issues:**
 
-### **Specialized Models**
-- **📐 Embedding Models** - All-MiniLM-L6-v2 for semantic search
+1. **Downloads**: Single files from **public repositories** (no authentication required)
+2. **Loading**: MLX Swift **automatically converts** to MLX format during inference
+3. **Caching**: Downloaded files stored in `/Documents/Models/` directory
+4. **Configuration**: Model configs use repository IDs directly, letting MLX handle conversions
 
-All models are **quantized and optimized** for mobile deployment with MLX Swift!
+### **Current Model Catalog (Public Repositories)**
 
-## 🎮 Usage Examples
+| Model | Size | Repository | Format | Purpose |
+|-------|------|------------|--------|---------|
+| **TinyLlama 1.1B Chat** | 2.2GB | `TinyLlama/TinyLlama-1.1B-Chat-v1.0` | `.safetensors` | Conversation, mobile-optimized |
+| **GPT-2** | 548MB | `openai-community/gpt2` | `.safetensors` | Text generation, educational |
+| **DistilBERT Base** | 268MB | `distilbert-base-uncased` | `.bin` | Testing, small model verification |
+| **DialoGPT Small** | 351MB | `microsoft/DialoGPT-small` | `.bin` | Dialogue generation |
+| **T5 Small** | 242MB | `t5-small` | `.bin` | Text-to-text tasks |
 
-### Chat with Local AI
+### **Why This Approach Works**
+
+✅ **No Authentication** - All repositories are publicly accessible  
+✅ **MLX Compatible** - MLX Swift handles format conversion automatically  
+✅ **Single Downloads** - No need for complex multi-file repository downloads  
+✅ **Consistent Loading** - Same ModelConfiguration pattern for all models  
+✅ **iPhone Optimized** - All models selected for mobile deployment feasibility
+
+## 🎮 Usage Examples & Architecture Flow
+
+### **DOWNLOAD WORKFLOW**
 ```swift
-// Real MLX Swift inference happening here!
+// 1. User clicks download button for "GPT-2" model
+SharedModelManager.downloadModel(gpt2Model)
+
+// 2. System constructs public repository URL
+"https://huggingface.co/openai-community/gpt2/resolve/main/model.safetensors"
+
+// 3. Downloads single file to local directory
+"/Documents/Models/gpt2" (351MB file)
+
+// 4. Updates tracking system
+downloadedModels.insert("gpt2")
+```
+
+### **INFERENCE WORKFLOW**
+```swift
+// 1. User selects GPT-2 for chat
+AIInferenceManager.loadModel(gpt2Model)
+
+// 2. Creates ModelConfiguration using repository ID
+ModelConfiguration(id: "openai-community/gpt2")
+
+// 3. MLX Swift Hub integration handles conversion
+// - Checks local file: /Documents/Models/gpt2 
+// - Auto-converts to MLX format as needed
+// - Loads model container for inference
+
+// 4. Real-time text generation
 aiInferenceManager.generateText(prompt: "Hello!")
-// Streams back: "Hello! How can I help you today?"
+// Result: "Hello! How can I help you today?"
 ```
 
-### Stream Responses Live
+### **STATE MANAGEMENT (CRITICAL FIX)**
 ```swift
-for await chunk in aiInferenceManager.generateStreamingText(prompt: prompt) {
-    // Updates UI in real-time as AI generates text
-    updateChatBubble(with: chunk)
+// PROBLEM: This caused "Publishing changes from within view updates"
+FileManager.default.fileExists(atPath: modelPath) // ON MAIN THREAD ❌
+
+// SOLUTION: Background file checks with main thread updates
+DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+    let fileExists = FileManager.default.fileExists(atPath: modelPath)
+    DispatchQueue.main.async { [weak self] in
+        self?.downloadedModels.insert(modelId) // SAFE ✅
+    }
 }
 ```
 
-### Smart Model Loading
+### **ERROR HANDLING PATTERNS**
 ```swift
-// Checks local file system first, downloads only if needed
-let isLocal = FileManager.default.fileExists(atPath: localModelPath)
-if isLocal {
-    // Load from disk - instant!
-} else {
-    // Download first, then cache locally
-}
+// AUTHENTICATION ERRORS (Solved)
+// OLD: "mlx-community/gpt2-4bit" → HTTP 401 "Invalid username or password"
+// NEW: "openai-community/gpt2" → HTTP 302 (Public access) ✅
+
+// MISSING FILE ERRORS (Solved)  
+// OLD: Looking for "config.json" in MLX community repo structure
+// NEW: MLX Swift auto-handles missing config files during conversion ✅
+
+// STATE UPDATE ERRORS (Solved)
+// OLD: Direct @Published updates during SwiftUI view updates
+// NEW: Deferred updates via DispatchQueue.main.async ✅
 ```
 
 ## 📱 Platform Support

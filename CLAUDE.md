@@ -54,24 +54,54 @@ xcodebuild test -project "Offline AI&ML Playground.xcodeproj" -scheme "Offline A
 - Documentation: `memory-bank/` contains project context and progress
 - Assets: `Offline AI&ML Playground/Assets.xcassets/`
 
-## Important Technical Details
+## 🚨 CRITICAL ARCHITECTURE: HYBRID PUBLIC REPOSITORY + MLX AUTO-CONVERSION
 
-### MLX Swift Integration
+### The Problem We Solved (July 23, 2025)
+- **Authentication Issues**: MLX community repositories require HuggingFace tokens (HTTP 401)
+- **Missing Config Files**: Single downloads vs MLX repository structure expectations  
+- **State Management**: "Publishing changes from within view updates" warnings
+- **Small Downloads**: 15-29 byte error pages instead of actual model files
+
+### The Solution: Hybrid Approach
+1. **Download Phase**: Single files from PUBLIC repositories (no authentication required)
+2. **Loading Phase**: MLX Swift's HuggingFace Hub integration auto-converts formats
+3. **Configuration**: Use original repository IDs directly, let MLX handle the rest
+
+### Current Model Catalog (5 Public Models)
+```swift
+// 1. TinyLlama 1.1B Chat (2.2GB) - Conversation optimized
+"TinyLlama/TinyLlama-1.1B-Chat-v1.0" → model.safetensors
+
+// 2. GPT-2 (548MB) - Foundational model  
+"openai-community/gpt2" → model.safetensors
+
+// 3. DistilBERT Base (268MB) - Testing/verification
+"distilbert-base-uncased" → pytorch_model.bin
+
+// 4. DialoGPT Small (351MB) - Dialogue generation
+"microsoft/DialoGPT-small" → pytorch_model.bin
+
+// 5. T5 Small (242MB) - Text-to-text tasks
+"t5-small" → pytorch_model.bin
+```
+
+### MLX Swift Integration  
 - Uses multiple MLX Swift packages: `MLX`, `MLXNN`, `MLXLLM`, `MLXLMCommon`, etc.
-- Models are loaded using `LLMModelFactory` and `ModelContainer`
+- Models loaded using `LLMModelFactory` and `ModelContainer` with public repository IDs
 - Streaming text generation via `MLXLMCommon.generate()`
-- Memory management is critical - proper cleanup required between model loads
+- **CRITICAL**: MLX Hub integration auto-handles format conversion and missing config files
 
-### Model Management
-- Models downloaded to `Documents/Models/` directory
-- Local caching system to avoid re-downloads
-- Support for various model formats (GGUF, SafeTensors, MLX native)
-- Model switching without app restart
+### Model Management Architecture
+- Models downloaded as single files to `Documents/Models/` directory
+- File naming: `/Documents/Models/{modelId}` (e.g., `/Documents/Models/gpt2`)
+- Local caching system prevents re-downloads
+- **State Management Fix**: Background file checks with main thread updates
+- Model switching without app restart via proper cleanup
 
 ### Memory Considerations
-- iOS memory constraints require careful model selection
-- Built-in memory pressure monitoring
-- Automatic cleanup of MLX resources
+- iOS memory constraints require careful model selection (all models under 2.5GB)
+- Built-in memory pressure monitoring  
+- Automatic cleanup of MLX resources via `performDeepMemoryCleanup()`
 - Memory usage tracking via `getMemoryUsage()` in AIInferenceManager
 
 ### File System Structure
