@@ -8,71 +8,68 @@
 
 import SwiftUI
 
-struct SimpleSettingsView: View {
+struct SettingsView: View {
+    @StateObject private var viewModel = SettingsViewModel()
+    
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 24) {
-                // Performance Settings Section
-                VStack(alignment: .leading, spacing: 16) {
-                    // Section header with modern styling
-                    HStack {
-                        Image(systemName: "speedometer")
-                            .foregroundStyle(.green)
-                            .font(.title2)
-                        Text("Performance")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 4)
-                    
-                    // Performance content
-                    PerformanceSettingsView()
-                }
-                
-                // Storage Settings Section  
-                VStack(alignment: .leading, spacing: 16) {
-                    // Section header with modern styling
-                    HStack {
-                        Image(systemName: "internaldrive")
-                            .foregroundStyle(.orange)
-                            .font(.title2)
-                        Text("Storage")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 4)
-                    
-                    // Storage content
-                    StorageSettingsView()
-                }
-                
-                // About Settings Section
-                VStack(alignment: .leading, spacing: 16) {
-                    // Section header with modern styling
-                    HStack {
-                        Image(systemName: "info.circle")
-                            .foregroundStyle(.blue)
-                            .font(.title2)
-                        Text("About")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 4)
-                    
-                    // About content
-                    AboutSettingsView()
+                ForEach(viewModel.sections) { section in
+                    SettingsSectionView(
+                        section: section,
+                        viewModel: viewModel
+                    )
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
         .background(Color(.systemBackground))
+        .onAppear {
+            viewModel.onAppear()
+        }
+        .onDisappear {
+            viewModel.onDisappear()
+        }
+    }
+}
+
+struct SettingsSectionView: View {
+    let section: SettingsSection
+    let viewModel: SettingsViewModel
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Section header with modern styling
+            HStack {
+                Image(systemName: section.icon)
+                    .foregroundStyle(section.iconColor)
+                    .font(.title2)
+                Text(section.rawValue)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+            
+            // Section content
+            Group {
+                switch section {
+                case .performance:
+                    PerformanceSettingsView()
+                        .environmentObject(viewModel.performanceViewModel)
+                case .storage:
+                    StorageSettingsView()
+                        .environmentObject(viewModel.storageViewModel)
+                case .about:
+                    AboutSettingsView()
+                        .environmentObject(viewModel.aboutViewModel)
+                }
+            }
+        }
     }
 }
 
 #Preview {
-    SimpleSettingsView()
+    SettingsView()
 } 

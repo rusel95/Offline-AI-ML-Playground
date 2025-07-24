@@ -10,9 +10,7 @@ import SwiftUI
 
 // MARK: - About Settings View
 struct AboutSettingsView: View {
-    private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
-    }
+    @EnvironmentObject private var viewModel: AboutSettingsViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -20,7 +18,7 @@ struct AboutSettingsView: View {
                 HStack {
                     Text("Version")
                     Spacer()
-                    Text(appVersion)
+                    Text(viewModel.versionString)
                         .foregroundColor(.secondary)
                         .font(.system(.body, design: .monospaced))
                         .fontWeight(.medium)
@@ -28,7 +26,7 @@ struct AboutSettingsView: View {
                 
                 Divider()
                 
-                Text("Made with ❤️ by Ruslan Popesku")
+                Text(viewModel.attribution)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -47,6 +45,7 @@ struct AboutSettingsView: View {
     NavigationView {
         List {
             AboutSettingsView()
+                .environmentObject(AboutSettingsViewModel())
         }
         .navigationTitle("About")
     }

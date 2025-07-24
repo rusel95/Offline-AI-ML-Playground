@@ -10,7 +10,7 @@ import SwiftUI
 
 // MARK: - Performance Settings View
 struct PerformanceSettingsView: View {
-    @StateObject private var performanceMonitor = PerformanceMonitor()
+    @EnvironmentObject private var viewModel: PerformanceSettingsViewModel
     
     var body: some View {
         VStack(spacing: 16) {
@@ -19,14 +19,14 @@ struct PerformanceSettingsView: View {
                 VStack(spacing: 8) {
                     // Performance monitoring toggle
                     HStack {
-                        Image(systemName: performanceMonitor.isMonitoring ? "play.circle.fill" : "play.circle")
-                            .foregroundStyle(performanceMonitor.isMonitoring ? .green : .secondary)
+                        Image(systemName: viewModel.isMonitoring ? "play.circle.fill" : "play.circle")
+                            .foregroundStyle(viewModel.isMonitoring ? .green : .secondary)
                             .font(.title2)
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Real-time Monitoring")
                                 .font(.headline)
-                            Text(performanceMonitor.isMonitoring ? "Active" : "Stopped")
+                            Text(viewModel.isMonitoring ? "Active" : "Stopped")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -34,19 +34,19 @@ struct PerformanceSettingsView: View {
                         Spacer()
                         
                         Toggle("", isOn: Binding(
-                            get: { performanceMonitor.isMonitoring },
+                            get: { viewModel.isMonitoring },
                             set: { isOn in
                                 if isOn {
-                                    performanceMonitor.startMonitoring()
+                                    viewModel.startMonitoring()
                                 } else {
-                                    performanceMonitor.stopMonitoring()
+                                    viewModel.stopMonitoring()
                                 }
                             }
                         ))
                         .toggleStyle(SwitchToggleStyle())
                     }
                     // Performance metrics - only show when monitoring is enabled
-                    if performanceMonitor.isMonitoring {
+                    if viewModel.isMonitoring {
                         // CPU Usage
                         HStack {
                             Image(systemName: "cpu")
@@ -59,20 +59,20 @@ struct PerformanceSettingsView: View {
                                     .font(.subheadline)
                                     .fontWeight(.medium)
                                 
-                                ProgressView(value: performanceMonitor.currentStats.cpuUsage, total: 100)
-                                    .progressViewStyle(LinearProgressViewStyle(tint: cpuUsageColor(performanceMonitor.currentStats.cpuUsage)))
+                                ProgressView(value: viewModel.cpuUsage, total: 100)
+                                    .progressViewStyle(LinearProgressViewStyle(tint: cpuUsageColor(viewModel.cpuUsage)))
                                     .scaleEffect(y: 0.8)
                             }
                             
                             Spacer()
                             
                             VStack(alignment: .trailing, spacing: 2) {
-                                Text(performanceMonitor.currentStats.formattedCPUUsage)
+                                Text(viewModel.formattedCPUUsage)
                                     .font(.headline)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(cpuUsageColor(performanceMonitor.currentStats.cpuUsage))
+                                    .foregroundStyle(cpuUsageColor(viewModel.cpuUsage))
                                 
-                                Text(cpuUsageStatus(performanceMonitor.currentStats.cpuUsage))
+                                Text(cpuUsageStatus(viewModel.cpuUsage))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -94,20 +94,20 @@ struct PerformanceSettingsView: View {
                                     .font(.subheadline)
                                     .fontWeight(.medium)
                                 
-                                ProgressView(value: min(max(performanceMonitor.currentStats.appMemoryPercentage, 0.0), 5.0), total: 5.0)
-                                    .progressViewStyle(LinearProgressViewStyle(tint: appMemoryUsageColor(performanceMonitor.currentStats.appMemoryPercentage)))
+                                ProgressView(value: min(max(viewModel.appMemoryPercentage, 0.0), 5.0), total: 5.0)
+                                    .progressViewStyle(LinearProgressViewStyle(tint: appMemoryUsageColor(viewModel.appMemoryPercentage)))
                                     .scaleEffect(y: 0.8)
                             }
                             
                             Spacer()
                             
                             VStack(alignment: .trailing, spacing: 2) {
-                                Text(performanceMonitor.currentStats.formattedAppMemoryUsed)
+                                Text(viewModel.formattedAppMemoryUsed)
                                     .font(.headline)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(appMemoryUsageColor(performanceMonitor.currentStats.appMemoryPercentage))
+                                    .foregroundStyle(appMemoryUsageColor(viewModel.appMemoryPercentage))
                                 
-                                Text(appMemoryUsageStatus(performanceMonitor.currentStats.appMemoryUsedMB))
+                                Text(appMemoryUsageStatus(viewModel.appMemoryUsedMB))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -129,8 +129,8 @@ struct PerformanceSettingsView: View {
                                     .font(.subheadline)
                                     .fontWeight(.medium)
                                 
-                                ProgressView(value: performanceMonitor.currentStats.systemMemoryPercentage, total: 100)
-                                    .progressViewStyle(LinearProgressViewStyle(tint: systemMemoryUsageColor(performanceMonitor.currentStats.systemMemoryPercentage)))
+                                ProgressView(value: viewModel.systemMemoryPercentage, total: 100)
+                                    .progressViewStyle(LinearProgressViewStyle(tint: systemMemoryUsageColor(viewModel.systemMemoryPercentage)))
                                     .scaleEffect(y: 0.8)
                             }
                             
@@ -138,17 +138,17 @@ struct PerformanceSettingsView: View {
                             
                             VStack(alignment: .trailing, spacing: 2) {
                                 HStack(spacing: 4) {
-                                    Text(performanceMonitor.currentStats.formattedSystemMemoryUsed)
+                                    Text(viewModel.formattedSystemMemoryUsed)
                                         .font(.headline)
                                         .fontWeight(.semibold)
-                                        .foregroundStyle(systemMemoryUsageColor(performanceMonitor.currentStats.systemMemoryPercentage))
+                                        .foregroundStyle(systemMemoryUsageColor(viewModel.systemMemoryPercentage))
                                     
-                                    Text("(\(performanceMonitor.currentStats.formattedSystemMemoryPercentage))")
+                                    Text("(\(viewModel.formattedSystemMemoryPercentage))")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
                                 
-                                Text(systemMemoryUsageStatus(performanceMonitor.currentStats.systemMemoryPercentage))
+                                Text(systemMemoryUsageStatus(viewModel.systemMemoryPercentage))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -170,11 +170,11 @@ struct PerformanceSettingsView: View {
         }
         .onAppear {
             // Auto-start monitoring when view appears  
-            performanceMonitor.startMonitoring()
+            viewModel.startMonitoring()
         }
         .onDisappear {
             // Stop monitoring when view disappears to save resources
-            performanceMonitor.stopMonitoring()
+            viewModel.stopMonitoring()
         }
     }
     
@@ -263,4 +263,5 @@ struct PerformanceSettingsView: View {
         }
         .navigationTitle("Performance")
     }
+    .environmentObject(PerformanceSettingsViewModel())
 } 

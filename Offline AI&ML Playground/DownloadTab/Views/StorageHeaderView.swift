@@ -10,7 +10,11 @@ import SwiftUI
 
 // MARK: - Storage Header View
 struct StorageHeaderView: View {
-    @ObservedObject var sharedManager: SharedModelManager
+    @StateObject private var viewModel: StorageHeaderViewModel
+    
+    init(viewModel: DownloadViewModel) {
+        self._viewModel = StateObject(wrappedValue: StorageHeaderViewModel(downloadViewModel: viewModel))
+    }
     
     var body: some View {
         VStack(spacing: 12) {
@@ -22,14 +26,14 @@ struct StorageHeaderView: View {
                     Text("Local Storage")
                         .font(.headline)
                         .fontWeight(.semibold)
-                    Text("\(sharedManager.formattedStorageUsed) used")
+                    Text("\(viewModel.formattedStorageUsed) used")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 Spacer()
             }
             
-            ProgressView(value: sharedManager.storageUsed, total: sharedManager.freeStorage)
+            ProgressView(value: viewModel.storageProgress)
                 .progressViewStyle(.linear)
                 .tint(.blue)
         }
