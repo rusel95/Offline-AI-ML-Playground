@@ -10,7 +10,7 @@ import SwiftUI
 
 // MARK: - Enhanced Empty State View
 struct EmptyStateView: View {
-    @ObservedObject var viewModel: SimpleChatViewModel
+    @ObservedObject var viewModel: ChatViewModel
     @State private var animateIcon = false
     
     var body: some View {
@@ -184,7 +184,7 @@ struct EmptyStateView: View {
 // MARK: - Preview
 #Preview {
     VStack {
-        EmptyStateView(viewModel: SimpleChatViewModel())
+        EmptyStateView(viewModel: ChatViewModel())
     }
     .background(Color(.systemGroupedBackground))
 } 

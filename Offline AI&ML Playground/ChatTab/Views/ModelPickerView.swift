@@ -10,40 +10,27 @@ import SwiftUI
 
 // MARK: - Enhanced Model Picker View
 struct ModelPickerView: View {
-    @ObservedObject var viewModel: SimpleChatViewModel
+    @StateObject private var viewModel: ModelPickerViewModel
+    @ObservedObject var chatViewModel: ChatViewModel
     @Environment(\.dismiss) private var dismiss
-    @State private var searchText = ""
-    @State private var selectedProvider: Provider?
     
-    // Computed property for filtered models
+    init(chatViewModel: ChatViewModel) {
+        self._chatViewModel = ObservedObject(wrappedValue: chatViewModel)
+        self._viewModel = StateObject(wrappedValue: ModelPickerViewModel(chatViewModel: chatViewModel))
+    }
+    
+    // Use the view model's computed properties
     private var filteredModels: [AIModel] {
-        let models = viewModel.availableModels
-        
-        var filtered = models
-        
-        // Filter by search text
-        if !searchText.isEmpty {
-            filtered = filtered.filter { model in
-                model.name.localizedCaseInsensitiveContains(searchText) ||
-                model.provider.displayName.localizedCaseInsensitiveContains(searchText)
-            }
-        }
-        
-        // Filter by selected provider
-        if let provider = selectedProvider {
-            filtered = filtered.filter { $0.provider == provider }
-        }
-        
-        return filtered
+        viewModel.filteredModels
     }
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if viewModel.availableModels.isEmpty {
+                if viewModel.hasNoModels {
                     // Enhanced empty state
                     EmptyModelsView {
-                        viewModel.shouldNavigateToDownloads = true
+                        viewModel.navigateToDownloads()
                         dismiss()
                     }
                 } else {
@@ -55,12 +42,12 @@ struct ModelPickerView: View {
                                 Image(systemName: "magnifyingglass")
                                     .foregroundStyle(.secondary)
                                 
-                                TextField("Search models...", text: $searchText)
+                                TextField("Search models...", text: $viewModel.searchText)
                                     .textFieldStyle(.plain)
                                 
-                                if !searchText.isEmpty {
+                                if !viewModel.searchText.isEmpty {
                                     Button {
-                                        searchText = ""
+                                        viewModel.searchText = ""
                                     } label: {
                                         Image(systemName: "xmark.circle.fill")
                                             .foregroundStyle(.secondary)
@@ -79,15 +66,17 @@ struct ModelPickerView: View {
                                 HStack(spacing: 8) {
                                     ProviderFilterChip(
                                         title: "All",
-                                        isSelected: selectedProvider == nil,
-                                        action: { selectedProvider = nil }
+                                        isSelected: viewModel.selectedProvider == nil,
+                                        action: { viewModel.selectedProvider = nil }
                                     )
                                     
-                                    ForEach(getAvailableProviders(), id: \.self) { provider in
+                                    ForEach(viewModel.uniqueProviders, id: \.self) { provider in
                                         ProviderFilterChip(
                                             title: provider.displayName,
-                                            isSelected: selectedProvider == provider,
-                                            action: { selectedProvider = provider }
+                                            isSelected: viewModel.selectedProvider == provider,
+                                            action: { 
+                                                viewModel.toggleProviderFilter(provider)
+                                            }
                                         )
                                     }
                                 }
@@ -109,9 +98,9 @@ struct ModelPickerView: View {
                                     .font(.headline)
                                     .foregroundStyle(.secondary)
                                 
-                                if !searchText.isEmpty {
+                                if !viewModel.searchText.isEmpty {
                                     Button("Clear search") {
-                                        searchText = ""
+                                        viewModel.clearFilters()
                                     }
                                     .foregroundStyle(Color.accentColor)
                                 }
@@ -119,12 +108,12 @@ struct ModelPickerView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         } else {
                             List {
-                                ForEach(getGroupedProviders(), id: \.self) { provider in
+                                ForEach(viewModel.groupedModels, id: \.provider) { group in
                                     Section {
-                                        ForEach(modelsForProvider(provider, in: filteredModels), id: \.id) { model in
+                                        ForEach(group.models, id: \.id) { model in
                                             EnhancedModelPickerRow(
                                                 model: model,
-                                                isSelected: viewModel.selectedModel?.id == model.id,
+                                                isSelected: viewModel.isModelSelected(model),
                                                 onSelect: {
                                                     HapticFeedback.selectionChanged()
                                                     Task {
@@ -135,7 +124,7 @@ struct ModelPickerView: View {
                                             )
                                         }
                                     } header: {
-                                        EnhancedProviderHeader(for: provider, modelCount: modelsForProvider(provider, in: filteredModels).count)
+                                        EnhancedProviderHeader(for: group.provider, modelCount: group.models.count)
                                     }
                                 }
                             }
@@ -148,23 +137,7 @@ struct ModelPickerView: View {
     }
 }
 
-// MARK: - Helper Functions
-extension ModelPickerView {
-    private func modelsForProvider(_ provider: Provider, in models: [AIModel] = []) -> [AIModel] {
-        let targetModels = models.isEmpty ? viewModel.availableModels : models
-        return targetModels.filter { $0.provider == provider }
-    }
-    
-    private func getAvailableProviders() -> [Provider] {
-        let providers = Set(viewModel.availableModels.map { $0.provider })
-        return Provider.allCases.filter { providers.contains($0) }
-    }
-    
-    private func getGroupedProviders() -> [Provider] {
-        let providers = Set(filteredModels.map { $0.provider })
-        return Provider.allCases.filter { providers.contains($0) }
-    }
-}
+// Helper functions are now handled by the view model
 
 // MARK: - Provider Filter Chip
 struct ProviderFilterChip: View {
@@ -355,5 +328,5 @@ struct EmptyModelsView: View {
 
 // MARK: - Preview
 #Preview {
-    ModelPickerView(viewModel: SimpleChatViewModel())
+    ModelPickerView(chatViewModel: ChatViewModel())
 } 

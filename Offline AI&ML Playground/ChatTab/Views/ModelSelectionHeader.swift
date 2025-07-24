@@ -10,7 +10,7 @@ import SwiftUI
 
 // MARK: - Model Selection Header
 struct ModelSelectionHeader: View {
-    @ObservedObject var viewModel: SimpleChatViewModel
+    @ObservedObject var viewModel: ChatViewModel
     
     var body: some View {
         HStack(spacing: 12) {
@@ -67,7 +67,7 @@ struct ModelSelectionHeader: View {
 
 // MARK: - Preview
 #Preview {
-    ModelSelectionHeader(viewModel: SimpleChatViewModel())
+    ModelSelectionHeader(viewModel: ChatViewModel())
         .padding()
         .background(Color.gray.opacity(0.1))
 } 

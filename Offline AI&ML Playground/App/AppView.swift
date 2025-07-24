@@ -20,7 +20,7 @@ struct AppView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationView {
-                SimpleChatView(selectedTab: $selectedTab)
+                ChatView(selectedTab: $selectedTab)
             }
             .tabItem {
                 Label("Chat", systemImage: "bubble.left.and.bubble.right")
@@ -28,7 +28,7 @@ struct AppView: View {
             .tag(Tab.chat)
             
             NavigationView {
-                SimpleDownloadView()
+                DownloadView()
             }
             .tabItem {
                 Label("Download", systemImage: "arrow.down.circle")
@@ -36,7 +36,7 @@ struct AppView: View {
             .tag(Tab.download)
             
             NavigationView {
-                SimpleSettingsView()
+                SettingsView()
             }
             .tabItem {
                 Label("Settings", systemImage: "gear")

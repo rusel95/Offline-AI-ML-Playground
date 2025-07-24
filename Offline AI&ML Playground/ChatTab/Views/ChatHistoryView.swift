@@ -10,24 +10,10 @@ import SwiftUI
 import SwiftData
 
 struct ChatHistoryView: View {
-    @Environment(\.modelContext) private var modelContext
+    @StateObject var viewModel: ChatHistoryViewModel
     @Environment(\.dismiss) private var dismiss
     
-    @StateObject private var historyManager: ChatHistoryManager
-    @State private var searchText = ""
-    @State private var conversations: [Conversation] = []
-    @State private var showingDeleteAlert = false
-    @State private var conversationToDelete: Conversation?
-    @State private var editingConversation: Conversation?
-    @State private var newTitle = ""
-    @State private var showCleanupConfirmation = false
-    
     let onLoadConversation: (Conversation) -> Void
-    
-    init(modelContext: ModelContext, onLoadConversation: @escaping (Conversation) -> Void) {
-        self._historyManager = StateObject(wrappedValue: ChatHistoryManager(modelContext: modelContext))
-        self.onLoadConversation = onLoadConversation
-    }
     
     var body: some View {
         NavigationView {
@@ -36,7 +22,7 @@ struct ChatHistoryView: View {
                 searchBar
                 
                 // Conversations list
-                if filteredConversations.isEmpty {
+                if viewModel.filteredConversations.isEmpty {
                     emptyStateView
                 } else {
                     conversationsList
@@ -53,9 +39,7 @@ struct ChatHistoryView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button {
-                            historyManager.cleanupOldConversations(keepLast: 50)
-                            loadConversations()
-                            showCleanupConfirmation = true
+                            viewModel.cleanupOldConversations(keepLast: 50)
                         } label: {
                             Label("Clean Old Chats", systemImage: "trash.circle")
                         }
@@ -66,37 +50,28 @@ struct ChatHistoryView: View {
             }
         }
         .onAppear {
-            loadConversations()
+            viewModel.loadConversations()
         }
-        .alert("Delete Conversation", isPresented: $showingDeleteAlert) {
+        .alert("Delete Conversation", isPresented: $viewModel.showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
-                if let conversation = conversationToDelete {
-                    historyManager.deleteConversation(conversation)
-                    loadConversations()
-                }
+                viewModel.confirmDelete()
             }
         } message: {
             Text("This conversation will be permanently deleted.")
         }
-        .alert("Edit Title", isPresented: .constant(editingConversation != nil)) {
-            TextField("Conversation Title", text: $newTitle)
+        .alert("Edit Title", isPresented: .constant(viewModel.editingConversation != nil)) {
+            TextField("Conversation Title", text: $viewModel.newTitle)
             Button("Cancel", role: .cancel) {
-                editingConversation = nil
-                newTitle = ""
+                viewModel.cancelEdit()
             }
             Button("Save") {
-                if let conversation = editingConversation {
-                    historyManager.updateConversationTitle(conversation, title: newTitle)
-                    loadConversations()
-                }
-                editingConversation = nil
-                newTitle = ""
+                viewModel.saveEditedTitle()
             }
         } message: {
             Text("Enter a new title for this conversation.")
         }
-        .alert("Old chats cleaned! Only the 50 most recent conversations are kept.", isPresented: $showCleanupConfirmation) {
+        .alert("Old chats cleaned! Only the 50 most recent conversations are kept.", isPresented: $viewModel.showCleanupConfirmation) {
             Button("OK", role: .cancel) { }
         }
     }
@@ -108,15 +83,12 @@ struct ChatHistoryView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(.secondary)
             
-            TextField("Search conversations...", text: $searchText)
+            TextField("Search conversations...", text: $viewModel.searchText)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                .onChange(of: searchText) { _, _ in
-                    filterConversations()
-                }
             
-            if !searchText.isEmpty {
+            if !viewModel.searchText.isEmpty {
                 Button("Clear") {
-                    searchText = ""
+                    viewModel.searchText = ""
                 }
                 .font(.caption)
                 .foregroundColor(.accentColor)
@@ -134,12 +106,12 @@ struct ChatHistoryView: View {
                 .font(.system(size: 64))
                 .foregroundColor(.secondary)
             
-            Text(searchText.isEmpty ? "No Conversations Yet" : "No Results Found")
+            Text(viewModel.searchText.isEmpty ? "No Conversations Yet" : "No Results Found")
                 .font(.title2)
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)
             
-            Text(searchText.isEmpty ? 
+            Text(viewModel.searchText.isEmpty ? 
                  "Start a conversation in the chat tab to see it here." :
                  "Try searching with different keywords.")
                 .font(.body)
@@ -154,7 +126,7 @@ struct ChatHistoryView: View {
     
     private var conversationsList: some View {
         List {
-            ForEach(filteredConversations, id: \.id) { conversation in
+            ForEach(viewModel.filteredConversations, id: \.id) { conversation in
                 ConversationRowView(
                     conversation: conversation,
                     onTap: {
@@ -162,12 +134,10 @@ struct ChatHistoryView: View {
                         dismiss()
                     },
                     onEdit: {
-                        editingConversation = conversation
-                        newTitle = conversation.title
+                        viewModel.prepareToEdit(conversation)
                     },
                     onDelete: {
-                        conversationToDelete = conversation
-                        showingDeleteAlert = true
+                        viewModel.prepareToDelete(conversation)
                     }
                 )
             }
@@ -175,25 +145,6 @@ struct ChatHistoryView: View {
         .listStyle(PlainListStyle())
     }
     
-    // MARK: - Computed Properties
-    
-    private var filteredConversations: [Conversation] {
-        if searchText.isEmpty {
-            return conversations
-        } else {
-            return historyManager.searchConversations(query: searchText)
-        }
-    }
-    
-    // MARK: - Methods
-    
-    private func loadConversations() {
-        conversations = historyManager.getAllConversations()
-    }
-    
-    private func filterConversations() {
-        // Real-time filtering is handled by computed property
-    }
 }
 
 // MARK: - Conversation Row View
