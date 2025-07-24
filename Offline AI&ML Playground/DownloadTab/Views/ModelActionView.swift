@@ -11,10 +11,10 @@ import SwiftUI
 // MARK: - Model Action View
 struct ModelActionView: View {
     let model: AIModel
-    @ObservedObject var sharedManager: SharedModelManager
+    @ObservedObject var viewModel: ModelCardViewModel
     
     var body: some View {
-        if let download = sharedManager.activeDownloads[model.id] {
+        if viewModel.isDownloading, let download = viewModel.downloadViewModel.getDownloadProgress(for: model.id) {
             // Currently downloading
             VStack(spacing: 12) {
                 HStack {
@@ -43,14 +43,14 @@ struct ModelActionView: View {
                     Spacer()
                     
                     Button("Cancel") {
-                        sharedManager.cancelDownload(model.id)
+                        viewModel.cancelDownload()
                     }
                     .font(.caption)
                     .foregroundColor(.red)
                     .buttonStyle(.plain)
                 }
             }
-        } else if sharedManager.isModelDownloaded(model.id) {
+        } else if viewModel.isDownloaded {
             // Already downloaded
             HStack {
                 Image(systemName: "checkmark.circle.fill")
@@ -64,7 +64,7 @@ struct ModelActionView: View {
                 Spacer()
                 
                 Button("Delete") {
-                    sharedManager.deleteModel(model.id)
+                    viewModel.deleteModel()
                 }
                 .font(.subheadline)
                 .foregroundColor(.red)
@@ -73,14 +73,7 @@ struct ModelActionView: View {
         } else {
             // Available for download
             Button(action: {
-                Task {
-                    do {
-                        try await sharedManager.downloadModel(model)
-                    } catch {
-                        print("❌ Error downloading model: \(error.localizedDescription)")
-                        // TODO: Show an error alert to the user
-                    }
-                }
+                viewModel.downloadModel()
             }) {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.down.circle.fill")

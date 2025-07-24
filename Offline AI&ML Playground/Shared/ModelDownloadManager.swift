@@ -678,76 +678,81 @@ public class ModelDownloadManager: NSObject, ObservableObject {
 // MARK: - URLSessionDownloadDelegate
 extension ModelDownloadManager: URLSessionDownloadDelegate {
     nonisolated public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        // Find the model being downloaded first (synchronously)
-        var targetModelId: String?
+        // Store the download task reference for later lookup
+        let taskReference = downloadTask
         
-        // We need to access activeDownloads from main actor, but we can't make this function async
-        // So we'll do a synchronous dispatch to main to get the modelId
-        DispatchQueue.main.sync {
+        // Use Task to handle async main actor access
+        Task { @MainActor in
+            // Find the model being downloaded
+            var targetModelId: String?
+            
             for (modelId, download) in activeDownloads {
-                if download.task == downloadTask {
+                if download.task == taskReference {
                     targetModelId = modelId
                     break
                 }
             }
-        }
-        
-        guard let modelId = targetModelId else { 
-            return 
-        }
-        
-        // Move the file immediately (before switching actors) to prevent cleanup
-        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let modelsDirectory = documentsDirectory.appendingPathComponent("Models", isDirectory: true)
-        let destinationURL = modelsDirectory.appendingPathComponent(modelId)
-        
-        var moveSuccess = false
-        
-        do {
-            // Create models directory if needed
-            if !FileManager.default.fileExists(atPath: modelsDirectory.path) {
-                print("📁 Creating models directory...")
-                try FileManager.default.createDirectory(at: modelsDirectory, withIntermediateDirectories: true, attributes: nil)
-                print("✅ Models directory created")
-            } else {
-                print("📁 Models directory already exists")
+            
+            guard let modelId = targetModelId else { 
+                return 
             }
             
-            // Remove existing file if it exists
-            if FileManager.default.fileExists(atPath: destinationURL.path) {
-                print("🗑️ Removing existing file...")
-                try FileManager.default.removeItem(at: destinationURL)
-                print("✅ Existing file removed")
+            // Move the file handling into a detached task to avoid blocking
+            Task.detached {
+                let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                let modelsDirectory = documentsDirectory.appendingPathComponent("Models", isDirectory: true)
+                let destinationURL = modelsDirectory.appendingPathComponent(modelId)
+                
+                let moveSuccess: Bool = {
+                    do {
+                        // Create models directory if needed
+                        if !FileManager.default.fileExists(atPath: modelsDirectory.path) {
+                            print("📁 Creating models directory...")
+                            try FileManager.default.createDirectory(at: modelsDirectory, withIntermediateDirectories: true, attributes: nil)
+                            print("✅ Models directory created")
+                        } else {
+                            print("📁 Models directory already exists")
+                        }
+                        
+                        // Remove existing file if it exists
+                        if FileManager.default.fileExists(atPath: destinationURL.path) {
+                            print("🗑️ Removing existing file...")
+                            try FileManager.default.removeItem(at: destinationURL)
+                            print("✅ Existing file removed")
+                        }
+                        
+                        // Check if temp file still exists before moving
+                        if !FileManager.default.fileExists(atPath: location.path) {
+                            throw NSError(domain: "ModelDownloadManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Temporary file no longer exists at \(location.path)"])
+                        }
+                        
+                        // Move the temporary file to our app directory
+                        print("📦 Moving file from \(location.path) to \(destinationURL.path)")
+                        try FileManager.default.moveItem(at: location, to: destinationURL)
+                        print("✅ Successfully saved model: \(modelId) to \(destinationURL.path)")
+                        
+                        // Verify file was moved
+                        let finalFileExists = FileManager.default.fileExists(atPath: destinationURL.path)
+                        print("✅ Final file verification: \(finalFileExists)")
+                        
+                        return true
+                    } catch {
+                        print("❌ Error saving model \(modelId): \(error)")
+                        print("❌ Error details: \(error.localizedDescription)")
+                        return false
+                    }
+                }()
+                
+                // Update the UI state on main actor
+                await MainActor.run {
+                    if moveSuccess {
+                        self.downloadedModels.insert(modelId)
+                        self.calculateStorageUsed()
+                    }
+                    self.activeDownloads.removeValue(forKey: modelId)
+                    self.speedTrackers.removeValue(forKey: taskReference)
+                }
             }
-            
-            // Check if temp file still exists before moving
-            if !FileManager.default.fileExists(atPath: location.path) {
-                throw NSError(domain: "ModelDownloadManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Temporary file no longer exists at \(location.path)"])
-            }
-            
-            // Move the temporary file to our app directory
-            print("📦 Moving file from \(location.path) to \(destinationURL.path)")
-            try FileManager.default.moveItem(at: location, to: destinationURL)
-            moveSuccess = true
-            print("✅ Successfully saved model: \(modelId) to \(destinationURL.path)")
-            
-            // Verify file was moved
-            let finalFileExists = FileManager.default.fileExists(atPath: destinationURL.path)
-            print("✅ Final file verification: \(finalFileExists)")
-        } catch {
-            print("❌ Error saving model \(modelId): \(error)")
-            print("❌ Error details: \(error.localizedDescription)")
-            moveSuccess = false
-        }
-        
-        // Now update the UI state on main actor
-        Task { @MainActor in
-            if moveSuccess {
-                downloadedModels.insert(modelId)
-                calculateStorageUsed()
-            }
-            activeDownloads.removeValue(forKey: modelId)
-            speedTrackers.removeValue(forKey: downloadTask)
         }
     }
     

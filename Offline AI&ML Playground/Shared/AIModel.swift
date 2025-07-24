@@ -466,7 +466,8 @@ public enum Provider: String, CaseIterable {
 }
 
 // MARK: - Model Download
-public struct ModelDownload {
+public struct ModelDownload: Identifiable {
+    public var id: String { modelId }
     public let modelId: String
     public let progress: Double
     public let totalBytes: Int64

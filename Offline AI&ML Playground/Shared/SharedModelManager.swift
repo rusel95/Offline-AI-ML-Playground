@@ -98,8 +98,12 @@ class SharedModelManager: NSObject, ObservableObject {
         // Initialize after super.init()
         setupDirectory()
         loadCuratedModels() // Load curated model list instead of all static models
-        synchronizeModels()
-        calculateStorage()
+        
+        // Schedule initial synchronization
+        Task {
+            await synchronizeModelsImmediately()
+            await calculateStorageImmediately()
+        }
         
         print("✅ SharedModelManager initialized")
         print("📁 Unified models directory: \(modelsDirectory.path)")
@@ -275,7 +279,11 @@ class SharedModelManager: NSObject, ObservableObject {
         scheduleUpdate()
     }
     
-    private func performModelSynchronization() {
+    func synchronizeModelsImmediately() async {
+        await performModelSynchronization()
+    }
+    
+    private func performModelSynchronization() async {
         print("🔄 Synchronizing models with file system...")
         
         guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
@@ -283,9 +291,11 @@ class SharedModelManager: NSObject, ObservableObject {
             return
         }
         
-        // Perform synchronization on background queue for better performance
-        DispatchQueue.global(qos: .userInitiated).async {
-            var newDownloadedModels: Set<String> = []
+        // Perform synchronization on background task for better performance
+        let newDownloadedModels = await Task.detached { [weak self] () -> Set<String> in
+            guard let self = self else { return [] }
+            
+            var result: Set<String> = []
             
             do {
                 let contents = try FileManager.default.contentsOfDirectory(
@@ -295,7 +305,8 @@ class SharedModelManager: NSObject, ObservableObject {
                 let filesOnDisk = Set(contents.map { $0.lastPathComponent })
                 
                 // CRITICAL FIX: Match model IDs with files that start with the model ID
-                let modelIdsOnDisk = Set(self.availableModels.compactMap { model in
+                let availableModelsSnapshot = await self.availableModels
+                let modelIdsOnDisk = Set(availableModelsSnapshot.compactMap { model in
                     // Check if any file on disk starts with this model's ID
                     let hasMatchingFile = filesOnDisk.contains { filename in
                         filename.hasPrefix(model.id) && filename.contains(".")
@@ -303,20 +314,20 @@ class SharedModelManager: NSObject, ObservableObject {
                     return hasMatchingFile ? model.id : nil
                 })
                 
-                newDownloadedModels = modelIdsOnDisk
+                result = modelIdsOnDisk
                 
             } catch {
                 print("❌ Error synchronizing models: \(error)")
             }
             
-            // Update on main thread only if there are changes
-            DispatchQueue.main.async {
-                if self.downloadedModels != newDownloadedModels {
-                    let oldCount = self.downloadedModels.count
-                    self.downloadedModels = newDownloadedModels
-                    print("📊 Synchronized: \(self.downloadedModels.count) models tracked (was \(oldCount))")
-                }
-            }
+            return result
+        }.value
+        
+        // Update on main actor only if there are changes
+        if self.downloadedModels != newDownloadedModels {
+            let oldCount = self.downloadedModels.count
+            self.downloadedModels = newDownloadedModels
+            print("📊 Synchronized: \(self.downloadedModels.count) models tracked (was \(oldCount))")
         }
     }
     
@@ -368,29 +379,29 @@ class SharedModelManager: NSObject, ObservableObject {
         
         print("⏳ Model \(modelId) not tracked, checking file system on background queue")
         
-        // SLOW PATH: Check file system on background queue to prevent UI blocking
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            let modelPath = self.modelsDirectory.appendingPathComponent(modelId)
-            let fileExists = FileManager.default.fileExists(atPath: modelPath.path)
-            
-            print("📁 File system check for \(modelId): exists=\(fileExists)")
-            
-            if fileExists {
-                // CRITICAL: Update @Published property ONLY on main thread
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    if !self.downloadedModels.contains(modelId) {
-                        self.downloadedModels.insert(modelId)
-                        print("✅ Found untracked model \(modelId), adding to tracking")
-                    }
-                }
-            }
+        // SLOW PATH: Schedule background check
+        Task {
+            await checkAndUpdateModelOnDisk(modelId)
         }
         
         // Return false immediately - background update will sync later
         print("⚡ Returning false immediately (background sync will update)")
         return false
+    }
+    
+    private func checkAndUpdateModelOnDisk(_ modelId: String) async {
+        let modelPath = modelsDirectory.appendingPathComponent(modelId)
+        
+        let fileExists = await Task.detached {
+            FileManager.default.fileExists(atPath: modelPath.path)
+        }.value
+        
+        print("📁 File system check for \(modelId): exists=\(fileExists)")
+        
+        if fileExists && !self.downloadedModels.contains(modelId) {
+            self.downloadedModels.insert(modelId)
+            print("✅ Found untracked model \(modelId), adding to tracking")
+        }
     }
     
     func getLocalModelPath(modelId: String) -> URL? {
@@ -521,21 +532,23 @@ class SharedModelManager: NSObject, ObservableObject {
         scheduleUpdate()
     }
     
-    private func performStorageCalculation() {
+    func calculateStorageImmediately() async {
+        await performStorageCalculation()
+    }
+    
+    private func performStorageCalculation() async {
         guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
-            DispatchQueue.main.async {
-                self.storageUsed = 0
-                self.lastStorageUpdate = Date()
-            }
+            self.storageUsed = 0
+            self.lastStorageUpdate = Date()
             return
         }
         
-        // Perform calculation on background queue
-        Task.detached { [weak self] in
-            guard let self = self else { return }
+        // Perform calculation on background task
+        let (calculatedStorage, calculatedFreeStorage) = await Task.detached { [weak self] () -> (Double, Double) in
+            guard let self = self else { return (0, 0) }
             
-            let calculatedStorage: Double
-            let calculatedFreeStorage: Double
+            var calculatedStorage: Double = 0
+            var calculatedFreeStorage: Double = 0
             
             do {
                 let contents = try FileManager.default.contentsOfDirectory(
@@ -561,13 +574,13 @@ class SharedModelManager: NSObject, ObservableObject {
                 calculatedFreeStorage = 0
             }
             
-            // Update on main thread
-            await MainActor.run {
-                self.storageUsed = calculatedStorage
-                self.freeStorage = calculatedFreeStorage
-                self.lastStorageUpdate = Date()
-            }
-        }
+            return (calculatedStorage, calculatedFreeStorage)
+        }.value
+        
+        // Update properties
+        self.storageUsed = calculatedStorage
+        self.freeStorage = calculatedFreeStorage
+        self.lastStorageUpdate = Date()
     }
     
     // MARK: - Batch Update System
@@ -584,15 +597,17 @@ class SharedModelManager: NSObject, ObservableObject {
         let updates = pendingUpdates
         pendingUpdates.removeAll()
         
-        for update in updates {
-            switch update {
-            case .storage:
-                performStorageCalculation()
-            case .models:
-                performModelSynchronization()
-            case .downloads:
-                // Handle download updates if needed
-                break
+        Task {
+            for update in updates {
+                switch update {
+                case .storage:
+                    await performStorageCalculation()
+                case .models:
+                    await performModelSynchronization()
+                case .downloads:
+                    // Handle download updates if needed
+                    break
+                }
             }
         }
     }
@@ -638,15 +653,21 @@ class SharedModelManager: NSObject, ObservableObject {
 // MARK: - URLSessionDownloadDelegate
 extension SharedModelManager: URLSessionDownloadDelegate {
     nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        // Delegate to async handler
+        Task {
+            await handleDownloadCompletion(downloadTask: downloadTask, location: location)
+        }
+    }
+    
+    @MainActor
+    private func handleDownloadCompletion(downloadTask: URLSessionDownloadTask, location: URL) async {
         // Find the model being downloaded
         var targetModelId: String?
         
-        DispatchQueue.main.sync {
-            for (modelId, download) in activeDownloads {
-                if download.task == downloadTask {
-                    targetModelId = modelId
-                    break
-                }
+        for (modelId, download) in activeDownloads {
+            if download.task == downloadTask {
+                targetModelId = modelId
+                break
             }
         }
         
@@ -655,44 +676,53 @@ extension SharedModelManager: URLSessionDownloadDelegate {
             return 
         }
         
-        // Move file to models directory
+        // Perform file operations on background
+        await moveDownloadedFile(modelId: modelId, from: location, task: downloadTask)
+    }
+    
+    private func moveDownloadedFile(modelId: String, from location: URL, task: URLSessionDownloadTask) async {
         let destinationURL = modelsDirectory.appendingPathComponent(modelId)
         
-        do {
-            // Remove existing file if present
-            if FileManager.default.fileExists(atPath: destinationURL.path) {
-                try FileManager.default.removeItem(at: destinationURL)
-                print("🔄 Replaced existing model file: \(modelId)")
-            }
-            
-            // Move downloaded file
-            try FileManager.default.moveItem(at: location, to: destinationURL)
-            
-            // Verify the moved file
-            let fileSize = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path))?[.size] as? Int64 ?? 0
-            
-            // Update state on main actor
-            Task { @MainActor in
-                downloadedModels.insert(modelId)
-                activeDownloads.removeValue(forKey: modelId)
-                speedTrackers.removeValue(forKey: downloadTask)
-                lastProgressUpdate.removeValue(forKey: downloadTask)
-                calculateStorage()
+        // Perform file operations on background task
+        let (success, fileSize) = await Task.detached {
+            do {
+                // Remove existing file if present
+                if FileManager.default.fileExists(atPath: destinationURL.path) {
+                    try FileManager.default.removeItem(at: destinationURL)
+                    print("🔄 Replaced existing model file: \(modelId)")
+                }
                 
-                print("✅ Successfully downloaded model: \(modelId)")
-                print("📁 File size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
-                print("💾 Total models downloaded: \(downloadedModels.count)")
+                // Move downloaded file
+                try FileManager.default.moveItem(at: location, to: destinationURL)
+                
+                // Verify the moved file
+                let fileSize = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path))?[.size] as? Int64 ?? 0
+                
+                print("✅ Successfully saved model: \(modelId) to \(destinationURL.path)")
+                return (true, fileSize)
+                
+            } catch {
+                print("❌ Error saving model \(modelId): \(error.localizedDescription)")
+                return (false, Int64(0))
             }
+        }.value
+        
+        // Update state on main actor
+        if success {
+            self.downloadedModels.insert(modelId)
+            self.activeDownloads.removeValue(forKey: modelId)
+            self.speedTrackers.removeValue(forKey: task)
+            self.lastProgressUpdate.removeValue(forKey: task)
+            self.calculateStorage()
             
-        } catch {
-            print("❌ Error saving model \(modelId): \(error.localizedDescription)")
-            
-            Task { @MainActor in
-                activeDownloads.removeValue(forKey: modelId)
-                speedTrackers.removeValue(forKey: downloadTask)
-                lastProgressUpdate.removeValue(forKey: downloadTask)
-                lastError = "Failed to save \(modelId): \(error.localizedDescription)"
-            }
+            print("✅ Successfully downloaded model: \(modelId)")
+            print("📁 File size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
+            print("💾 Total models downloaded: \(self.downloadedModels.count)")
+        } else {
+            self.activeDownloads.removeValue(forKey: modelId)
+            self.speedTrackers.removeValue(forKey: task)
+            self.lastProgressUpdate.removeValue(forKey: task)
+            self.lastError = "Failed to save \(modelId)"
         }
     }
     

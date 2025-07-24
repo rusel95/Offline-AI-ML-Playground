@@ -12,7 +12,7 @@ import SwiftUI
 struct DownloadProgressCard: View {
     let model: AIModel
     let download: ModelDownload
-    @ObservedObject var sharedManager: SharedModelManager
+    @ObservedObject var viewModel: DownloadViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -35,7 +35,7 @@ struct DownloadProgressCard: View {
                 Spacer()
                 
                 Button(action: {
-                    sharedManager.cancelDownload(model.id)
+                    viewModel.cancelDownload(model.id)
                 }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)

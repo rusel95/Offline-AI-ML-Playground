@@ -11,8 +11,7 @@ import SwiftUI
 // MARK: - Model Card View
 struct ModelCardView: View {
     let model: AIModel
-    @ObservedObject var sharedManager: SharedModelManager
-    @State private var showingDetailedInfo = false
+    @ObservedObject var viewModel: ModelCardViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -66,7 +65,7 @@ struct ModelCardView: View {
                 
                 // Info button
                 Button(action: {
-                    showingDetailedInfo = true
+                    viewModel.toggleDetailSheet()
                 }) {
                     Image(systemName: "info.circle")
                         .foregroundStyle(.secondary)
@@ -76,12 +75,12 @@ struct ModelCardView: View {
             }
             
             // Download status and action
-            ModelActionView(model: model, sharedManager: sharedManager)
+            ModelActionView(model: model, viewModel: viewModel)
         }
         .padding(16)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
-        .sheet(isPresented: $showingDetailedInfo) {
+        .sheet(isPresented: $viewModel.showingDetailSheet) {
             ModelDetailedInfoView(model: model)
         }
     }
