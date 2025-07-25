@@ -320,6 +320,12 @@ struct ChatView: View {
                 viewModel.shouldNavigateToDownloads = false
             }
         }
+        .onChange(of: viewModel.shouldNavigateToDownloads) { oldValue, newValue in
+            if newValue {
+                selectedTab = .download
+                viewModel.shouldNavigateToDownloads = false
+            }
+        }
     }
     
     // MARK: - Optimized Keyboard Management Methods

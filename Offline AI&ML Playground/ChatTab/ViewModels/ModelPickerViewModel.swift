@@ -110,7 +110,7 @@ class ModelPickerViewModel: ObservableObject {
     }
     
     func navigateToDownloads() {
-        shouldNavigateToDownloads = true
+        chatViewModel.shouldNavigateToDownloads = true
     }
     
     // MARK: - Formatting
