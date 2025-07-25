@@ -68,7 +68,7 @@ class DownloadViewModel: ObservableObject {
     init() {
         self.sharedManager = SharedModelManager.shared
         setupBindings()
-        loadInitialData()
+        // No async loading - models are already loaded statically in SharedModelManager
     }
     
     // MARK: - Setup
@@ -88,18 +88,8 @@ class DownloadViewModel: ObservableObject {
             .assign(to: &$downloadedModels)
     }
     
-    private func loadInitialData() {
-        Task {
-            await refreshModels()
-        }
-    }
-    
     // MARK: - Public Methods
-    func refreshModels() async {
-        isLoadingModels = true
-        // Models are loaded automatically by SharedModelManager
-        isLoadingModels = false
-    }
+    // Models are statically loaded, no refresh needed
     
     func downloadModel(_ model: AIModel) {
         Task {

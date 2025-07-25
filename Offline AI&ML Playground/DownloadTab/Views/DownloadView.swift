@@ -13,6 +13,7 @@ import Foundation
 struct DownloadView: View {
     @StateObject private var viewModel = DownloadViewModel()
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var scrollViewOffset: CGFloat = 0
     
     var body: some View {
         iPhoneLayout
@@ -21,13 +22,28 @@ struct DownloadView: View {
     // MARK: - iPhone Layout
     private var iPhoneLayout: some View {
         mainContentList
+            .animation(.easeInOut(duration: 0.2), value: viewModel.activeDownloads.count)
     }
     
     private var mainContentList: some View {
         ScrollView {
-            LazyVStack(spacing: 20) {
-                activeDownloadsSection
+            VStack(spacing: 20) {
+                // Always render the downloads section container
+                VStack(spacing: 0) {
+                    if viewModel.hasActiveDownloads {
+                        activeDownloadsSection
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .top).combined(with: .opacity),
+                                removal: .scale(scale: 0.8).combined(with: .opacity)
+                            ))
+                    }
+                }
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: viewModel.hasActiveDownloads)
+                
+                // Always show available models
                 availableModelsSection
+                    .transition(.identity) // Prevent transition on this section
+                    .frame(minHeight: 300) // Ensure minimum height to prevent jumping
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -35,33 +51,34 @@ struct DownloadView: View {
         .background(Color(.systemBackground))
     }
     
-    @ViewBuilder
     private var activeDownloadsSection: some View {
-        if viewModel.hasActiveDownloads {
-            VStack(alignment: .leading, spacing: 16) {
-                // Section header with modern styling
-                HStack {
-                    Image(systemName: "arrow.down.circle.fill")
-                        .foregroundStyle(.blue)
-                        .font(.title2)
-                    Text("Active Downloads")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    Spacer()
-                }
-                .padding(.horizontal, 4)
-                
-                // Downloads list with beautiful card styling
-                VStack(spacing: 12) {
-                    ForEach(viewModel.activeDownloads) { download in
-                        if let model = viewModel.availableModels.first(where: { $0.id == download.modelId }) {
-                            DownloadProgressCard(model: model, download: download, viewModel: viewModel)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(.regularMaterial)
-                                        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-                                )
-                        }
+        VStack(alignment: .leading, spacing: 16) {
+            // Section header with modern styling
+            HStack {
+                Image(systemName: "arrow.down.circle.fill")
+                    .foregroundStyle(.blue)
+                    .font(.title2)
+                Text("Active Downloads")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+            
+            // Downloads list with beautiful card styling
+            VStack(spacing: 12) {
+                ForEach(viewModel.activeDownloads, id: \.modelId) { download in
+                    if let model = viewModel.availableModels.first(where: { $0.id == download.modelId }) {
+                        DownloadProgressCard(model: model, download: download, viewModel: viewModel)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(.regularMaterial)
+                                    .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+                            )
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.8).combined(with: .opacity),
+                                removal: .scale(scale: 0.8).combined(with: .opacity)
+                            ))
                     }
                 }
             }
@@ -69,26 +86,10 @@ struct DownloadView: View {
     }
     
     private var availableModelsSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            // Section header with modern styling
-            HStack {
-                Image(systemName: "cpu.fill")
-                    .foregroundStyle(.purple)
-                    .font(.title2)
-                Text("Available Models")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                Spacer()
-            }
-            .padding(.horizontal, 4)
-            
+        VStack(alignment: .leading, spacing: 24) {
             // Provider sections with improved spacing
-            VStack(spacing: 24) {
-                ForEach(Provider.allCases, id: \.self) { provider in
-                    if !modelsForProvider(provider).isEmpty {
-                        providerSection(for: provider)
-                    }
-                }
+            ForEach(viewModel.groupedModels, id: \.provider) { group in
+                providerSection(for: group.provider, models: group.models)
             }
         }
     }
@@ -97,7 +98,7 @@ struct DownloadView: View {
         return viewModel.availableModels.filter { $0.provider == provider }
     }
     
-    private func providerSection(for provider: Provider) -> some View {
+    private func providerSection(for provider: Provider, models: [AIModel]) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             // Provider header with elegant styling
             VStack(alignment: .leading, spacing: 8) {
@@ -111,7 +112,7 @@ struct DownloadView: View {
                         Text(provider.displayName)
                             .font(.headline)
                             .fontWeight(.bold)
-                        Text("\(modelsForProvider(provider).count) models available")
+                        Text("\(models.count) models available")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -128,7 +129,7 @@ struct DownloadView: View {
             
             // Models for this provider with card styling
             VStack(spacing: 12) {
-                ForEach(modelsForProvider(provider), id: \.id) { model in
+                ForEach(models, id: \.id) { model in
                     ModelCardView(
                         model: model,
                         viewModel: ModelCardViewModel(model: model, downloadViewModel: viewModel)
@@ -158,10 +159,8 @@ struct DownloadView: View {
     }
     
     private var modelCategoriesList: some View {
-        ForEach(Provider.allCases, id: \.self) { provider in
-            if !modelsForProvider(provider).isEmpty {
-                modelCategoryRow(for: provider)
-            }
+        ForEach(viewModel.groupedModels, id: \.provider) { group in
+            modelCategoryRow(for: group.provider)
         }
     }
     
@@ -219,7 +218,7 @@ struct DownloadView: View {
     
     private var macOSModelsGrid: some View {
         LazyVGrid(columns: macOSGridColumns, spacing: 20) {
-            ForEach(viewModel.availableModels, id: \.id) { model in
+            ForEach(viewModel.availableModels) { model in
                 macOSModelCard(for: model)
             }
         }

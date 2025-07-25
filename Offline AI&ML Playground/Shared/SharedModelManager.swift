@@ -97,13 +97,10 @@ class SharedModelManager: NSObject, ObservableObject {
         
         // Initialize after super.init()
         setupDirectory()
-        loadCuratedModels() // Load curated model list instead of all static models
+        loadCuratedModels() // Load curated model list
         
-        // Schedule initial synchronization
-        Task {
-            await synchronizeModelsImmediately()
-            await calculateStorageImmediately()
-        }
+        // Synchronize models synchronously on init to avoid race conditions
+        performInitialSynchronization()
         
         print("✅ SharedModelManager initialized")
         print("📁 Unified models directory: \(modelsDirectory.path)")
@@ -223,52 +220,55 @@ class SharedModelManager: NSObject, ObservableObject {
         print("📊 Model types: \(Set(availableModels.map { $0.type.displayName }).joined(separator: ", "))")
     }
     
-    // MARK: - Model Availability Checking
-    func verifyModelAvailability() async {
-        await MainActor.run { isLoadingAvailableModels = true }
-        
-        print("🔍 Verifying model availability on HuggingFace...")
-        
-        var verifiedModels: [AIModel] = []
-        
-        for model in availableModels {
-            let isAvailable = await checkModelAvailability(model)
-            if isAvailable {
-                verifiedModels.append(model)
-                print("✅ Model available: \(model.name)")
-            } else {
-                print("❌ Model not available: \(model.name)")
-            }
-        }
-        
-        await MainActor.run {
-            availableModels = verifiedModels
-            isLoadingAvailableModels = false
-        }
-        
-        print("✅ Model verification completed. \(verifiedModels.count) models available.")
-    }
+    // MARK: - Model Availability
+    // Models are static and pre-defined, no verification needed
     
-    private func checkModelAvailability(_ model: AIModel) async -> Bool {
-        // Check if model repository exists on HuggingFace
-        let apiUrl = "https://huggingface.co/api/models/\(model.huggingFaceRepo)"
-        
-        guard let url = URL(string: apiUrl) else { return false }
+    // MARK: - Initial Synchronization
+    private func performInitialSynchronization() {
+        // Perform synchronous check for downloaded models
+        guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
+            downloadedModels.removeAll()
+            storageUsed = 0
+            freeStorage = 0
+            return
+        }
         
         do {
-            var request = URLRequest(url: url)
-            request.httpMethod = "HEAD"
-            request.timeoutInterval = 10.0
+            let contents = try FileManager.default.contentsOfDirectory(
+                at: modelsDirectory, 
+                includingPropertiesForKeys: [.fileSizeKey]
+            )
             
-            let (_, response) = try await URLSession.shared.data(for: request)
+            // Check which models are already downloaded
+            let filesOnDisk = Set(contents.map { $0.lastPathComponent })
+            let modelIdsOnDisk = Set(availableModels.compactMap { model in
+                filesOnDisk.contains { filename in
+                    filename.hasPrefix(model.id) && filename.contains(".")
+                } ? model.id : nil
+            })
             
-            if let httpResponse = response as? HTTPURLResponse {
-                return httpResponse.statusCode == 200
+            downloadedModels = modelIdsOnDisk
+            
+            // Calculate initial storage
+            storageUsed = contents.reduce(0.0) { total, url in
+                let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+                return total + Double(size)
             }
-            return false
+            
+            // Calculate free storage
+            if let systemAttributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
+               let freeSpace = systemAttributes[.systemFreeSize] as? NSNumber {
+                freeStorage = freeSpace.doubleValue
+            }
+            
+            print("📊 Initial sync: \(downloadedModels.count) models found")
+            print("💾 Storage used: \(formattedStorageUsed)")
+            
         } catch {
-            print("❌ Failed to verify \(model.name): \(error)")
-            return false
+            print("❌ Error in initial synchronization: \(error)")
+            downloadedModels.removeAll()
+            storageUsed = 0
+            freeStorage = 0
         }
     }
     

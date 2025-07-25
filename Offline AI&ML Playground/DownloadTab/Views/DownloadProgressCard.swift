@@ -35,11 +35,16 @@ struct DownloadProgressCard: View {
                 Spacer()
                 
                 Button(action: {
-                    viewModel.cancelDownload(model.id)
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                    impactFeedback.impactOccurred()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        viewModel.cancelDownload(model.id)
+                    }
                 }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
                         .font(.title2)
+                        .scaleEffect(1.0)
                 }
                 .buttonStyle(.plain)
             }
