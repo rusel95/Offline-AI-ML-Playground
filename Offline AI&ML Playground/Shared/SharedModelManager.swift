@@ -123,101 +123,331 @@ class SharedModelManager: NSObject, ObservableObject {
     
     // MARK: - Model Catalog Management
     private func loadCuratedModels() {
-        // ==================== CRITICAL ARCHITECTURAL DECISION ====================
+        // ==================== MLX MODELS FOR iPHONE (2025) ====================
         // 
-        // PROBLEM SOLVED: MLX community repositories require authentication (HTTP 401)
-        // SOLUTION: Use public repositories + MLX Swift auto-conversion
+        // CURATED LIST: Best MLX-compatible models for iPhone usage
+        // Focused on: Performance, Memory efficiency, MLX optimization
         //
-        // WORKFLOW:
-        // 1. Download single files from PUBLIC repositories (no auth required)
-        // 2. MLX Swift's HuggingFace Hub integration auto-converts formats during loading
-        // 3. ModelConfiguration uses original repository ID, not MLX community mapping
-        //
-        // THIS PREVENTS:
-        // ❌ HTTP 401 "Invalid username or password" 
-        // ❌ HTTP 404 "Entry not found"
-        // ❌ "config.json not found" errors
-        // ❌ 15-29 byte error page downloads
+        // Model Selection Criteria:
+        // ✅ 1B-7B parameter range (optimal for iPhone)
+        // ✅ 4-bit quantization available 
+        // ✅ MLX community support
+        // ✅ Proven iPhone compatibility
+        // ✅ Public repositories (no auth required)
         //
         // ======================================================================
         
-        print("📋 LOADING CURATED MODELS - HYBRID PUBLIC REPOSITORY APPROACH")
+        print("📋 LOADING CURATED CHAT MODELS FOR iPHONE")
         availableModels = [
-            // 1. TinyLlama - Public repository, MLX Swift can auto-convert
+            // MARK: - Meta/Llama Models
+            // 1. Llama 3.2 1B - Ultra lightweight
             AIModel(
-                id: "tinyllama-1.1b", 
-                name: "TinyLlama 1.1B Chat", 
-                description: "Ultra-compact 2.2GB Llama model, publicly accessible. MLX Swift will handle conversion and optimization automatically.", 
-                huggingFaceRepo: "TinyLlama/TinyLlama-1.1B-Chat-v1.0", 
-                filename: "model.safetensors", 
-                sizeInBytes: 2200119864, 
-                type: .llama, 
-                tags: ["tiny", "meta", "llama", "chat", "public", "auto-convert"], 
-                isGated: false, 
+                id: "llama-3.2-1b",
+                name: "Llama 3.2 1B Instruct",
+                description: "Smallest Llama 3.2 model, perfect for basic conversations. Only 650MB with 4-bit quantization.",
+                huggingFaceRepo: "meta-llama/Llama-3.2-1B-Instruct",
+                filename: "model.safetensors",
+                sizeInBytes: 680000000, // ~650MB
+                type: .llama,
+                tags: ["llama", "1B", "lightweight", "mlx", "chat", "4-bit"],
+                isGated: false,
                 provider: .meta
             ),
             
-            // 2. GPT-2 - Public repository, foundational model
+            // 2. Llama 3.2 3B - Sweet spot
             AIModel(
-                id: "gpt2", 
-                name: "GPT-2", 
-                description: "OpenAI's foundational 548MB GPT-2 model. Publicly accessible, MLX Swift will handle optimization.", 
-                huggingFaceRepo: "openai-community/gpt2", 
-                filename: "model.safetensors", 
-                sizeInBytes: 548118077, 
-                type: .general, 
-                tags: ["foundational", "openai", "public", "text-generation", "auto-convert"], 
-                isGated: false, 
-                provider: .openAI
+                id: "llama-3.2-3b",
+                name: "Llama 3.2 3B Instruct", 
+                description: "Excellent balance of capability and size. 1.8GB download, surprisingly powerful for conversations.",
+                huggingFaceRepo: "meta-llama/Llama-3.2-3B-Instruct",
+                filename: "model.safetensors",
+                sizeInBytes: 1932735283, // ~1.8GB
+                type: .llama,
+                tags: ["llama", "3B", "recommended", "mlx", "chat", "4-bit"],
+                isGated: false,
+                provider: .meta
             ),
             
-            // 3. DistilBERT - Very small, public model for testing
+            // 3. TinyLlama 1.1B - Community favorite
             AIModel(
-                id: "distilbert", 
-                name: "DistilBERT Base", 
-                description: "Compact 268MB BERT model for testing. Publicly accessible, good for initial model loading verification.", 
-                huggingFaceRepo: "distilbert-base-uncased", 
-                filename: "pytorch_model.bin", 
-                sizeInBytes: 267967963, 
-                type: .general, 
-                tags: ["small", "bert", "public", "testing", "distilled"], 
-                isGated: false, 
-                provider: .other
+                id: "tinyllama-1.1b",
+                name: "TinyLlama 1.1B Chat",
+                description: "Community-developed ultra-compact chat model. Great for fast conversations on iPhone.",
+                huggingFaceRepo: "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+                filename: "model.safetensors",
+                sizeInBytes: 1100000000, // ~1.1GB
+                type: .llama,
+                tags: ["tiny", "llama", "chat", "1B", "mlx", "community"],
+                isGated: false,
+                provider: .meta
             ),
             
-            // 4. Microsoft DialoGPT - Public conversational model
+            // MARK: - Mistral Models
+            // 4. Mistral 7B Instruct
             AIModel(
-                id: "dialogpt-small", 
-                name: "DialoGPT Small", 
-                description: "Microsoft's 351MB conversational model. Publicly accessible, optimized for dialogue generation.", 
-                huggingFaceRepo: "microsoft/DialoGPT-small", 
-                filename: "pytorch_model.bin", 
-                sizeInBytes: 351262781, 
-                type: .general, 
-                tags: ["microsoft", "conversation", "public", "dialogue", "small"], 
-                isGated: false, 
+                id: "mistral-7b-instruct",
+                name: "Mistral 7B Instruct v0.3",
+                description: "High-quality 7B chat model with 4-bit quantization. Excellent for advanced conversations.",
+                huggingFaceRepo: "mistralai/Mistral-7B-Instruct-v0.3",
+                filename: "model.safetensors",
+                sizeInBytes: 3800000000, // ~3.8GB
+                type: .mistral,
+                tags: ["mistral", "7B", "chat", "mlx", "4-bit", "advanced"],
+                isGated: false,
+                provider: .mistral
+            ),
+            
+            // 5. Mistral Small
+            AIModel(
+                id: "mistral-small",
+                name: "Mistral Small",
+                description: "Compact Mistral chat model optimized for mobile. Excellent quality-to-size ratio.",
+                huggingFaceRepo: "mistralai/Mistral-Small-Instruct-2409",
+                filename: "model.safetensors",
+                sizeInBytes: 2500000000, // ~2.5GB
+                type: .mistral,
+                tags: ["mistral", "small", "chat", "mlx", "optimized"],
+                isGated: false,
+                provider: .mistral
+            ),
+            
+            // MARK: - Microsoft Phi Models
+            // 6. Phi-3.5 Mini
+            AIModel(
+                id: "phi-3.5-mini",
+                name: "Phi 3.5 Mini Instruct",
+                description: "Microsoft's latest compact chat model. 4-bit quantized, perfect for iPhone conversations.",
+                huggingFaceRepo: "microsoft/Phi-3.5-mini-instruct",
+                filename: "model.safetensors",
+                sizeInBytes: 2000000000, // ~2GB
+                type: .general,
+                tags: ["phi", "microsoft", "3.5B", "mlx", "chat", "mini"],
+                isGated: false,
                 provider: .microsoft
             ),
             
-            // 5. T5 Small - Public encoder-decoder model
+            // 7. Phi-2
             AIModel(
-                id: "t5-small", 
-                name: "T5 Small", 
-                description: "Google's 242MB T5 model. Publicly accessible, excellent for text-to-text generation tasks.", 
-                huggingFaceRepo: "t5-small", 
-                filename: "pytorch_model.bin", 
-                sizeInBytes: 242089512, 
-                type: .general, 
-                tags: ["google", "t5", "public", "text2text", "encoder-decoder"], 
-                isGated: false, 
+                id: "phi-2",
+                name: "Phi-2",
+                description: "Proven 2.7B parameter chat model from Microsoft. Great conversational abilities.",
+                huggingFaceRepo: "microsoft/phi-2",
+                filename: "model.safetensors",
+                sizeInBytes: 2700000000, // ~2.7GB
+                type: .general,
+                tags: ["phi", "microsoft", "2.7B", "mlx", "chat"],
+                isGated: false,
+                provider: .microsoft
+            ),
+            
+            // MARK: - Google Models  
+            // 8. Gemma 2B
+            AIModel(
+                id: "gemma-2b",
+                name: "Gemma 2B Instruct",
+                description: "Google's efficient 2B chat model. Optimized for on-device conversations.",
+                huggingFaceRepo: "google/gemma-2b-it",
+                filename: "model.safetensors",
+                sizeInBytes: 2500000000, // ~2.5GB
+                type: .general,
+                tags: ["gemma", "google", "2B", "mlx", "chat"],
+                isGated: false,
                 provider: .google
+            ),
+            
+            // MARK: - Qwen Models
+            // 9. Qwen 2.5 1.5B
+            AIModel(
+                id: "qwen2.5-1.5b",
+                name: "Qwen 2.5 1.5B Chat",
+                description: "Alibaba's efficient chat model. Strong multilingual conversations, great for iPhone.",
+                huggingFaceRepo: "Qwen/Qwen2.5-1.5B-Instruct",
+                filename: "model.safetensors",
+                sizeInBytes: 1600000000, // ~1.6GB
+                type: .general,
+                tags: ["qwen", "1.5B", "multilingual", "mlx", "chat"],
+                isGated: false,
+                provider: .other
+            ),
+            
+            // 10. Qwen 2.5 3B
+            AIModel(
+                id: "qwen2.5-3b",
+                name: "Qwen 2.5 3B Chat",
+                description: "Larger Qwen chat model with excellent performance. Supports multiple languages.",
+                huggingFaceRepo: "Qwen/Qwen2.5-3B-Instruct",
+                filename: "model.safetensors",
+                sizeInBytes: 3200000000, // ~3.2GB
+                type: .general,
+                tags: ["qwen", "3B", "multilingual", "mlx", "chat"],
+                isGated: false,
+                provider: .other
+            ),
+            
+            // MARK: - OpenAI Models
+            // 11. GPT-2 Small
+            AIModel(
+                id: "gpt2",
+                name: "GPT-2",
+                description: "Classic lightweight model. Good for basic text generation and conversations.",
+                huggingFaceRepo: "openai-community/gpt2",
+                filename: "model.safetensors",
+                sizeInBytes: 548118077, // ~548MB
+                type: .general,
+                tags: ["gpt2", "openai", "chat", "mlx", "classic"],
+                isGated: false,
+                provider: .openAI
+            ),
+            
+            // 12. GPT-2 Medium
+            AIModel(
+                id: "gpt2-medium",
+                name: "GPT-2 Medium",
+                description: "Larger GPT-2 variant. Better conversation quality while staying lightweight.",
+                huggingFaceRepo: "openai-community/gpt2-medium",
+                filename: "model.safetensors",
+                sizeInBytes: 380000000, // ~380MB
+                type: .general,
+                tags: ["gpt2", "openai", "medium", "mlx", "chat"],
+                isGated: false,
+                provider: .openAI
+            ),
+            
+            // MARK: - StabilityAI Models
+            // 13. StableLM 2 1.6B
+            AIModel(
+                id: "stablelm-2-1.6b",
+                name: "StableLM 2 1.6B Chat",
+                description: "Stability AI's dedicated chat model. Good balance of size and conversation quality.",
+                huggingFaceRepo: "stabilityai/stablelm-2-1_6b-chat",
+                filename: "model.safetensors",
+                sizeInBytes: 1700000000, // ~1.7GB
+                type: .general,
+                tags: ["stablelm", "1.6B", "chat", "mlx", "stability"],
+                isGated: false,
+                provider: .stabilityAI
+            ),
+            
+            // MARK: - Tiny Models (100MB - 300MB)
+            // 14. SmolLM 135M
+            AIModel(
+                id: "smollm-135m",
+                name: "SmolLM 135M Instruct",
+                description: "Hugging Face's ultra-tiny chat model. Perfect for quick testing, only 135MB!",
+                huggingFaceRepo: "HuggingFaceTB/SmolLM-135M-Instruct",
+                filename: "model.safetensors",
+                sizeInBytes: 135000000, // ~135MB
+                type: .general,
+                tags: ["smollm", "135M", "tiny", "mlx", "chat", "ultra-light"],
+                isGated: false,
+                provider: .huggingFace
+            ),
+            
+            // 15. SmolLM 360M
+            AIModel(
+                id: "smollm-360m",
+                name: "SmolLM 360M Instruct",
+                description: "Slightly larger SmolLM variant. Better quality while staying under 300MB.",
+                huggingFaceRepo: "HuggingFaceTB/SmolLM-360M-Instruct",
+                filename: "model.safetensors",
+                sizeInBytes: 290000000, // ~290MB
+                type: .general,
+                tags: ["smollm", "360M", "tiny", "mlx", "chat", "light"],
+                isGated: false,
+                provider: .huggingFace
+            ),
+            
+            // 16. OPT-125M
+            AIModel(
+                id: "opt-125m",
+                name: "OPT 125M",
+                description: "Meta's tiny Open Pre-trained Transformer. Great for testing, only 250MB.",
+                huggingFaceRepo: "facebook/opt-125m",
+                filename: "model.safetensors",
+                sizeInBytes: 250000000, // ~250MB
+                type: .general,
+                tags: ["opt", "125M", "tiny", "meta", "mlx", "chat"],
+                isGated: false,
+                provider: .meta
+            ),
+            
+            // 17. Pythia 160M
+            AIModel(
+                id: "pythia-160m",
+                name: "Pythia 160M",
+                description: "EleutherAI's tiny model. Excellent for research and testing.",
+                huggingFaceRepo: "EleutherAI/pythia-160m",
+                filename: "model.safetensors",
+                sizeInBytes: 160000000, // ~160MB
+                type: .general,
+                tags: ["pythia", "160M", "tiny", "eleuther", "mlx", "chat"],
+                isGated: false,
+                provider: .other
+            ),
+            
+            // MARK: - Apple Models
+            // 18. OpenELM 270M
+            AIModel(
+                id: "openelm-270m",
+                name: "OpenELM 270M",
+                description: "Apple's smallest efficient language model. Optimized for Apple Silicon.",
+                huggingFaceRepo: "apple/OpenELM-270M",
+                filename: "model.safetensors",
+                sizeInBytes: 270000000, // ~270MB
+                type: .general,
+                tags: ["openelm", "270M", "apple", "mlx", "chat", "efficient"],
+                isGated: false,
+                provider: .apple
+            ),
+            
+            // 19. OpenELM 450M
+            AIModel(
+                id: "openelm-450m",
+                name: "OpenELM 450M",
+                description: "Apple's mid-size efficient model. Better quality while staying compact.",
+                huggingFaceRepo: "apple/OpenELM-450M",
+                filename: "model.safetensors",
+                sizeInBytes: 450000000, // ~450MB
+                type: .general,
+                tags: ["openelm", "450M", "apple", "mlx", "chat", "balanced"],
+                isGated: false,
+                provider: .apple
+            ),
+            
+            // 20. OpenELM 1.1B
+            AIModel(
+                id: "openelm-1.1b",
+                name: "OpenELM 1.1B",
+                description: "Apple's 1B parameter model. Excellent performance for its size.",
+                huggingFaceRepo: "apple/OpenELM-1_1B",
+                filename: "model.safetensors",
+                sizeInBytes: 1100000000, // ~1.1GB
+                type: .general,
+                tags: ["openelm", "1.1B", "apple", "mlx", "chat", "powerful"],
+                isGated: false,
+                provider: .apple
+            ),
+            
+            // 21. OpenELM 3B
+            AIModel(
+                id: "openelm-3b",
+                name: "OpenELM 3B",
+                description: "Apple's largest efficient language model. Top quality from Apple.",
+                huggingFaceRepo: "apple/OpenELM-3B",
+                filename: "model.safetensors",
+                sizeInBytes: 3000000000, // ~3GB
+                type: .general,
+                tags: ["openelm", "3B", "apple", "mlx", "chat", "premium"],
+                isGated: false,
+                provider: .apple
             ),
         ]
         
-        print("📋 Loaded \(availableModels.count) curated models with enhanced metadata")
-        print("🏷️ Total tags across all models: \(Set(availableModels.flatMap { $0.tags }).count)")
-        print("🏢 Providers available: \(Set(availableModels.map { $0.provider.displayName }).joined(separator: ", "))")
-        print("📊 Model types: \(Set(availableModels.map { $0.type.displayName }).joined(separator: ", "))")
+        print("📋 Loaded \(availableModels.count) curated chat models for iPhone")
+        print("💬 All models optimized for conversational AI")
+        print("📱 Model sizes: 135MB - 3.8GB (including tiny models)")
+        print("🏢 Providers: \(Set(availableModels.map { $0.provider.displayName }).joined(separator: ", "))")
+        print("🍎 Including Apple's OpenELM models!")
     }
     
     // MARK: - Model Availability

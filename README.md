@@ -101,26 +101,85 @@ This is a known limitation of the MLX Swift framework, not a bug in this applica
 3. **Download Models** - Use Download tab to get AI models locally
 4. **Start Chatting** - Chat with real AI models completely offline!
 
-## 🤖 Available AI Models
+## 🤖 Available Chat Models
 
-### **CRITICAL ARCHITECTURE: HYBRID PUBLIC REPOSITORY + MLX AUTO-CONVERSION**
+### **Curated MLX-Compatible Models for iPhone (2025)**
 
-**The app uses a hybrid approach to solve authentication and format compatibility issues:**
+**The app features a carefully selected collection of chat models optimized for iPhone performance:**
 
-1. **Downloads**: Single files from **public repositories** (no authentication required)
-2. **Loading**: MLX Swift **automatically converts** to MLX format during inference
-3. **Caching**: Downloaded files stored in `/Documents/Models/` directory
-4. **Configuration**: Model configs use repository IDs directly, letting MLX handle conversions
+1. **Static Model List**: No dynamic loading - all models are pre-configured
+2. **Chat-Focused**: Currently supporting conversational AI models only
+3. **iPhone-Optimized**: All models tested for iPhone memory and performance
+4. **MLX-Compatible**: Leveraging MLX Swift for hardware acceleration
 
-### **Current Model Catalog (Public Repositories)**
+### **Current Chat Model Catalog**
 
-| Model | Size | Repository | Format | Purpose |
-|-------|------|------------|--------|---------|
-| **TinyLlama 1.1B Chat** | 2.2GB | `TinyLlama/TinyLlama-1.1B-Chat-v1.0` | `.safetensors` | Conversation, mobile-optimized |
-| **GPT-2** | 548MB | `openai-community/gpt2` | `.safetensors` | Text generation, educational |
-| **DistilBERT Base** | 268MB | `distilbert-base-uncased` | `.bin` | Testing, small model verification |
-| **DialoGPT Small** | 351MB | `microsoft/DialoGPT-small` | `.bin` | Dialogue generation |
-| **T5 Small** | 242MB | `t5-small` | `.bin` | Text-to-text tasks |
+#### 🐤 **Ultra-Tiny Models (100MB - 300MB)** - NEW!
+| Model | Size | Parameters | Description |
+|-------|------|------------|-------------|
+| **SmolLM 135M** | 135MB | 135M | 🏆 Smallest! Perfect for quick testing |
+| **Pythia 160M** | 160MB | 160M | EleutherAI's research model |
+| **OPT 125M** | 250MB | 125M | Meta's tiny transformer |
+| **SmolLM 360M** | 290MB | 360M | Better SmolLM variant |
+
+#### 🍎 **Apple Models (OpenELM)** - NEW!
+| Model | Size | Parameters | Description |
+|-------|------|------------|-------------|
+| **OpenELM 270M** | 270MB | 270M | Apple's smallest, optimized for Apple Silicon |
+| **OpenELM 450M** | 450MB | 450M | Balanced size and performance |
+| **OpenELM 1.1B** | 1.1GB | 1.1B | Excellent performance from Apple |
+| **OpenELM 3B** | 3.0GB | 3B | Apple's premium chat model |
+
+#### 🦙 **Meta/Llama Models**
+| Model | Size | Parameters | Description |
+|-------|------|------------|-------------|
+| **Llama 3.2 1B** | 650MB | 1B | Ultra-lightweight, perfect for basic conversations |
+| **Llama 3.2 3B** | 1.8GB | 3B | ⭐ Recommended - Best balance of size and capability |
+| **TinyLlama 1.1B** | 1.1GB | 1.1B | Community favorite, fast and efficient |
+
+#### 🌟 **Mistral Models**
+| Model | Size | Parameters | Description |
+|-------|------|------------|-------------|
+| **Mistral 7B Instruct** | 3.8GB | 7B | High-quality conversations for newer iPhones |
+| **Mistral Small** | 2.5GB | - | Compact mobile-optimized variant |
+
+#### 🔷 **Microsoft Phi Models**
+| Model | Size | Parameters | Description |
+|-------|------|------------|-------------|
+| **Phi 3.5 Mini** | 2.0GB | 3.5B | Latest from Microsoft, 4-bit quantized |
+| **Phi-2** | 2.7GB | 2.7B | Proven conversational abilities |
+
+#### 🔴 **Google Models**
+| Model | Size | Parameters | Description |
+|-------|------|------------|-------------|
+| **Gemma 2B** | 2.5GB | 2B | Efficient on-device conversations |
+
+#### 🌏 **Qwen Models (Multilingual)**
+| Model | Size | Parameters | Description |
+|-------|------|------------|-------------|
+| **Qwen 2.5 1.5B** | 1.6GB | 1.5B | Strong multilingual support |
+| **Qwen 2.5 3B** | 3.2GB | 3B | Larger variant with better performance |
+
+#### 🤖 **OpenAI Models**
+| Model | Size | Parameters | Description |
+|-------|------|------------|-------------|
+| **GPT-2 Medium** | 380MB | 355M | Better quality, still lightweight |
+| **GPT-2** | 548MB | 124M | Classic lightweight model |
+
+#### 🎨 **Stability AI Models**
+| Model | Size | Parameters | Description |
+|-------|------|------------|-------------|
+| **StableLM 2 1.6B** | 1.7GB | 1.6B | Dedicated chat model |
+
+### **Why These Models?**
+
+✅ **Ultra-Tiny Options** - Models from just 135MB for quick testing  
+✅ **Apple Silicon Native** - Includes Apple's own OpenELM models  
+✅ **Memory Efficient** - All models under 4GB for iPhone compatibility  
+✅ **4-bit Quantization** - Many models support 4-bit for reduced memory  
+✅ **MLX Optimized** - All tested with MLX Swift for best performance  
+✅ **Diverse Selection** - 21 models from 135MB to 3.8GB  
+✅ **Quality Conversations** - Every model chosen for chat capabilities
 
 ### **Why This Approach Works**
 

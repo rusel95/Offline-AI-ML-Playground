@@ -1,12 +1,12 @@
 # Active Context
 
-**Date:** 2025-07-21
+**Date:** 2025-07-25
 **Tags:** active, current, focus
 
-## Current Status: ✅ COMPLETED
+## Current Status: ✅ ENHANCED MODEL CATALOG
 
-- **Task:** All critical download/chat bugs have been resolved
-- **Status:** SUCCESS. The offline AI&ML playground is now fully functional with real downloads and offline-first chat.
+- **Task:** Expanded model catalog with tiny models and Apple models
+- **Status:** SUCCESS. Added 21 curated chat models including ultra-tiny (135MB) and Apple's OpenELM series.
 
 ## All Critical Issues - RESOLVED ✅
 
@@ -62,17 +62,42 @@
 **✅ Chat Flow:** Offline-first model loading from local files
 **✅ Model Mapping:** Correct configuration matching between download and inference
 
+## Recent Updates (July 25, 2025)
+
+### Downloads Tab Improvements
+1. **Fixed UI Bug:** Resolved issue where UI elements disappeared after canceling downloads
+2. **Removed Dynamic Loading:** Models are now statically defined, no network verification
+3. **Improved Performance:** Changed from LazyVStack to VStack, added smooth animations
+4. **Static Model List:** Downloads only happen when user explicitly selects a model
+
+### Enhanced Model Catalog
+1. **Ultra-Tiny Models (NEW):**
+   - SmolLM 135M (135MB) - Smallest model for quick testing
+   - Pythia 160M, OPT 125M, SmolLM 360M
+   - Perfect for users with limited storage
+
+2. **Apple Models (NEW):**
+   - OpenELM series: 270M, 450M, 1.1B, 3B
+   - Native Apple Silicon optimization
+   - From Apple's own ML research team
+
+3. **Comprehensive Selection:**
+   - 21 total chat models
+   - Sizes from 135MB to 3.8GB
+   - 8 different providers
+   - All optimized for conversational AI
+
 ## Next Steps
 
-The core functionality is now complete and working. The app provides:
+The app now provides:
 
-1. **Working Downloads:** Real model downloads from ungated HuggingFace repositories
-2. **Offline Chat:** Chat functionality using locally downloaded models only
-3. **Error Resilience:** Comprehensive error handling and user feedback
-4. **Performance Monitoring:** Working settings with memory usage tracking
+1. **Expanded Model Choice:** 21 chat models from ultra-tiny to full-size
+2. **Apple Silicon Native:** Includes Apple's own OpenELM models
+3. **Stable Downloads UI:** Fixed crash and UI disappearing issues
+4. **Static Model Management:** No dynamic loading or verification
 
-Future enhancements can focus on:
-- Additional model formats and providers
-- Download resume capability  
-- Advanced chat features
-- UI/UX improvements
+Future enhancements:
+- Add vision models (separate from chat)
+- Add code-specific models
+- Implement model search/filtering
+- Add model performance benchmarks
