@@ -40,15 +40,26 @@ class SharedModelManager: NSObject, ObservableObject {
     
     // MARK: - Optimized Published Properties with reduced frequency updates
     @Published var availableModels: [AIModel] = []
-    @Published var downloadedModels: Set<String> = []
     @Published var activeDownloads: [String: ModelDownload] = [:]
-    @Published var isModelLoaded = false
-    @Published var loadingProgress: Float = 0.0
-    @Published var loadingStatus = "Ready"
     @Published var lastError: String?
-    @Published var storageUsed: Double = 0
-    @Published var freeStorage: Double = 0
     @Published var isLoadingAvailableModels = false
+    
+    // Delegate to ModelFileManager for storage tracking
+    var downloadedModels: Set<String> {
+        ModelFileManager.shared.downloadedModels
+    }
+    
+    var storageUsed: Double {
+        Double(ModelFileManager.shared.getTotalStorageUsed())
+    }
+    
+    var freeStorage: Double {
+        if let systemAttributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
+           let freeSpace = systemAttributes[.systemFreeSize] as? NSNumber {
+            return freeSpace.doubleValue
+        }
+        return 0
+    }
     
     // MARK: - Performance optimization properties
     private var lastStorageUpdate: Date = Date()
@@ -68,8 +79,7 @@ class SharedModelManager: NSObject, ObservableObject {
     
     // MARK: - Private Properties
     private var urlSession: URLSession!
-    private let documentsDirectory: URL
-    private let modelsDirectory: URL
+    private let fileManager = ModelFileManager.shared
     
     // Download tracking
     private var lastUpdateTime: [URLSessionTask: Date] = [:]
@@ -80,12 +90,6 @@ class SharedModelManager: NSObject, ObservableObject {
     
     // MARK: - Initialization
     private override init() {
-        // Setup unified storage directory
-        self.documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        
-        // CRITICAL FIX: Use unified "Models" directory for both download and inference
-        self.modelsDirectory = documentsDirectory.appendingPathComponent("Models", isDirectory: true)
-        
         super.init()
         
         print("🚀 SharedModelManager initializing...")
@@ -96,474 +100,208 @@ class SharedModelManager: NSObject, ObservableObject {
         self.urlSession = URLSession(configuration: config, delegate: self, delegateQueue: nil)
         
         // Initialize after super.init()
-        setupDirectory()
-        loadCuratedModels() // Load curated model list
+        loadCuratedModels() // Load curated GGUF model list
         
-        // Synchronize models synchronously on init to avoid race conditions
-        performInitialSynchronization()
+        // Let ModelFileManager handle synchronization
+        fileManager.refreshDownloadedModels()
         
         print("✅ SharedModelManager initialized")
-        print("📁 Unified models directory: \(modelsDirectory.path)")
+        print("📁 Using ModelFileManager for all file operations")
     }
     
     // MARK: - Directory Management
-    private func setupDirectory() {
-        do {
-            try FileManager.default.createDirectory(at: modelsDirectory, withIntermediateDirectories: true, attributes: nil)
-            print("📁 Models directory created/verified: \(modelsDirectory.path)")
-        } catch {
-            print("❌ Error creating models directory: \(error)")
-        }
-    }
-    
     /// Get the unified model download directory path
     func getModelDownloadDirectory() -> URL {
-        return modelsDirectory
+        return fileManager.modelsDirectory
     }
     
     // MARK: - Model Catalog Management
     private func loadCuratedModels() {
-        // ==================== MLX MODELS FOR iPHONE (2025) ====================
+        // ==================== PUBLIC GGUF MODELS FOR iPHONE (2025) ====================
         // 
-        // CURATED LIST: Best MLX-compatible models for iPhone usage
-        // Focused on: Performance, Memory efficiency, MLX optimization
+        // CURATED LIST: Public GGUF models that don't require authentication
+        // GGUF = GPT-Generated Unified Format (llama.cpp format)
         //
         // Model Selection Criteria:
-        // ✅ 1B-7B parameter range (optimal for iPhone)
-        // ✅ 4-bit quantization available 
-        // ✅ MLX community support
-        // ✅ Proven iPhone compatibility
+        // ✅ GGUF format (Q4, Q5, Q8 quantization)
         // ✅ Public repositories (no auth required)
+        // ✅ Optimized for mobile devices
+        // ✅ 100MB-4GB size range (iPhone memory limits)
+        // ✅ From official sources (Microsoft, Google, etc.)
         //
         // ======================================================================
         
-        print("📋 LOADING CURATED CHAT MODELS FOR iPHONE")
+        print("📋 LOADING CURATED GGUF CHAT MODELS FOR iPHONE")
         availableModels = [
-            // MARK: - Meta/Llama Models
-            // 1. Llama 3.2 1B - Ultra lightweight
+            // MARK: - Microsoft Phi Models (PUBLIC GGUF)
+            // 1. Phi-3 Mini 4K - Microsoft's public GGUF
             AIModel(
-                id: "llama-3.2-1b",
-                name: "Llama 3.2 1B Instruct",
-                description: "Smallest Llama 3.2 model, perfect for basic conversations. Only 650MB with 4-bit quantization.",
-                huggingFaceRepo: "meta-llama/Llama-3.2-1B-Instruct",
-                filename: "model.safetensors",
-                sizeInBytes: 680000000, // ~650MB
-                type: .llama,
-                tags: ["llama", "1B", "lightweight", "mlx", "chat", "4-bit"],
-                isGated: false,
-                provider: .meta
-            ),
-            
-            // 2. Llama 3.2 3B - Sweet spot
-            AIModel(
-                id: "llama-3.2-3b",
-                name: "Llama 3.2 3B Instruct", 
-                description: "Excellent balance of capability and size. 1.8GB download, surprisingly powerful for conversations.",
-                huggingFaceRepo: "meta-llama/Llama-3.2-3B-Instruct",
-                filename: "model.safetensors",
-                sizeInBytes: 1932735283, // ~1.8GB
-                type: .llama,
-                tags: ["llama", "3B", "recommended", "mlx", "chat", "4-bit"],
-                isGated: false,
-                provider: .meta
-            ),
-            
-            // 3. TinyLlama 1.1B - Community favorite
-            AIModel(
-                id: "tinyllama-1.1b",
-                name: "TinyLlama 1.1B Chat",
-                description: "Community-developed ultra-compact chat model. Great for fast conversations on iPhone.",
-                huggingFaceRepo: "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-                filename: "model.safetensors",
-                sizeInBytes: 1100000000, // ~1.1GB
-                type: .llama,
-                tags: ["tiny", "llama", "chat", "1B", "mlx", "community"],
-                isGated: false,
-                provider: .meta
-            ),
-            
-            // MARK: - Mistral Models
-            // 4. Mistral 7B Instruct
-            AIModel(
-                id: "mistral-7b-instruct",
-                name: "Mistral 7B Instruct v0.3",
-                description: "High-quality 7B chat model with 4-bit quantization. Excellent for advanced conversations.",
-                huggingFaceRepo: "mistralai/Mistral-7B-Instruct-v0.3",
-                filename: "model.safetensors",
-                sizeInBytes: 3800000000, // ~3.8GB
-                type: .mistral,
-                tags: ["mistral", "7B", "chat", "mlx", "4-bit", "advanced"],
-                isGated: false,
-                provider: .mistral
-            ),
-            
-            // 5. Mistral Small
-            AIModel(
-                id: "mistral-small",
-                name: "Mistral Small",
-                description: "Compact Mistral chat model optimized for mobile. Excellent quality-to-size ratio.",
-                huggingFaceRepo: "mistralai/Mistral-Small-Instruct-2409",
-                filename: "model.safetensors",
-                sizeInBytes: 2500000000, // ~2.5GB
-                type: .mistral,
-                tags: ["mistral", "small", "chat", "mlx", "optimized"],
-                isGated: false,
-                provider: .mistral
-            ),
-            
-            // MARK: - Microsoft Phi Models
-            // 6. Phi-3.5 Mini
-            AIModel(
-                id: "phi-3.5-mini",
-                name: "Phi 3.5 Mini Instruct",
-                description: "Microsoft's latest compact chat model. 4-bit quantized, perfect for iPhone conversations.",
-                huggingFaceRepo: "microsoft/Phi-3.5-mini-instruct",
-                filename: "model.safetensors",
-                sizeInBytes: 2000000000, // ~2GB
+                id: "phi-3-mini-4k-gguf",
+                name: "Phi-3 Mini 4K Q4",
+                description: "Microsoft's efficient 3.8B model with 4-bit quantization. Excellent for iPhone.",
+                huggingFaceRepo: "microsoft/Phi-3-mini-4k-instruct-gguf",
+                filename: "Phi-3-mini-4k-instruct-q4.gguf",
+                sizeInBytes: 2393231072, // ~2.3GB
                 type: .general,
-                tags: ["phi", "microsoft", "3.5B", "mlx", "chat", "mini"],
+                tags: ["phi", "microsoft", "3.8B", "gguf", "chat", "public"],
                 isGated: false,
                 provider: .microsoft
             ),
             
-            // 7. Phi-2
+            // 2. Phi-3.5 Mini Instruct GGUF
             AIModel(
-                id: "phi-2",
-                name: "Phi-2",
-                description: "Proven 2.7B parameter chat model from Microsoft. Great conversational abilities.",
-                huggingFaceRepo: "microsoft/phi-2",
-                filename: "model.safetensors",
-                sizeInBytes: 2700000000, // ~2.7GB
+                id: "phi-3.5-mini-gguf",
+                name: "Phi-3.5 Mini Instruct Q4",
+                description: "Latest Phi model with improved performance. 3.8B parameters, 4-bit quantized.",
+                huggingFaceRepo: "microsoft/Phi-3.5-mini-instruct-gguf",
+                filename: "Phi-3.5-mini-instruct-q4.gguf",
+                sizeInBytes: 2300000000, // ~2.3GB
                 type: .general,
-                tags: ["phi", "microsoft", "2.7B", "mlx", "chat"],
+                tags: ["phi", "microsoft", "3.8B", "gguf", "chat", "latest"],
                 isGated: false,
                 provider: .microsoft
             ),
             
-            // MARK: - Google Models  
-            // 8. Gemma 2B
+            // MARK: - Google Gemma Models (PUBLIC GGUF)
+            // 3. Gemma 2B IT GGUF
             AIModel(
-                id: "gemma-2b",
-                name: "Gemma 2B Instruct",
-                description: "Google's efficient 2B chat model. Optimized for on-device conversations.",
-                huggingFaceRepo: "google/gemma-2b-it",
-                filename: "model.safetensors",
-                sizeInBytes: 2500000000, // ~2.5GB
+                id: "gemma-2b-it-gguf",
+                name: "Gemma 2B IT Q4_K_M",
+                description: "Google's instruction-tuned 2B model. Compact and efficient.",
+                huggingFaceRepo: "google/gemma-2b-it-GGUF",
+                filename: "gemma-2b-it-q4_k_m.gguf",
+                sizeInBytes: 1500000000, // ~1.5GB
                 type: .general,
-                tags: ["gemma", "google", "2B", "mlx", "chat"],
+                tags: ["gemma", "google", "2B", "gguf", "chat", "public"],
                 isGated: false,
                 provider: .google
             ),
             
-            // MARK: - Qwen Models
-            // 9. Qwen 2.5 1.5B
+            // 4. Gemma 7B IT GGUF
             AIModel(
-                id: "qwen2.5-1.5b",
-                name: "Qwen 2.5 1.5B Chat",
-                description: "Alibaba's efficient chat model. Strong multilingual conversations, great for iPhone.",
-                huggingFaceRepo: "Qwen/Qwen2.5-1.5B-Instruct",
-                filename: "model.safetensors",
-                sizeInBytes: 1600000000, // ~1.6GB
+                id: "gemma-7b-it-gguf",
+                name: "Gemma 7B IT Q4_K_M",
+                description: "Google's larger instruction-tuned model. High quality conversations.",
+                huggingFaceRepo: "google/gemma-7b-it-GGUF",
+                filename: "gemma-7b-it-q4_k_m.gguf",
+                sizeInBytes: 4500000000, // ~4.5GB
                 type: .general,
-                tags: ["qwen", "1.5B", "multilingual", "mlx", "chat"],
+                tags: ["gemma", "google", "7B", "gguf", "chat", "public"],
+                isGated: false,
+                provider: .google
+            ),
+            
+            // MARK: - Qwen Models (PUBLIC GGUF)
+            // 5. Qwen2.5 0.5B GGUF
+            AIModel(
+                id: "qwen2.5-0.5b-gguf",
+                name: "Qwen2.5 0.5B Instruct Q4",
+                description: "Alibaba's ultra-compact model. Only 325MB, great for quick responses.",
+                huggingFaceRepo: "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+                filename: "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+                sizeInBytes: 340000000, // ~325MB
+                type: .general,
+                tags: ["qwen", "0.5B", "gguf", "chat", "tiny", "public"],
                 isGated: false,
                 provider: .other
             ),
             
-            // 10. Qwen 2.5 3B
+            // 6. Qwen2.5 1.5B GGUF
             AIModel(
-                id: "qwen2.5-3b",
-                name: "Qwen 2.5 3B Chat",
-                description: "Larger Qwen chat model with excellent performance. Supports multiple languages.",
-                huggingFaceRepo: "Qwen/Qwen2.5-3B-Instruct",
-                filename: "model.safetensors",
-                sizeInBytes: 3200000000, // ~3.2GB
+                id: "qwen2.5-1.5b-gguf",
+                name: "Qwen2.5 1.5B Instruct Q4",
+                description: "Balanced Qwen model. Good quality at 964MB.",
+                huggingFaceRepo: "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+                filename: "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+                sizeInBytes: 1010000000, // ~964MB
                 type: .general,
-                tags: ["qwen", "3B", "multilingual", "mlx", "chat"],
+                tags: ["qwen", "1.5B", "gguf", "chat", "balanced", "public"],
                 isGated: false,
                 provider: .other
             ),
             
-            // MARK: - OpenAI Models
-            // 11. GPT-2 Small
+            // 7. Qwen2.5 3B GGUF
             AIModel(
-                id: "gpt2",
-                name: "GPT-2",
-                description: "Classic lightweight model. Good for basic text generation and conversations.",
-                huggingFaceRepo: "openai-community/gpt2",
-                filename: "model.safetensors",
-                sizeInBytes: 548118077, // ~548MB
+                id: "qwen2.5-3b-gguf",
+                name: "Qwen2.5 3B Instruct Q4",
+                description: "Larger Qwen model with excellent multilingual support.",
+                huggingFaceRepo: "Qwen/Qwen2.5-3B-Instruct-GGUF",
+                filename: "qwen2.5-3b-instruct-q4_k_m.gguf",
+                sizeInBytes: 2000000000, // ~2GB
                 type: .general,
-                tags: ["gpt2", "openai", "chat", "mlx", "classic"],
+                tags: ["qwen", "3B", "gguf", "chat", "multilingual", "public"],
                 isGated: false,
-                provider: .openAI
+                provider: .other
             ),
             
-            // 12. GPT-2 Medium
+            // 8. Qwen2.5 7B GGUF
             AIModel(
-                id: "gpt2-medium",
-                name: "GPT-2 Medium",
-                description: "Larger GPT-2 variant. Better conversation quality while staying lightweight.",
-                huggingFaceRepo: "openai-community/gpt2-medium",
-                filename: "model.safetensors",
-                sizeInBytes: 380000000, // ~380MB
+                id: "qwen2.5-7b-gguf",
+                name: "Qwen2.5 7B Instruct Q4",
+                description: "Qwen's flagship model. State-of-the-art performance.",
+                huggingFaceRepo: "Qwen/Qwen2.5-7B-Instruct-GGUF",
+                filename: "qwen2.5-7b-instruct-q4_k_m.gguf",
+                sizeInBytes: 4400000000, // ~4.4GB
                 type: .general,
-                tags: ["gpt2", "openai", "medium", "mlx", "chat"],
+                tags: ["qwen", "7B", "gguf", "chat", "flagship", "public"],
                 isGated: false,
-                provider: .openAI
+                provider: .other
             ),
             
-            // MARK: - StabilityAI Models
-            // 13. StableLM 2 1.6B
+            // MARK: - SmolLM Models (PUBLIC GGUF)
+            // 9. SmolLM 135M GGUF
             AIModel(
-                id: "stablelm-2-1.6b",
-                name: "StableLM 2 1.6B Chat",
-                description: "Stability AI's dedicated chat model. Good balance of size and conversation quality.",
-                huggingFaceRepo: "stabilityai/stablelm-2-1_6b-chat",
-                filename: "model.safetensors",
-                sizeInBytes: 1700000000, // ~1.7GB
+                id: "smollm-135m-gguf",
+                name: "SmolLM 135M Q8",
+                description: "HuggingFace's tiniest model. Only 135MB, perfect for testing.",
+                huggingFaceRepo: "HuggingFaceTB/smollm-135M-instruct-add-basics-Q8_0-GGUF",
+                filename: "smollm-135m-instruct-add-basics-q8_0.gguf",
+                sizeInBytes: 140000000, // ~135MB
                 type: .general,
-                tags: ["stablelm", "1.6B", "chat", "mlx", "stability"],
-                isGated: false,
-                provider: .stabilityAI
-            ),
-            
-            // MARK: - Tiny Models (100MB - 300MB)
-            // 14. SmolLM 135M
-            AIModel(
-                id: "smollm-135m",
-                name: "SmolLM 135M Instruct",
-                description: "Hugging Face's ultra-tiny chat model. Perfect for quick testing, only 135MB!",
-                huggingFaceRepo: "HuggingFaceTB/SmolLM-135M-Instruct",
-                filename: "model.safetensors",
-                sizeInBytes: 135000000, // ~135MB
-                type: .general,
-                tags: ["smollm", "135M", "tiny", "mlx", "chat", "ultra-light"],
+                tags: ["smollm", "135M", "gguf", "tiny", "test", "public"],
                 isGated: false,
                 provider: .huggingFace
             ),
             
-            // 15. SmolLM 360M
+            // 10. SmolLM 360M GGUF
             AIModel(
-                id: "smollm-360m",
-                name: "SmolLM 360M Instruct",
-                description: "Slightly larger SmolLM variant. Better quality while staying under 300MB.",
-                huggingFaceRepo: "HuggingFaceTB/SmolLM-360M-Instruct",
-                filename: "model.safetensors",
-                sizeInBytes: 290000000, // ~290MB
+                id: "smollm-360m-gguf",
+                name: "SmolLM 360M Q8",
+                description: "Small but capable model from HuggingFace. Good for basic tasks.",
+                huggingFaceRepo: "HuggingFaceTB/smollm-360M-instruct-add-basics-Q8_0-GGUF",
+                filename: "smollm-360m-instruct-add-basics-q8_0.gguf",
+                sizeInBytes: 387000000, // ~369MB
                 type: .general,
-                tags: ["smollm", "360M", "tiny", "mlx", "chat", "light"],
+                tags: ["smollm", "360M", "gguf", "small", "public"],
                 isGated: false,
                 provider: .huggingFace
             ),
             
-            // 16. OPT-125M
+            // 11. SmolLM 1.7B GGUF
             AIModel(
-                id: "opt-125m",
-                name: "OPT 125M",
-                description: "Meta's tiny Open Pre-trained Transformer. Great for testing, only 250MB.",
-                huggingFaceRepo: "facebook/opt-125m",
-                filename: "model.safetensors",
-                sizeInBytes: 250000000, // ~250MB
-                type: .general,
-                tags: ["opt", "125M", "tiny", "meta", "mlx", "chat"],
-                isGated: false,
-                provider: .meta
-            ),
-            
-            // 17. Pythia 160M
-            AIModel(
-                id: "pythia-160m",
-                name: "Pythia 160M",
-                description: "EleutherAI's tiny model. Excellent for research and testing.",
-                huggingFaceRepo: "EleutherAI/pythia-160m",
-                filename: "model.safetensors",
-                sizeInBytes: 160000000, // ~160MB
-                type: .general,
-                tags: ["pythia", "160M", "tiny", "eleuther", "mlx", "chat"],
-                isGated: false,
-                provider: .other
-            ),
-            
-            // MARK: - Apple Models
-            // 18. OpenELM 270M
-            AIModel(
-                id: "openelm-270m",
-                name: "OpenELM 270M",
-                description: "Apple's smallest efficient language model. Optimized for Apple Silicon.",
-                huggingFaceRepo: "apple/OpenELM-270M",
-                filename: "model.safetensors",
-                sizeInBytes: 270000000, // ~270MB
-                type: .general,
-                tags: ["openelm", "270M", "apple", "mlx", "chat", "efficient"],
-                isGated: false,
-                provider: .apple
-            ),
-            
-            // 19. OpenELM 450M
-            AIModel(
-                id: "openelm-450m",
-                name: "OpenELM 450M",
-                description: "Apple's mid-size efficient model. Better quality while staying compact.",
-                huggingFaceRepo: "apple/OpenELM-450M",
-                filename: "model.safetensors",
-                sizeInBytes: 450000000, // ~450MB
-                type: .general,
-                tags: ["openelm", "450M", "apple", "mlx", "chat", "balanced"],
-                isGated: false,
-                provider: .apple
-            ),
-            
-            // 20. OpenELM 1.1B
-            AIModel(
-                id: "openelm-1.1b",
-                name: "OpenELM 1.1B",
-                description: "Apple's 1B parameter model. Excellent performance for its size.",
-                huggingFaceRepo: "apple/OpenELM-1_1B",
-                filename: "model.safetensors",
+                id: "smollm-1.7b-gguf",
+                name: "SmolLM 1.7B Q4",
+                description: "HuggingFace's larger SmolLM. Better quality while staying efficient.",
+                huggingFaceRepo: "HuggingFaceTB/smollm-1.7B-instruct-add-basics-Q4_K_M-GGUF",
+                filename: "smollm-1.7b-instruct-add-basics-q4_k_m.gguf",
                 sizeInBytes: 1100000000, // ~1.1GB
                 type: .general,
-                tags: ["openelm", "1.1B", "apple", "mlx", "chat", "powerful"],
+                tags: ["smollm", "1.7B", "gguf", "efficient", "public"],
                 isGated: false,
-                provider: .apple
-            ),
-            
-            // 21. OpenELM 3B
-            AIModel(
-                id: "openelm-3b",
-                name: "OpenELM 3B",
-                description: "Apple's largest efficient language model. Top quality from Apple.",
-                huggingFaceRepo: "apple/OpenELM-3B",
-                filename: "model.safetensors",
-                sizeInBytes: 3000000000, // ~3GB
-                type: .general,
-                tags: ["openelm", "3B", "apple", "mlx", "chat", "premium"],
-                isGated: false,
-                provider: .apple
+                provider: .huggingFace
             ),
         ]
         
-        print("📋 Loaded \(availableModels.count) curated chat models for iPhone")
-        print("💬 All models optimized for conversational AI")
-        print("📱 Model sizes: 135MB - 3.8GB (including tiny models)")
+        print("📋 Loaded \(availableModels.count) curated PUBLIC GGUF models")
+        print("✅ All models from official sources (no authentication required)")
+        print("💾 All models in GGUF format (llama.cpp compatible)")
+        print("📱 Model sizes: 135MB - 4.5GB")
         print("🏢 Providers: \(Set(availableModels.map { $0.provider.displayName }).joined(separator: ", "))")
-        print("🍎 Including Apple's OpenELM models!")
-    }
-    
-    // MARK: - Model Availability
-    // Models are static and pre-defined, no verification needed
-    
-    // MARK: - Initial Synchronization
-    private func performInitialSynchronization() {
-        // Perform synchronous check for downloaded models
-        guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
-            downloadedModels.removeAll()
-            storageUsed = 0
-            freeStorage = 0
-            return
-        }
-        
-        do {
-            let contents = try FileManager.default.contentsOfDirectory(
-                at: modelsDirectory, 
-                includingPropertiesForKeys: [.fileSizeKey]
-            )
-            
-            // Check which models are already downloaded
-            let filesOnDisk = Set(contents.map { $0.lastPathComponent })
-            let modelIdsOnDisk = Set(availableModels.compactMap { model in
-                filesOnDisk.contains { filename in
-                    filename.hasPrefix(model.id) && filename.contains(".")
-                } ? model.id : nil
-            })
-            
-            downloadedModels = modelIdsOnDisk
-            
-            // Calculate initial storage
-            storageUsed = contents.reduce(0.0) { total, url in
-                let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
-                return total + Double(size)
-            }
-            
-            // Calculate free storage
-            if let systemAttributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
-               let freeSpace = systemAttributes[.systemFreeSize] as? NSNumber {
-                freeStorage = freeSpace.doubleValue
-            }
-            
-            print("📊 Initial sync: \(downloadedModels.count) models found")
-            print("💾 Storage used: \(formattedStorageUsed)")
-            
-        } catch {
-            print("❌ Error in initial synchronization: \(error)")
-            downloadedModels.removeAll()
-            storageUsed = 0
-            freeStorage = 0
-        }
-    }
-    
-    // MARK: - Optimized Model Synchronization
-    func synchronizeModels() {
-        // Add to pending updates for batch processing
-        pendingUpdates.insert(.models)
-        scheduleUpdate()
-    }
-    
-    func synchronizeModelsImmediately() async {
-        await performModelSynchronization()
-    }
-    
-    private func performModelSynchronization() async {
-        print("🔄 Synchronizing models with file system...")
-        
-        guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
-            downloadedModels.removeAll()
-            return
-        }
-        
-        // Perform synchronization on background task for better performance
-        let newDownloadedModels = await Task.detached { [weak self] () -> Set<String> in
-            guard let self = self else { return [] }
-            
-            var result: Set<String> = []
-            
-            do {
-                let contents = try FileManager.default.contentsOfDirectory(
-                    at: self.modelsDirectory, 
-                    includingPropertiesForKeys: [.fileSizeKey]
-                )
-                let filesOnDisk = Set(contents.map { $0.lastPathComponent })
-                
-                // CRITICAL FIX: Match model IDs with files that start with the model ID
-                let availableModelsSnapshot = await self.availableModels
-                let modelIdsOnDisk = Set(availableModelsSnapshot.compactMap { model in
-                    // Check if any file on disk starts with this model's ID
-                    let hasMatchingFile = filesOnDisk.contains { filename in
-                        filename.hasPrefix(model.id) && filename.contains(".")
-                    }
-                    return hasMatchingFile ? model.id : nil
-                })
-                
-                result = modelIdsOnDisk
-                
-            } catch {
-                print("❌ Error synchronizing models: \(error)")
-            }
-            
-            return result
-        }.value
-        
-        // Update on main actor only if there are changes
-        if self.downloadedModels != newDownloadedModels {
-            let oldCount = self.downloadedModels.count
-            self.downloadedModels = newDownloadedModels
-            print("📊 Synchronized: \(self.downloadedModels.count) models tracked (was \(oldCount))")
-        }
     }
     
     // MARK: - Model Queries
     func getDownloadedModels() -> [AIModel] {
-        return availableModels.filter { downloadedModels.contains($0.id) }
+        return availableModels.filter { fileManager.isModelDownloaded($0.id) }
     }
     
     func getAvailableLanguageModels() -> [AIModel] {
@@ -580,63 +318,12 @@ class SharedModelManager: NSObject, ObservableObject {
     }
     
     func isModelDownloaded(_ modelId: String) -> Bool {
-        // ==================== STATE MANAGEMENT CRITICAL FIX ====================
-        //
-        // PROBLEM SOLVED: "Publishing changes from within view updates is not allowed"
-        //
-        // ROOT CAUSE: Direct @Published property updates during SwiftUI view update cycles
-        // SOLUTION: Background file system checks + main thread state updates
-        //
-        // WORKFLOW:
-        // 1. Fast path: Check in-memory tracking first (no file system access)
-        // 2. Slow path: Background file check + deferred main thread update
-        // 3. NEVER call FileManager.default.fileExists on main thread from UI context
-        //
-        // WHY THIS WORKS:
-        // ✅ Prevents main thread blocking (no 0.35s+ hangs)
-        // ✅ Prevents state update violations (DispatchQueue.main.async)  
-        // ✅ Maintains UI responsiveness (immediate return for tracked models)
-        //
-        // ======================================================================
-        
-        print("🔍 CHECKING MODEL DOWNLOAD STATUS: \(modelId)")
-        
-        // FAST PATH: Check in-memory tracking first (immediate return)
-        if downloadedModels.contains(modelId) {
-            print("✅ Model \(modelId) found in tracking (fast path)")
-            return true
-        }
-        
-        print("⏳ Model \(modelId) not tracked, checking file system on background queue")
-        
-        // SLOW PATH: Schedule background check
-        Task {
-            await checkAndUpdateModelOnDisk(modelId)
-        }
-        
-        // Return false immediately - background update will sync later
-        print("⚡ Returning false immediately (background sync will update)")
-        return false
-    }
-    
-    private func checkAndUpdateModelOnDisk(_ modelId: String) async {
-        let modelPath = modelsDirectory.appendingPathComponent(modelId)
-        
-        let fileExists = await Task.detached {
-            FileManager.default.fileExists(atPath: modelPath.path)
-        }.value
-        
-        print("📁 File system check for \(modelId): exists=\(fileExists)")
-        
-        if fileExists && !self.downloadedModels.contains(modelId) {
-            self.downloadedModels.insert(modelId)
-            print("✅ Found untracked model \(modelId), adding to tracking")
-        }
+        return fileManager.isModelDownloaded(modelId)
     }
     
     func getLocalModelPath(modelId: String) -> URL? {
         guard isModelDownloaded(modelId) else { return nil }
-        return modelsDirectory.appendingPathComponent(modelId)
+        return fileManager.getModelPath(for: modelId)
     }
     
     // MARK: - Download Management
@@ -684,48 +371,25 @@ class SharedModelManager: NSObject, ObservableObject {
     }
     
     private func constructModelDownloadURL(for model: AIModel) -> URL? {
-        // ==================== DOWNLOAD URL CONSTRUCTION ====================
+        // ==================== GGUF DOWNLOAD URL CONSTRUCTION ====================
         //
-        // CRITICAL: Use public repositories to avoid authentication (HTTP 401)
+        // CRITICAL: Use direct file URLs for GGUF models
         //
-        // URL PATTERN: https://huggingface.co/{PUBLIC_REPO}/resolve/main/{FILENAME}
+        // URL PATTERN: https://huggingface.co/{REPO}/resolve/main/{FILENAME}
         // 
-        // EXAMPLES OF WORKING URLS:
-        // ✅ https://huggingface.co/openai-community/gpt2/resolve/main/model.safetensors
-        // ✅ https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0/resolve/main/model.safetensors
-        // ✅ https://huggingface.co/microsoft/DialoGPT-small/resolve/main/pytorch_model.bin
-        //
-        // EXAMPLES OF BROKEN URLS (REQUIRE AUTH):
-        // ❌ https://huggingface.co/mlx-community/gpt2-4bit/resolve/main/model.safetensors
-        // ❌ https://huggingface.co/mlx-community/*/resolve/main/*
-        //
-        // EXPECTED RESPONSES:
-        // ✅ HTTP 302 + x-linked-size header with actual file size
-        // ❌ HTTP 401 "Invalid username or password"
-        // ❌ HTTP 404 "Entry not found"
+        // EXAMPLES OF WORKING GGUF URLS:
+        // ✅ https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf
+        // ✅ https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf
         //
         // ================================================================
         
-        var actualFilename: String
+        let baseURL = "https://huggingface.co/\(model.huggingFaceRepo)/resolve/main/\(model.filename)"
         
-        if model.filename == "*.safetensors" {
-            // For MLX repositories, download the main model file first
-            // MLX Swift will handle missing config.json/tokenizer.json during loading
-            actualFilename = "model.safetensors"
-            print("🔄 Converting wildcard filename to specific file: \(actualFilename)")
-        } else {
-            actualFilename = model.filename
-        }
-        
-        let baseURL = "https://huggingface.co/\(model.huggingFaceRepo)/resolve/main/\(actualFilename)"
-        
-        print("🔗 CONSTRUCTING DOWNLOAD URL:")
+        print("🔗 CONSTRUCTING GGUF DOWNLOAD URL:")
         print("   📋 Model: \(model.name) (\(model.id))")
         print("   🏠 Repository: \(model.huggingFaceRepo)")
-        print("   📄 Original filename: \(model.filename)")
-        print("   📄 Actual filename: \(actualFilename)")
+        print("   📄 Filename: \(model.filename)")
         print("   🌐 Final URL: \(baseURL)")
-        print("   🔍 Expected: HTTP 302 with x-linked-size header")
         
         return URL(string: baseURL)
     }
@@ -739,109 +403,16 @@ class SharedModelManager: NSObject, ObservableObject {
     }
     
     func deleteModel(_ modelId: String) {
-        let modelURL = modelsDirectory.appendingPathComponent(modelId)
         do {
-            try FileManager.default.removeItem(at: modelURL)
-            downloadedModels.remove(modelId)
-            calculateStorage()
+            try fileManager.deleteModel(modelId)
             print("🗑️ Deleted model: \(modelId)")
         } catch {
             print("❌ Error deleting model \(modelId): \(error)")
+            lastError = error.localizedDescription
         }
     }
     
-    // MARK: - Optimized Storage Management
-    func calculateStorage() {
-        // Throttle storage calculations to prevent excessive UI updates
-        let now = Date()
-        guard now.timeIntervalSince(lastStorageUpdate) >= storageUpdateThrottle else {
-            return
-        }
-        
-        pendingUpdates.insert(.storage)
-        scheduleUpdate()
-    }
-    
-    func calculateStorageImmediately() async {
-        await performStorageCalculation()
-    }
-    
-    private func performStorageCalculation() async {
-        guard FileManager.default.fileExists(atPath: modelsDirectory.path) else {
-            self.storageUsed = 0
-            self.lastStorageUpdate = Date()
-            return
-        }
-        
-        // Perform calculation on background task
-        let (calculatedStorage, calculatedFreeStorage) = await Task.detached { [weak self] () -> (Double, Double) in
-            guard let self = self else { return (0, 0) }
-            
-            var calculatedStorage: Double = 0
-            var calculatedFreeStorage: Double = 0
-            
-            do {
-                let contents = try FileManager.default.contentsOfDirectory(
-                    at: self.modelsDirectory, 
-                    includingPropertiesForKeys: [.fileSizeKey]
-                )
-                
-                calculatedStorage = contents.reduce(0.0) { total, url in
-                    let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
-                    return total + Double(size)
-                }
-                
-                // Update free storage
-                if let systemAttributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
-                   let freeSpace = systemAttributes[.systemFreeSize] as? NSNumber {
-                    calculatedFreeStorage = freeSpace.doubleValue
-                } else {
-                    calculatedFreeStorage = 0
-                }
-                
-            } catch {
-                calculatedStorage = 0
-                calculatedFreeStorage = 0
-            }
-            
-            return (calculatedStorage, calculatedFreeStorage)
-        }.value
-        
-        // Update properties
-        self.storageUsed = calculatedStorage
-        self.freeStorage = calculatedFreeStorage
-        self.lastStorageUpdate = Date()
-    }
-    
-    // MARK: - Batch Update System
-    private func scheduleUpdate() {
-        updateTimer?.invalidate()
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { [weak self] _ in
-            Task { @MainActor in
-                self?.processPendingUpdates()
-            }
-        }
-    }
-    
-    private func processPendingUpdates() {
-        let updates = pendingUpdates
-        pendingUpdates.removeAll()
-        
-        Task {
-            for update in updates {
-                switch update {
-                case .storage:
-                    await performStorageCalculation()
-                case .models:
-                    await performModelSynchronization()
-                case .downloads:
-                    // Handle download updates if needed
-                    break
-                }
-            }
-        }
-    }
-    
+    // MARK: - Storage Management
     var formattedStorageUsed: String {
         ByteCountFormatter.string(fromByteCount: Int64(storageUsed), countStyle: .file)
     }
@@ -849,9 +420,6 @@ class SharedModelManager: NSObject, ObservableObject {
     var formattedFreeStorage: String {
         ByteCountFormatter.string(fromByteCount: Int64(freeStorage), countStyle: .file)
     }
-    
-    // MARK: - Inference Management
-    // Inference management moved to individual view models for better performance
     
     // MARK: - Download Speed Tracking
     private struct DownloadSpeedTracker {
@@ -883,14 +451,28 @@ class SharedModelManager: NSObject, ObservableObject {
 // MARK: - URLSessionDownloadDelegate
 extension SharedModelManager: URLSessionDownloadDelegate {
     nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        // Delegate to async handler
-        Task {
-            await handleDownloadCompletion(downloadTask: downloadTask, location: location)
+        // CRITICAL: Copy the file IMMEDIATELY before URLSession deletes it
+        let tempBackupURL = location.appendingPathExtension("backup")
+        
+        do {
+            // Make a backup copy synchronously
+            try FileManager.default.copyItem(at: location, to: tempBackupURL)
+            print("📋 Created backup of downloaded file")
+            
+            // Now handle the rest asynchronously
+            Task { @MainActor in
+                await self.handleDownloadCompletion(downloadTask: downloadTask, backupLocation: tempBackupURL)
+            }
+        } catch {
+            print("❌ Failed to create backup: \(error)")
+            Task { @MainActor in
+                await self.handleDownloadError(downloadTask: downloadTask, error: error)
+            }
         }
     }
     
     @MainActor
-    private func handleDownloadCompletion(downloadTask: URLSessionDownloadTask, location: URL) async {
+    private func handleDownloadCompletion(downloadTask: URLSessionDownloadTask, backupLocation: URL) async {
         // Find the model being downloaded
         var targetModelId: String?
         
@@ -903,56 +485,45 @@ extension SharedModelManager: URLSessionDownloadDelegate {
         
         guard let modelId = targetModelId else { 
             print("⚠️ Could not find model ID for completed download")
+            try? FileManager.default.removeItem(at: backupLocation)
             return 
         }
         
-        // Perform file operations on background
-        await moveDownloadedFile(modelId: modelId, from: location, task: downloadTask)
+        print("📥 Processing download for model: \(modelId)")
+        
+        // Save the file using ModelFileManager
+        do {
+            try await fileManager.saveDownloadedFile(from: backupLocation, for: modelId)
+            
+            // Remove from active downloads
+            activeDownloads.removeValue(forKey: modelId)
+            speedTrackers.removeValue(forKey: downloadTask)
+            lastProgressUpdate.removeValue(forKey: downloadTask)
+            
+            print("✅ Model saved successfully: \(modelId)")
+        } catch {
+            print("❌ Failed to save model: \(error)")
+            lastError = error.localizedDescription
+            
+            // Clean up
+            activeDownloads.removeValue(forKey: modelId)
+            speedTrackers.removeValue(forKey: downloadTask)
+            lastProgressUpdate.removeValue(forKey: downloadTask)
+            try? FileManager.default.removeItem(at: backupLocation)
+        }
     }
     
-    private func moveDownloadedFile(modelId: String, from location: URL, task: URLSessionDownloadTask) async {
-        let destinationURL = modelsDirectory.appendingPathComponent(modelId)
-        
-        // Perform file operations on background task
-        let (success, fileSize) = await Task.detached {
-            do {
-                // Remove existing file if present
-                if FileManager.default.fileExists(atPath: destinationURL.path) {
-                    try FileManager.default.removeItem(at: destinationURL)
-                    print("🔄 Replaced existing model file: \(modelId)")
-                }
-                
-                // Move downloaded file
-                try FileManager.default.moveItem(at: location, to: destinationURL)
-                
-                // Verify the moved file
-                let fileSize = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path))?[.size] as? Int64 ?? 0
-                
-                print("✅ Successfully saved model: \(modelId) to \(destinationURL.path)")
-                return (true, fileSize)
-                
-            } catch {
-                print("❌ Error saving model \(modelId): \(error.localizedDescription)")
-                return (false, Int64(0))
+    @MainActor
+    private func handleDownloadError(downloadTask: URLSessionDownloadTask, error: Error) async {
+        for (modelId, download) in activeDownloads {
+            if download.task == downloadTask {
+                activeDownloads.removeValue(forKey: modelId)
+                speedTrackers.removeValue(forKey: downloadTask)
+                lastProgressUpdate.removeValue(forKey: downloadTask)
+                lastError = "Download failed: \(error.localizedDescription)"
+                print("🧹 Cleaned up failed download for model: \(modelId)")
+                break
             }
-        }.value
-        
-        // Update state on main actor
-        if success {
-            self.downloadedModels.insert(modelId)
-            self.activeDownloads.removeValue(forKey: modelId)
-            self.speedTrackers.removeValue(forKey: task)
-            self.lastProgressUpdate.removeValue(forKey: task)
-            self.calculateStorage()
-            
-            print("✅ Successfully downloaded model: \(modelId)")
-            print("📁 File size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
-            print("💾 Total models downloaded: \(self.downloadedModels.count)")
-        } else {
-            self.activeDownloads.removeValue(forKey: modelId)
-            self.speedTrackers.removeValue(forKey: task)
-            self.lastProgressUpdate.removeValue(forKey: task)
-            self.lastError = "Failed to save \(modelId)"
         }
     }
     
@@ -1005,6 +576,7 @@ extension SharedModelManager: URLSessionDownloadDelegate {
                         activeDownloads.removeValue(forKey: modelId)
                         speedTrackers.removeValue(forKey: task)
                         lastProgressUpdate.removeValue(forKey: task)
+                        lastError = "Download failed: \(error.localizedDescription)"
                         print("🧹 Cleaned up failed download for model: \(modelId)")
                         break
                     }

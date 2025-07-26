@@ -83,7 +83,7 @@ class DownloadViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .assign(to: &$availableModels)
         
-        sharedManager.$downloadedModels
+        ModelFileManager.shared.$downloadedModels
             .receive(on: DispatchQueue.main)
             .assign(to: &$downloadedModels)
     }

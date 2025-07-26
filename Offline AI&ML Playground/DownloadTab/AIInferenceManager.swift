@@ -60,6 +60,16 @@ class AIInferenceManager: ObservableObject {
     /// Load a specific AI model with proper memory management
     /// - Parameter model: The model to load
     func loadModel(_ model: AIModel) async throws {
+        print("\n=== GGUF LOADING INVESTIGATION ===")
+        print("🔍 Starting comprehensive model loading with GGUF support investigation")
+        print("📋 Model details:")
+        print("   - ID: \(model.id)")
+        print("   - Name: \(model.name)")
+        print("   - Filename: \(model.filename)")
+        print("   - Extension: \(model.filename.components(separatedBy: ".").last ?? "unknown")")
+        print("   - Is GGUF: \(model.filename.hasSuffix(".gguf"))")
+        print("   - Repository: \(model.huggingFaceRepo)")
+        print("================================\n")
         
         // Safety check - ensure we're properly initialized
         guard self.isMLXSwiftAvailable else {
@@ -135,9 +145,45 @@ class AIInferenceManager: ObservableObject {
                 loadingStatus = "Creating model configuration..."
             }
             
+            // Check if the model file actually exists
+            let modelPath = ModelFileManager.shared.getModelPath(for: model.id)
+            print("📁 Checking model file at path: \(modelPath.path)")
+            
+            if FileManager.default.fileExists(atPath: modelPath.path) {
+                print("✅ Model file exists!")
+                let fileSize = (try? FileManager.default.attributesOfItem(atPath: modelPath.path)[.size] as? Int64) ?? 0
+                print("📊 File size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
+                
+                // Read first few bytes to check file format
+                if let fileHandle = FileHandle(forReadingAtPath: modelPath.path) {
+                    let headerData = fileHandle.readData(ofLength: 8)
+                    let bytes = [UInt8](headerData)
+                    print("🔍 File header bytes: \(bytes.map { String(format: "0x%02X", $0) }.joined(separator: " "))")
+                    
+                    if bytes.count >= 4 && bytes[0] == 0x47 && bytes[1] == 0x47 && bytes[2] == 0x55 && bytes[3] == 0x46 {
+                        print("✅ CONFIRMED: This is a GGUF file! (magic bytes: GGUF)")
+                        print("🚨 ATTEMPTING TO LOAD GGUF FILE WITH MLX SWIFT")
+                    } else {
+                        print("❓ File format unknown, header: \(bytes)")
+                    }
+                    fileHandle.closeFile()
+                }
+            } else {
+                print("❌ Model file does NOT exist at expected path!")
+                print("🔍 Let's check what files exist in the models directory...")
+                let modelsDir = ModelFileManager.shared.modelsDirectory
+                if let contents = try? FileManager.default.contentsOfDirectory(at: modelsDir, includingPropertiesForKeys: nil) {
+                    print("📁 Files in models directory:")
+                    for file in contents {
+                        print("   - \(file.lastPathComponent)")
+                    }
+                }
+            }
+            
             // **CRITICAL FIX**: Create configuration that matches the downloaded model
             let config = createModelConfigurationForDownloadedModel(model)
             print("⚙️ Created model configuration: \(config.id)")
+            print("🔍 Configuration type: \(type(of: config))")
             
             await MainActor.run {
                 loadingProgress = 0.3
@@ -157,6 +203,11 @@ class AIInferenceManager: ObservableObject {
             do {
                 print("🔄 Attempting to load model container from local files only...")
                 
+                print("🚀 Calling LLMModelFactory.loadContainer...")
+                print("   - Download directory: \(downloadDirectory.path)")
+                print("   - Configuration ID: \(config.id)")
+                print("   - Model type: \(String(describing: config))")
+                
                 modelContainer = try await LLMModelFactory.shared.loadContainer(
                     hub: hub,
                     configuration: config
@@ -173,7 +224,30 @@ class AIInferenceManager: ObservableObject {
                 
                 print("✅ Model container loaded successfully")
             } catch {
-                print("❌ Model loading failed: \(error)")
+                print("\n=== GGUF LOADING ERROR ANALYSIS ===")
+                print("❌ Model loading failed with error: \(error)")
+                print("🔍 Error type: \(type(of: error))")
+                print("📋 Error details: \(String(describing: error))")
+                
+                // Check if this is a GGUF-specific error
+                if model.filename.hasSuffix(".gguf") {
+                    print("\n🚨 GGUF LOADING FAILURE DETECTED")
+                    print("This appears to be a GGUF file that MLX Swift cannot load.")
+                    print("Possible reasons:")
+                    print("1. Swift bindings for GGUF are not implemented in MLX Swift")
+                    print("2. The model needs to be converted to .safetensors format")
+                    print("3. A different loading mechanism is required")
+                    
+                    // Let's try to understand the exact error
+                    if let nsError = error as NSError? {
+                        print("\nNSError details:")
+                        print("   - Domain: \(nsError.domain)")
+                        print("   - Code: \(nsError.code)")
+                        print("   - UserInfo: \(nsError.userInfo)")
+                    }
+                }
+                print("================================\n")
+                
                 throw AIInferenceError.configurationError("Failed to load model from local files: \(error.localizedDescription)")
             }
             
@@ -570,16 +644,8 @@ class AIInferenceManager: ObservableObject {
     
     /// Get the model download directory with robust path handling for iOS simulator
     public func getModelDownloadDirectory() -> URL {
-        // Use the same "Models" directory as ModelDownloadManager
-        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let modelsDir = documentsDir.appendingPathComponent("Models", isDirectory: true)
-        do {
-            try FileManager.default.createDirectory(at: modelsDir, withIntermediateDirectories: true, attributes: nil)
-            print("📁 Models directory created/verified: \(modelsDir.path)")
-        } catch {
-            print("❌ Error creating models directory: \(error)")
-        }
-        return modelsDir
+        // Use ModelFileManager's centralized directory
+        return ModelFileManager.shared.modelsDirectory
     }
     
     /// Validate and sanitize file paths for iOS simulator compatibility
@@ -614,51 +680,11 @@ class AIInferenceManager: ObservableObject {
     
     /// Get the local path for a specific model with iOS simulator compatibility
     private func getLocalModelPath(for model: AIModel) -> URL {
-        let modelsDir = getModelDownloadDirectory()
+        // Use ModelFileManager to get the model path
+        return ModelFileManager.shared.getModelPath(for: model.id)
         
-        // Validate model ID and filename
-        guard !model.id.isEmpty else {
-            print("❌ Model ID is empty, using fallback path")
-            return modelsDir.appendingPathComponent("unknown-model")
-        }
-        
-        guard !model.filename.isEmpty else {
-            print("❌ Model filename is empty, using fallback path")
-            return modelsDir.appendingPathComponent(model.id)
-        }
-        
-        // Sanitize the model ID and filename for iOS simulator compatibility
-        let sanitizedId = sanitizePath(model.id)
-        let sanitizedFilename = sanitizePath(model.filename)
-        
-        // 1. Check for id-only file saved by DownloadManager
-        let idOnlyPath = modelsDir.appendingPathComponent(sanitizedId)
-        if FileManager.default.fileExists(atPath: idOnlyPath.path) {
-            print("✅ Detected existing model file at \(idOnlyPath.path)")
-            return idOnlyPath
-        }
-        
-        // 2. Single file model
-        if model.filename.hasSuffix(".gguf") || model.filename.hasSuffix(".bin") {
-            let singleFilePath = modelsDir.appendingPathComponent("\(sanitizedId)-\(sanitizedFilename)")
-            return singleFilePath
-        }
-        
-        // 3. Directory-based model
-        let modelDirectory = modelsDir.appendingPathComponent(sanitizedId, isDirectory: true)
-        let configPath = modelDirectory.appendingPathComponent("config.json")
-        let modelPath = modelDirectory.appendingPathComponent("model.safetensors")
-        let tokenizerPath = modelDirectory.appendingPathComponent("tokenizer.json")
-        
-        // Return the directory if it contains MLX files
-        if FileManager.default.fileExists(atPath: configPath.path) ||
-           FileManager.default.fileExists(atPath: modelPath.path) ||
-           FileManager.default.fileExists(atPath: tokenizerPath.path) {
-            return modelDirectory
-        }
-        
-        // 4. Fallback to single file
-        return modelsDir.appendingPathComponent(sanitizedFilename)
+        // Simply use ModelFileManager to get the proper path
+        return ModelFileManager.shared.getModelPath(for: model.id)
     }
     
     /// Check if a model is downloaded and available locally

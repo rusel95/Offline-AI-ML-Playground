@@ -55,10 +55,8 @@ class ChatViewModel: ObservableObject {
     
     // MARK: - Initialization
     init() {
-        // Start model synchronization
-        sharedManager.synchronizeModels()
-        
-        // Set up reactive model loading after synchronization completes
+        // ModelFileManager handles synchronization automatically
+        // Set up reactive model loading
         setupModelLoadingObserver()
     }
     
@@ -69,7 +67,7 @@ class ChatViewModel: ObservableObject {
     
     private func setupModelLoadingObserver() {
         // Observe changes to downloadedModels to handle model restoration after sync
-        sharedManager.$downloadedModels
+        ModelFileManager.shared.$downloadedModels
             .receive(on: RunLoop.main)
             .sink { [weak self] downloadedModelIds in
                 guard let self = self else { return }
@@ -200,7 +198,7 @@ class ChatViewModel: ObservableObject {
     }
     
     func refreshDownloadedModels() {
-        sharedManager.synchronizeModels()
+        ModelFileManager.shared.refreshDownloadedModels()
         
         // Use a short delay to allow synchronization to complete before checking models
         Task {
