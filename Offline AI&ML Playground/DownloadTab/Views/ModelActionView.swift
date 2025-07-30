@@ -12,6 +12,7 @@ import SwiftUI
 struct ModelActionView: View {
     let model: AIModel
     @ObservedObject var viewModel: ModelCardViewModel
+    @ObservedObject private var networkMonitor = NetworkMonitor.shared
     
     var body: some View {
         if viewModel.isDownloading, let download = viewModel.downloadViewModel.getDownloadProgress(for: model.id) {
@@ -72,23 +73,32 @@ struct ModelActionView: View {
             }
         } else {
             // Available for download
-            Button(action: {
-                viewModel.downloadModel()
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.down.circle.fill")
-                        .font(.title3)
-                    Text("Download")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+            VStack(spacing: 8) {
+                Button(action: {
+                    viewModel.downloadModel()
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: networkMonitor.isConnected ? "arrow.down.circle.fill" : "wifi.slash")
+                            .font(.title3)
+                        Text(networkMonitor.isConnected ? "Download" : "No Connection")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(networkMonitor.isConnected ? Color.blue : Color.gray)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(.blue)
-                .foregroundColor(.white)
-                .cornerRadius(10)
+                .buttonStyle(.plain)
+                .disabled(!networkMonitor.isConnected)
+                
+                if !networkMonitor.isConnected {
+                    Text("Internet connection required")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
-            .buttonStyle(.plain)
         }
     }
 }

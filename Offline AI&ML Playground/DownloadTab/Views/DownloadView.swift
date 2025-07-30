@@ -14,6 +14,7 @@ struct DownloadView: View {
     @StateObject private var viewModel = DownloadViewModel()
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var scrollViewOffset: CGFloat = 0
+    @ObservedObject private var networkMonitor = NetworkMonitor.shared
     
     var body: some View {
         iPhoneLayout
@@ -28,6 +29,25 @@ struct DownloadView: View {
     private var mainContentList: some View {
         ScrollView {
             VStack(spacing: 20) {
+                // Network status banner
+                if !networkMonitor.isConnected || networkMonitor.isExpensive || networkMonitor.isConstrained {
+                    NetworkStatusView()
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .animation(.easeInOut(duration: 0.3), value: networkMonitor.isConnected)
+                }
+                
+                // Resumable downloads section
+                ResumableDownloadsView(
+                    modelsWithResumeData: viewModel.modelsWithResumeData,
+                    availableModels: viewModel.availableModels,
+                    onResume: { model in
+                        viewModel.resumeDownload(for: model)
+                    },
+                    onDelete: { modelId in
+                        viewModel.deleteResumeData(for: modelId)
+                    }
+                )
+                
                 // Always render the downloads section container
                 VStack(spacing: 0) {
                     if viewModel.hasActiveDownloads {

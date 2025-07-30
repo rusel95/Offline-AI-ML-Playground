@@ -19,6 +19,7 @@ class DownloadViewModel: ObservableObject {
     @Published var selectedProvider: Provider?
     @Published var showingError = false
     @Published var errorMessage = ""
+    @Published var modelsWithResumeData: [String] = []
     
     // MARK: - Computed Properties
     var hasActiveDownloads: Bool {
@@ -68,6 +69,7 @@ class DownloadViewModel: ObservableObject {
     init() {
         self.sharedManager = SharedModelManager.shared
         setupBindings()
+        refreshResumeData()
         // No async loading - models are already loaded statically in SharedModelManager
     }
     
@@ -77,7 +79,11 @@ class DownloadViewModel: ObservableObject {
         sharedManager.$activeDownloads
             .receive(on: DispatchQueue.main)
             .map { Array($0.values) }
-            .assign(to: &$activeDownloads)
+            .sink { [weak self] downloads in
+                self?.activeDownloads = downloads
+                self?.refreshResumeData()
+            }
+            .store(in: &cancellables)
         
         sharedManager.$availableModels
             .receive(on: DispatchQueue.main)
@@ -125,6 +131,26 @@ class DownloadViewModel: ObservableObject {
     private func showError(_ message: String) {
         errorMessage = message
         showingError = true
+    }
+    
+    private func refreshResumeData() {
+        modelsWithResumeData = DownloadResumeManager.shared.getModelsWithResumeData()
+    }
+    
+    func resumeDownload(for model: AIModel) {
+        Task {
+            do {
+                try await sharedManager.downloadModel(model)
+                refreshResumeData()
+            } catch {
+                showError("Failed to resume download for \(model.name): \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    func deleteResumeData(for modelId: String) {
+        DownloadResumeManager.shared.deleteResumeData(for: modelId)
+        refreshResumeData()
     }
 }
 

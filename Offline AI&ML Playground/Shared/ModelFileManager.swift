@@ -46,14 +46,41 @@ public class ModelFileManager: NSObject, ObservableObject {
     
     /// Get the file path for a model
     public func getModelPath(for modelId: String) -> URL {
-        // Use model ID directly as filename with .gguf extension
-        return modelsDirectory.appendingPathComponent("\(modelId).gguf")
+        // Use model ID directly as filename
+        // MLX models typically download as directories with multiple files
+        return modelsDirectory.appendingPathComponent(modelId)
     }
     
     /// Check if a model is downloaded
     public func isModelDownloaded(_ modelId: String) -> Bool {
+        // First check if we have it in our tracked set
+        if downloadedModels.contains(modelId) {
+            return true
+        }
+        
+        // Also check if marker file exists
         let path = getModelPath(for: modelId)
-        return fileManager.fileExists(atPath: path.path)
+        if fileManager.fileExists(atPath: path.path) {
+            return true
+        }
+        
+        // For backward compatibility, check MLX directory structure
+        // This helps if refreshDownloadedModels hasn't been called yet
+        let mlxModelsDir = modelsDirectory.appendingPathComponent("models/mlx-community")
+        if let mlxContents = try? fileManager.contentsOfDirectory(at: mlxModelsDir, includingPropertiesForKeys: nil) {
+            for modelDir in mlxContents {
+                let dirName = modelDir.lastPathComponent
+                if let mappedId = mapMLXRepoToModelId(dirName), mappedId == modelId {
+                    // Check if model.safetensors exists
+                    let modelFile = modelDir.appendingPathComponent("model.safetensors")
+                    if fileManager.fileExists(atPath: modelFile.path) {
+                        return true
+                    }
+                }
+            }
+        }
+        
+        return false
     }
     
     /// Save a downloaded file to the models directory
@@ -82,7 +109,7 @@ public class ModelFileManager: NSObject, ObservableObject {
             }
             
             // Update downloaded models set
-            await MainActor.run { [weak self] in
+            _ = await MainActor.run { [weak self] in
                 self?.downloadedModels.insert(modelId)
             }
         } catch {
@@ -134,23 +161,91 @@ public class ModelFileManager: NSObject, ObservableObject {
     /// Refresh the list of downloaded models
     public func refreshDownloadedModels() {
         do {
+            var modelIds: Set<String> = []
+            
+            // Check our simple download structure
             let contents = try fileManager.contentsOfDirectory(at: modelsDirectory, includingPropertiesForKeys: nil)
             
-            let modelIds = contents.compactMap { url -> String? in
+            for url in contents {
                 let filename = url.lastPathComponent
-                if filename.hasSuffix(".gguf") {
-                    return String(filename.dropLast(5)) // Remove .gguf extension
+                
+                // Skip the MLX models directory as we'll check it separately
+                if filename == "models" {
+                    continue
                 }
-                return nil
+                
+                // Check for marker files that indicate a download
+                if fileManager.fileExists(atPath: url.path) {
+                    // Could be a marker file with model ID as name
+                    modelIds.insert(filename)
+                }
+            }
+            
+            // Also check MLX models directory structure
+            let mlxModelsDir = modelsDirectory.appendingPathComponent("models")
+            if fileManager.fileExists(atPath: mlxModelsDir.path) {
+                // Check for mlx-community subdirectory
+                let mlxCommunityDir = mlxModelsDir.appendingPathComponent("mlx-community")
+                if fileManager.fileExists(atPath: mlxCommunityDir.path) {
+                    let mlxContents = try fileManager.contentsOfDirectory(at: mlxCommunityDir, includingPropertiesForKeys: nil)
+                    
+                    for modelDir in mlxContents where FileManager.default.isDirectory(at: modelDir) {
+                        let dirName = modelDir.lastPathComponent
+                        print("🔍 Found MLX model directory: \(dirName)")
+                        
+                        // Check if model.safetensors exists to confirm it's downloaded
+                        let modelFile = modelDir.appendingPathComponent("model.safetensors")
+                        if fileManager.fileExists(atPath: modelFile.path) {
+                            // Map from repo path to model ID
+                            if let modelId = mapMLXRepoToModelId(dirName) {
+                                print("✅ Mapped \(dirName) -> \(modelId)")
+                                modelIds.insert(modelId)
+                            } else {
+                                print("⚠️ No mapping found for: \(dirName)")
+                            }
+                        }
+                    }
+                }
             }
             
             DispatchQueue.main.async { [weak self] in
-                self?.downloadedModels = Set(modelIds)
-                print("📊 Found \(modelIds.count) downloaded models")
+                self?.downloadedModels = modelIds
+                print("📊 Found \(modelIds.count) downloaded models: \(modelIds)")
             }
         } catch {
             print("❌ Failed to refresh downloaded models: \(error)")
         }
+    }
+    
+    // Map MLX repository paths to our model IDs
+    private func mapMLXRepoToModelId(_ repoPath: String) -> String? {
+        // This is a reverse mapping - ideally should be stored centrally
+        let mappings: [String: String] = [
+            "SmolLM-135M-Instruct-4bit": "smollm-135m",
+            "SmolLM-360M-Instruct-4bit": "smollm-360m",
+            "SmolLM-1.7B-Instruct-4bit": "smollm-1.7b",
+            "TinyLlama-1.1B-Chat-v1.0-4bit": "tinyllama-1.1b",
+            "Qwen2.5-0.5B-Instruct-4bit": "qwen2.5-0.5b",
+            "Qwen2.5-1.5B-Instruct-4bit": "qwen2.5-1.5b",
+            "Qwen2.5-3B-Instruct-4bit": "qwen2.5-3b",
+            "deepseek-coder-1.3b-instruct-4bit": "deepseek-coder-1.3b",
+            "gemma-2b-it-4bit": "gemma-2b",
+            "phi-2-4bit": "phi-2",
+            "OpenELM-1_1B-Instruct-4bit": "openelm-1.1b",
+            "Llama-3.2-1B-Instruct-4bit": "llama-3.2-1b"
+        ]
+        
+        // Check direct mapping
+        if let modelId = mappings[repoPath] {
+            return modelId
+        }
+        
+        // Check if it's under mlx-community
+        if repoPath == "mlx-community" {
+            return nil // Skip the parent directory
+        }
+        
+        return nil
     }
     
     /// Get all downloaded model files with their sizes
@@ -175,6 +270,35 @@ public class ModelFileManager: NSObject, ObservableObject {
         print("📊 Downloaded models: \(downloadedModels)")
         print("💾 Total storage used: \(formatBytes(getTotalStorageUsed()))")
         
+        // Check what's actually in the directories
+        print("\n📂 Directory Contents:")
+        
+        // Check main models directory
+        if let contents = try? fileManager.contentsOfDirectory(at: modelsDirectory, includingPropertiesForKeys: nil) {
+            print("📁 /Models/:")
+            for item in contents {
+                print("   - \(item.lastPathComponent)")
+            }
+        }
+        
+        // Check MLX models directory
+        let mlxModelsDir = modelsDirectory.appendingPathComponent("models/mlx-community")
+        if let mlxContents = try? fileManager.contentsOfDirectory(at: mlxModelsDir, includingPropertiesForKeys: nil) {
+            print("\n📁 /Models/models/mlx-community/:")
+            for item in mlxContents {
+                print("   - \(item.lastPathComponent)")
+                
+                // Check if model.safetensors exists
+                let modelFile = item.appendingPathComponent("model.safetensors")
+                if fileManager.fileExists(atPath: modelFile.path) {
+                    if let size = try? fileManager.attributesOfItem(atPath: modelFile.path)[.size] as? Int64 {
+                        print("     ✅ model.safetensors exists (\(formatBytes(size)))")
+                    }
+                }
+            }
+        }
+        
+        print("\n📊 Model sizes:")
         for (modelId, size) in getDownloadedModelInfo() {
             print("  - \(modelId): \(formatBytes(size))")
         }
@@ -202,5 +326,14 @@ public enum ModelFileError: LocalizedError {
         case .deleteFailed(let reason):
             return "Failed to delete model: \(reason)"
         }
+    }
+}
+
+// MARK: - FileManager Extension
+extension FileManager {
+    /// Check if a URL points to a directory
+    func isDirectory(at url: URL) -> Bool {
+        var isDir: ObjCBool = false
+        return fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
     }
 }
