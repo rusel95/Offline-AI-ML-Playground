@@ -15,7 +15,6 @@ class ModelCardViewModel: ObservableObject {
     @Published var isDownloading = false
     @Published var downloadProgress: Double = 0
     @Published var downloadSpeed: String = ""
-    @Published var showingDetailSheet = false
     @Published var selectedDetailTab = 0
     
     // MARK: - Model
@@ -96,9 +95,6 @@ class ModelCardViewModel: ObservableObject {
         downloadViewModel.deleteModel(model)
     }
     
-    func toggleDetailSheet() {
-        showingDetailSheet.toggle()
-    }
 }
 
 // MARK: - Download Status

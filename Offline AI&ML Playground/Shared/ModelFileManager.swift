@@ -51,6 +51,39 @@ public class ModelFileManager: NSObject, ObservableObject {
         return modelsDirectory.appendingPathComponent(modelId)
     }
     
+    /// Get the MLX model directory for a given model ID
+    public func getMLXModelDirectory(for modelId: String) -> URL {
+        // Map model ID to MLX repository name
+        let mlxRepoName = mapModelIdToMLXRepo(modelId)
+        
+        return modelsDirectory
+            .appendingPathComponent("models")
+            .appendingPathComponent("mlx-community")
+            .appendingPathComponent(mlxRepoName)
+    }
+    
+    /// Map model ID to MLX repository name
+    private func mapModelIdToMLXRepo(_ modelId: String) -> String {
+        // This should match the mapping in SharedModelManager
+        let repoMapping: [String: String] = [
+            "qwen2.5-0.5b": "Qwen2.5-0.5B-Instruct-4bit",
+            "qwen2.5-1.5b": "Qwen2.5-1.5B-Instruct-4bit",
+            "smollm-135m": "SmolLM-135M-Instruct-4bit",
+            "smollm-360m": "SmolLM-360M-Instruct-4bit",
+            "smollm-1.7b": "SmolLM-1.7B-Instruct-4bit",
+            "tinyllama-1.1b": "TinyLlama-1.1B-Chat-v1.0-4bit",
+            "deepseek-coder-1.3b": "deepseek-coder-1.3b-instruct-4bit",
+            "openelm-1.1b": "OpenELM-1_1B-Instruct-4bit",
+            "llama-3.2-1b": "Llama-3.2-1B-Instruct-4bit",
+            "deepseek-r1-distill-qwen-1.5b": "DeepSeek-R1-Distill-Qwen-1.5B-4bit",
+            "gemma-2b": "gemma-2b-it-4bit",
+            "phi-3.5-mini": "Phi-3.5-mini-instruct-4bit",
+            "openelm-270m": "OpenELM-270M-Instruct-4bit"
+        ]
+        
+        return repoMapping[modelId] ?? modelId
+    }
+    
     /// Check if a model is downloaded
     public func isModelDownloaded(_ modelId: String) -> Bool {
         // First check if we have it in our tracked set
@@ -237,6 +270,26 @@ public class ModelFileManager: NSObject, ObservableObject {
         
         // Check direct mapping
         if let modelId = mappings[repoPath] {
+            return modelId
+        }
+        
+        // Also check if the directory name IS the model ID (simplified names)
+        let simplifiedMappings = [
+            "smollm-135m": "smollm-135m",
+            "smollm-360m": "smollm-360m",
+            "smollm-1.7b": "smollm-1.7b",
+            "tinyllama-1.1b": "tinyllama-1.1b",
+            "qwen2.5-0.5b": "qwen2.5-0.5b",
+            "qwen2.5-1.5b": "qwen2.5-1.5b",
+            "qwen2.5-3b": "qwen2.5-3b",
+            "deepseek-coder-1.3b": "deepseek-coder-1.3b",
+            "gemma-2b": "gemma-2b",
+            "phi-2": "phi-2",
+            "openelm-1.1b": "openelm-1.1b",
+            "llama-3.2-1b": "llama-3.2-1b"
+        ]
+        
+        if let modelId = simplifiedMappings[repoPath] {
             return modelId
         }
         

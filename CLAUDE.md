@@ -85,15 +85,34 @@ xcodebuild test -project "Offline AI&ML Playground.xcodeproj" -scheme "Offline A
 "t5-small" → pytorch_model.bin
 ```
 
+### Important: Model Type Limitations
+**Currently, the app only supports text-to-text models for basic chatting.** Specialized models like coding assistants (e.g., DeepSeek Coder) are not yet supported. When adding new models to the catalog, ensure they are designed for conversational/chat use cases rather than specialized tasks like:
+- Code generation/completion
+- Image generation
+- Audio processing
+- Translation-specific models
+- Domain-specific models (medical, legal, etc.)
+
 ### MLX Swift Integration  
 - Uses multiple MLX Swift packages: `MLX`, `MLXNN`, `MLXLLM`, `MLXLMCommon`, etc.
 - Models loaded using `LLMModelFactory` and `ModelContainer` with public repository IDs
 - Streaming text generation via `MLXLMCommon.generate()`
 - **CRITICAL**: MLX Hub integration auto-handles format conversion and missing config files
+- **Directory Structure**: MLX models require proper directory naming:
+  - Full format: `/models/mlx-community/{repo-name}/` (e.g., `SmolLM-135M-Instruct-4bit`)
+  - Model files: `model.safetensors`, `config.json`, `tokenizer.json`, `tokenizer_config.json`
+- **Model Mappings**: See `ModelFileManager.mapMLXRepoToModelId()` for directory name mappings
 
 ### Model Management Architecture
-- Models downloaded as single files to `Documents/Models/` directory
-- File naming: `/Documents/Models/{modelId}` (e.g., `/Documents/Models/gpt2`)
+- Models downloaded to `Documents/Models/` directory with format-specific structure
+- **Model Format Support**:
+  - **MLX Format**: Single `model.safetensors` with config files
+  - **Multi-Part Models**: Split safetensors with index file (for large models)
+  - **GGUF Format**: Quantized models in single `.gguf` file
+- **Format Detection**: Automatic detection based on repository and file structure
+- **Directory Structure**:
+  - MLX: `/models/mlx-community/{repo-name}/`
+  - Others: `/models/{model-id}/`
 - Local caching system prevents re-downloads
 - **State Management Fix**: Background file checks with main thread updates
 - Model switching without app restart via proper cleanup

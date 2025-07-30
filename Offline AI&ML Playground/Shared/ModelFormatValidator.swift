@@ -206,29 +206,4 @@ class ModelFormatValidator {
 
 extension ModelFileManager {
     /// Get the MLX model directory path
-    func getMLXModelDirectory(for modelId: String) -> URL {
-        // Map model ID to MLX repository name
-        let mlxRepoName = mapModelIdToMLXRepo(modelId)
-        
-        return modelsDirectory
-            .appendingPathComponent("models")
-            .appendingPathComponent("mlx-community")
-            .appendingPathComponent(mlxRepoName)
-    }
-    
-    /// Map model ID to MLX repository name
-    private func mapModelIdToMLXRepo(_ modelId: String) -> String {
-        // This should match the mapping in SharedModelManager
-        let repoMapping: [String: String] = [
-            "qwen2.5-0.5b": "Qwen2.5-0.5B-Instruct-4bit",
-            "smollm2-135m": "SmolLM2-135M-Instruct-4bit",
-            "llama-3.2-1b": "Llama-3.2-1B-Instruct-4bit",
-            "deepseek-r1-distill-qwen-1.5b": "DeepSeek-R1-Distill-Qwen-1.5B-4bit",
-            "gemma-2b": "gemma-2b-it-4bit",
-            "phi-3.5-mini": "Phi-3.5-mini-instruct-4bit",
-            "openelm-270m": "OpenELM-270M-Instruct-4bit"
-        ]
-        
-        return repoMapping[modelId] ?? modelId
-    }
 }

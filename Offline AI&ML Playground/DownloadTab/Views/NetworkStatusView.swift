@@ -99,8 +99,10 @@ struct NetworkStatusView: View {
                 
                 if networkMonitor.isExpensive {
                     Text("Using cellular data - charges may apply")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 } else if networkMonitor.isConstrained {
                     Text("Network is constrained - downloads may be slow")
                         .font(.caption)

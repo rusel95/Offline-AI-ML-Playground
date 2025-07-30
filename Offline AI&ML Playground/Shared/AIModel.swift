@@ -34,7 +34,6 @@ public struct AIModel: Identifiable {
         // Medium models with standard context
         case "tinyllama-1.1b": return 2048
         case "smollm-135m": return 2048
-        case "deepseek-coder-1.3b": return 4096
         case "openelm-1.1b": return 2048
         case "gemma-2b": return 8192
         case "phi-2": return 2048
@@ -73,7 +72,6 @@ public struct AIModel: Identifiable {
         case "smollm-135m": return "0.08 - 0.12 GB"
         case "gpt2": return "0.15 - 0.25 GB"
         case "tinyllama-1.1b": return "0.7 - 0.9 GB"
-        case "deepseek-coder-1.3b": return "0.8 - 1.0 GB"
         case "openelm-1.1b": return "1.1 - 1.3 GB"
         case "gemma-2b": return "1.2 - 1.5 GB"
         case "phi-2": return "2.7 - 3.2 GB"
@@ -108,7 +106,6 @@ public struct AIModel: Identifiable {
         case "codellama-7b": return "7 - 11 GB"
         case "llama-3-70b": return "60 - 100 GB"
         case "mistral-7b-instruct", "mistral-7b-openorca": return "7 - 12 GB"
-        case "deepseek-coder-1.3b": return "1.5 - 2.5 GB"
         case "starcoder2-3b": return "3 - 5 GB"
         case "distilbert": return "0.5 - 0.8 GB"
         case "mobilevit": return "0.15 - 0.3 GB"

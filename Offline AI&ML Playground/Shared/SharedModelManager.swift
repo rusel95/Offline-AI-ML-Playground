@@ -267,21 +267,7 @@ class SharedModelManager: NSObject, ObservableObject {
                 provider: .huggingFace
             ),
             
-            // 6. DeepSeek Coder 1.3B - Code specialist
-            AIModel(
-                id: "deepseek-coder-1.3b",
-                name: "DeepSeek Coder 1.3B",
-                description: "Compact 784MB coding specialist. Excellent for code generation on iPhone.",
-                huggingFaceRepo: "mlx-community/deepseek-coder-1.3b-instruct-4bit",
-                filename: "model.safetensors",
-                sizeInBytes: 784000000, // ~784MB
-                type: .code,
-                tags: ["code", "deepseek", "mlx", "programming", "4bit"],
-                isGated: false,
-                provider: .deepseek
-            ),
-            
-            // 7. Qwen2.5 1.5B - Balanced performance
+            // 6. Qwen2.5 1.5B - Balanced performance
             AIModel(
                 id: "qwen2.5-1.5b",
                 name: "Qwen2.5 1.5B Instruct",
@@ -295,7 +281,7 @@ class SharedModelManager: NSObject, ObservableObject {
                 provider: .other
             ),
             
-            // 8. OpenELM 1.1B - Apple's model
+            // 7. OpenELM 1.1B - Apple's model
             AIModel(
                 id: "openelm-1.1b",
                 name: "OpenELM 1.1B Instruct",
@@ -310,7 +296,7 @@ class SharedModelManager: NSObject, ObservableObject {
             ),
             
             // MARK: - Large Models (1.5GB-3GB)
-            // 9. Gemma 2B - Google's efficient model
+            // 8. Gemma 2B - Google's efficient model
             AIModel(
                 id: "gemma-2b",
                 name: "Gemma 2B Instruct",
@@ -324,7 +310,7 @@ class SharedModelManager: NSObject, ObservableObject {
                 provider: .google
             ),
             
-            // 10. Phi-2 - Microsoft's compact powerhouse
+            // 9. Phi-2 - Microsoft's compact powerhouse
             AIModel(
                 id: "phi-2",
                 name: "Phi-2",
@@ -338,7 +324,7 @@ class SharedModelManager: NSObject, ObservableObject {
                 provider: .microsoft
             ),
             
-            // 11. Qwen2.5 3B - Larger multilingual
+            // 10. Qwen2.5 3B - Larger multilingual
             AIModel(
                 id: "qwen2.5-3b",
                 name: "Qwen2.5 3B Instruct",
@@ -352,7 +338,7 @@ class SharedModelManager: NSObject, ObservableObject {
                 provider: .other
             ),
             
-            // 12. Llama 3.2 1B - Meta's latest small model
+            // 11. Llama 3.2 1B - Meta's latest small model
             AIModel(
                 id: "llama-3.2-1b",
                 name: "Llama 3.2 1B Instruct",

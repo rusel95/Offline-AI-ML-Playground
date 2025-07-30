@@ -12,6 +12,7 @@ import SwiftUI
 struct ModelCardView: View {
     let model: AIModel
     @ObservedObject var viewModel: ModelCardViewModel
+    @State private var isShowingDetail = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -65,7 +66,7 @@ struct ModelCardView: View {
                 
                 // Info button
                 Button(action: {
-                    viewModel.toggleDetailSheet()
+                    isShowingDetail = true
                 }) {
                     Image(systemName: "info.circle")
                         .foregroundStyle(.secondary)
@@ -80,7 +81,7 @@ struct ModelCardView: View {
         .padding(16)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
-        .sheet(isPresented: $viewModel.showingDetailSheet) {
+        .sheet(isPresented: $isShowingDetail) {
             ModelDetailedInfoView(model: model)
         }
     }
@@ -359,7 +360,7 @@ struct ModelDetailedInfoView: View {
             
             // Tags
             if !model.tags.isEmpty {
-                sectionCard(title: "Tags & Categories", icon: "tag") {
+                sectionCard(title: "Tags and Categories", icon: "tag") {
                     LazyVGrid(columns: [
                         GridItem(.adaptive(minimum: 100))
                     ], spacing: 8) {

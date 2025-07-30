@@ -88,6 +88,9 @@ class StorageSettingsViewModel: ObservableObject {
                 // Clear MLX models
                 try await clearMLXModels()
                 
+                // Force refresh of ModelFileManager's cache
+                ModelFileManager.shared.refreshDownloadedModels()
+                
                 // Refresh storage info
                 refreshStorageInfo()
                 
