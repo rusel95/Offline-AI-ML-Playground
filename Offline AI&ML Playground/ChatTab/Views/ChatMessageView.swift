@@ -50,26 +50,39 @@ struct ChatMessageView: View {
                 .frame(maxWidth: .infinity, alignment: messageAlignment)
             
             // Metadata row with better spacing
-            HStack(spacing: 8) {
-                if message.role == .assistant, let modelUsed = message.modelUsed {
-                    HStack(spacing: 4) {
-                        Image(systemName: "brain.head.profile")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        
-                        Text(modelUsed)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+            VStack(alignment: isUserMessage ? .trailing : .leading, spacing: 4) {
+                // Token metrics for assistant messages
+                if message.role == .assistant, 
+                   let metrics = message.tokenMetrics,
+                   !metrics.displayString.isEmpty {
+                    Text(metrics.displayString)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, isUserMessage ? 16 : 0)
                 }
                 
-                Spacer(minLength: 0)
-                
-                Text(message.timestamp.formatted(date: .omitted, time: .shortened))
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                // Model and timestamp row
+                HStack(spacing: 8) {
+                    if message.role == .assistant, let modelUsed = message.modelUsed {
+                        HStack(spacing: 4) {
+                            Image(systemName: "brain.head.profile")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            
+                            Text(modelUsed)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    Spacer(minLength: 0)
+                    
+                    Text(message.timestamp.formatted(date: .omitted, time: .shortened))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, isUserMessage ? 16 : 0)
             }
-            .padding(.horizontal, isUserMessage ? 16 : 0)
         }
     }
 }
@@ -98,12 +111,20 @@ struct ChatMessageView: View {
             modelUsed: nil
         ))
         
-        ChatMessageView(message: ChatMessage(
-            content: "💻 As a code-focused model, I can help you with your coding problem. Here's my analysis:\n\n```swift\n// Swift example\nfunc solution() {\n    // Your implementation\n}\n```",
-            role: .assistant,
-            timestamp: Date(),
-            modelUsed: "CodeLlama 7B"
-        ))
+        ChatMessageView(message: {
+            var message = ChatMessage(
+                content: "💻 As a code-focused model, I can help you with your coding problem. Here's my analysis:\n\n```swift\n// Swift example\nfunc solution() {\n    // Your implementation\n}\n```",
+                role: .assistant,
+                timestamp: Date(),
+                modelUsed: "CodeLlama 7B"
+            )
+            var metrics = TokenMetrics()
+            metrics.totalTokens = 127
+            metrics.averageTokensPerSecond = 14.3
+            metrics.totalGenerationTime = 8.9
+            message.tokenMetrics = metrics
+            return message
+        }())
     }
     .padding()
 } 

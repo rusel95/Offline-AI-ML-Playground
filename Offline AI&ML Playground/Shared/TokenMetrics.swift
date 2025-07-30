@@ -1,0 +1,116 @@
+import Foundation
+
+/// Metrics for token generation during AI inference
+struct TokenMetrics: Codable, Equatable {
+    /// Total number of tokens generated
+    var totalTokens: Int = 0
+    
+    /// Current tokens per second rate
+    var currentTokensPerSecond: Double = 0.0
+    
+    /// Average tokens per second over the entire generation
+    var averageTokensPerSecond: Double = 0.0
+    
+    /// Time to first token in seconds
+    var timeToFirstToken: TimeInterval?
+    
+    /// Total generation time in seconds
+    var totalGenerationTime: TimeInterval = 0.0
+    
+    /// Whether generation is currently in progress
+    var isGenerating: Bool = false
+    
+    /// Timestamp when generation started
+    var generationStartTime: Date?
+    
+    /// Timestamp when first token was received
+    var firstTokenTime: Date?
+    
+    /// Timestamp of last update
+    var lastUpdateTime: Date?
+    
+    /// Initialize empty metrics
+    init() {}
+    
+    /// Format metrics for display
+    var displayString: String {
+        if totalTokens == 0 {
+            return ""
+        }
+        
+        var parts: [String] = []
+        
+        // Token count
+        parts.append("\(totalTokens) \(totalTokens == 1 ? "token" : "tokens")")
+        
+        // Tokens per second (show current while generating, average when done)
+        if isGenerating && currentTokensPerSecond > 0 {
+            parts.append(String(format: "%.1f tok/s", currentTokensPerSecond))
+        } else if averageTokensPerSecond > 0 {
+            parts.append(String(format: "%.1f tok/s", averageTokensPerSecond))
+        }
+        
+        // Total time
+        if totalGenerationTime > 0 {
+            parts.append(String(format: "%.1fs", totalGenerationTime))
+        }
+        
+        return parts.joined(separator: " • ")
+    }
+    
+    /// Update metrics with new token count
+    mutating func update(tokenCount: Int, currentTime: Date = Date()) {
+        // Update total tokens
+        totalTokens = tokenCount
+        
+        // Track generation start time
+        if generationStartTime == nil {
+            generationStartTime = currentTime
+            isGenerating = true
+        }
+        
+        // Track time to first token
+        if tokenCount > 0 && firstTokenTime == nil {
+            firstTokenTime = currentTime
+            if let startTime = generationStartTime {
+                timeToFirstToken = currentTime.timeIntervalSince(startTime)
+            }
+        }
+        
+        // Calculate current tokens per second
+        if let lastTime = lastUpdateTime, tokenCount > 0 {
+            let timeDelta = currentTime.timeIntervalSince(lastTime)
+            if timeDelta > 0 {
+                // Simple smoothing to avoid jumpy values
+                let instantRate = 1.0 / timeDelta
+                currentTokensPerSecond = currentTokensPerSecond > 0 
+                    ? (currentTokensPerSecond * 0.7 + instantRate * 0.3)
+                    : instantRate
+            }
+        }
+        
+        // Update total generation time
+        if let startTime = generationStartTime {
+            totalGenerationTime = currentTime.timeIntervalSince(startTime)
+            
+            // Calculate average tokens per second
+            if totalGenerationTime > 0 && totalTokens > 0 {
+                averageTokensPerSecond = Double(totalTokens) / totalGenerationTime
+            }
+        }
+        
+        lastUpdateTime = currentTime
+    }
+    
+    /// Mark generation as completed
+    mutating func finalize() {
+        isGenerating = false
+        // Final calculation of average
+        if let startTime = generationStartTime {
+            totalGenerationTime = Date().timeIntervalSince(startTime)
+            if totalGenerationTime > 0 && totalTokens > 0 {
+                averageTokensPerSecond = Double(totalTokens) / totalGenerationTime
+            }
+        }
+    }
+}

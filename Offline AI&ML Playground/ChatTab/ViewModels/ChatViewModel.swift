@@ -28,6 +28,16 @@ class ChatViewModel: ObservableObject {
     @Published var conversationTitle: String = "New Conversation"
     @Published var isModelLoading = false
     @Published var shouldNavigateToDownloads = false
+    @Published var useMaxContext: Bool = true {
+        didSet {
+            UserDefaults.standard.set(useMaxContext, forKey: "chatUseMaxContext")
+        }
+    }
+    @Published var customContextSize: Int = 10 {
+        didSet {
+            UserDefaults.standard.set(customContextSize, forKey: "chatCustomContextSize")
+        }
+    }
     
     // MARK: - Dependencies
     private let sharedManager = SharedModelManager.shared
@@ -58,6 +68,13 @@ class ChatViewModel: ObservableObject {
         // ModelFileManager handles synchronization automatically
         // Set up reactive model loading
         setupModelLoadingObserver()
+        
+        // Restore context preferences
+        useMaxContext = UserDefaults.standard.object(forKey: "chatUseMaxContext") as? Bool ?? true
+        let savedCustomSize = UserDefaults.standard.integer(forKey: "chatCustomContextSize")
+        if savedCustomSize > 0 {
+            customContextSize = savedCustomSize
+        }
     }
     
     // MARK: - Setup Methods
@@ -371,7 +388,8 @@ class ChatViewModel: ObservableObject {
             content: "",
             role: .assistant,
             timestamp: Date(),
-            modelUsed: model.name
+            modelUsed: model.name,
+            tokenMetrics: TokenMetrics()
         )
         
         messages.append(assistantMessage)
@@ -384,16 +402,20 @@ class ChatViewModel: ObservableObject {
                 try await aiInferenceManager.loadModel(model)
             }
             
-            // Use streaming generation from AIInferenceManager
-            for await chunk in aiInferenceManager.generateStreamingText(
-                prompt: userMessage,
+            // Build conversation context from message history
+            let conversationContext = buildConversationContext(currentMessage: userMessage)
+            
+            // Use streaming generation with metrics from AIInferenceManager
+            for await response in aiInferenceManager.generateStreamingTextWithMetrics(
+                prompt: conversationContext,
                 maxTokens: 512,
                 temperature: 0.7
             ) {
-                // Update the message content with streaming text
+                // Update the message content and metrics with streaming data
                 await MainActor.run {
                     if messageIndex < messages.count {
-                        messages[messageIndex].content += chunk
+                        messages[messageIndex].content += response.text
+                        messages[messageIndex].tokenMetrics = response.metrics
                     }
                 }
             }
@@ -416,5 +438,79 @@ class ChatViewModel: ObservableObject {
         saveCurrentConversation()
         
         isGenerating = false
+    }
+    
+    // MARK: - Conversation Context Building
+    private func buildConversationContext(currentMessage: String) -> String {
+        guard let model = selectedModel else {
+            return "User: \(currentMessage)\n\nAssistant:"
+        }
+        
+        // Calculate approximate token budget (reserve ~200 tokens for response)
+        let maxTokens = model.maxContextTokens
+        let responseTokenBuffer = 200
+        let availableTokens = maxTokens - responseTokenBuffer
+        
+        // Build context with all messages that fit within token limit
+        var context = ""
+        var estimatedTokens = 0
+        var includedMessages: [ChatMessage] = []
+        
+        // Start with current message
+        let currentMessageFormatted = "User: \(currentMessage)\n\nAssistant:"
+        let currentMessageTokens = estimateTokenCount(currentMessageFormatted)
+        estimatedTokens += currentMessageTokens
+        
+        if useMaxContext {
+            // Try to include as many messages as possible within token limit
+            for message in messages.reversed() {
+                let role = message.role == .user ? "User" : "Assistant"
+                let formattedMessage = "\(role): \(message.content)\n\n"
+                let messageTokens = estimateTokenCount(formattedMessage)
+                
+                if estimatedTokens + messageTokens < availableTokens {
+                    includedMessages.insert(message, at: 0)
+                    estimatedTokens += messageTokens
+                } else {
+                    // Stop if we would exceed token limit
+                    break
+                }
+            }
+        } else {
+            // Use custom message limit
+            let limitedMessages = messages.suffix(customContextSize)
+            for message in limitedMessages {
+                let role = message.role == .user ? "User" : "Assistant"
+                let formattedMessage = "\(role): \(message.content)\n\n"
+                let messageTokens = estimateTokenCount(formattedMessage)
+                
+                if estimatedTokens + messageTokens < availableTokens {
+                    includedMessages.append(message)
+                    estimatedTokens += messageTokens
+                }
+            }
+        }
+        
+        // Build final context
+        for message in includedMessages {
+            let role = message.role == .user ? "User" : "Assistant"
+            context += "\(role): \(message.content)\n\n"
+        }
+        
+        // Add current message
+        context += currentMessageFormatted
+        
+        print("📝 Built conversation context with \(includedMessages.count) messages")
+        print("🧮 Estimated tokens: \(estimatedTokens) / \(maxTokens) (using \(Int(Double(estimatedTokens) / Double(maxTokens) * 100))%)")
+        print("📏 Context length: \(context.count) characters")
+        
+        return context
+    }
+    
+    // Simple token estimation (approximately 4 characters per token)
+    private func estimateTokenCount(_ text: String) -> Int {
+        // This is a rough estimate - actual tokenization varies by model
+        // Most models average around 3-4 characters per token
+        return max(1, text.count / 4)
     }
 }

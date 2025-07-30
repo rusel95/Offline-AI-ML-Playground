@@ -28,6 +28,7 @@ struct ChatMessage: Identifiable, Codable {
     let role: MessageRole
     let timestamp: Date
     let modelUsed: String?
+    var tokenMetrics: TokenMetrics?
     
     enum MessageRole: String, Codable, CaseIterable {
         case user = "user"
@@ -43,7 +44,6 @@ struct ChatView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = ChatViewModel()
     @State private var inputText = ""
-    @State private var isKeyboardVisible = false
     @State private var lastScrollPosition: CGFloat = 0
     @State private var scrollPosition: CGFloat = 0
     @FocusState private var isInputFocused: Bool
@@ -140,6 +140,29 @@ struct ChatView: View {
                 .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
             }
             
+            // Memory indicator
+            if !viewModel.messages.isEmpty {
+                HStack {
+                    Image(systemName: "brain")
+                        .foregroundStyle(.secondary)
+                    if viewModel.useMaxContext {
+                        if let model = viewModel.selectedModel {
+                            Text("Memory: Using full context (\(model.maxContextTokens) tokens)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text("Memory: Last \(min(viewModel.customContextSize, viewModel.messages.count)) messages")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+            }
+            
             // Input area
             ChatInputView(
                 text: $inputText,
@@ -153,9 +176,7 @@ struct ChatView: View {
                         hideKeyboard()
                     }
                 },
-                onFocusChanged: { focused in
-                    isKeyboardVisible = focused
-                }
+                onFocusChanged: { _ in }
             )
         }
         .toolbar {
@@ -262,6 +283,56 @@ struct ChatView: View {
                     
                     Divider()
                     
+                    Menu {
+                        if viewModel.useMaxContext {
+                            Text("Using full model context")
+                                .font(.caption)
+                            if let model = viewModel.selectedModel {
+                                Text("\(model.maxContextTokens) tokens available")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Text("Custom limit: \(viewModel.customContextSize) messages")
+                                .font(.caption)
+                        }
+                        
+                        Divider()
+                        
+                        Button {
+                            HapticFeedback.light()
+                            viewModel.useMaxContext = true
+                        } label: {
+                            HStack {
+                                Text("Use Maximum Context")
+                                if viewModel.useMaxContext {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                        
+                        Divider()
+                        
+                        ForEach([5, 10, 20, 50], id: \.self) { size in
+                            Button {
+                                HapticFeedback.light()
+                                viewModel.useMaxContext = false
+                                viewModel.customContextSize = size
+                            } label: {
+                                HStack {
+                                    Text("Limit to \(size) messages")
+                                    if !viewModel.useMaxContext && viewModel.customContextSize == size {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Label("Memory Settings", systemImage: "brain")
+                    }
+                    
+                    Divider()
+                    
                     Button {
                         HapticFeedback.light()
                         viewModel.refreshDownloadedModels()
@@ -301,19 +372,6 @@ struct ChatView: View {
             // Auto-save when leaving the view
             viewModel.saveCurrentConversation()
         }
-        .onChange(of: inputText) { _, newText in
-            // Optimized keyboard handling with debouncing
-            if !newText.isEmpty && !isKeyboardVisible {
-                showKeyboard()
-            }
-        }
-        // Add haptic feedback for better user experience
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillShowNotification)) { _ in
-            isKeyboardVisible = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillHideNotification)) { _ in
-            isKeyboardVisible = false
-        }
         .onChange(of: viewModel.showingModelPicker) { oldValue, newValue in
             if !newValue && viewModel.shouldNavigateToDownloads {
                 selectedTab = .download
@@ -342,7 +400,7 @@ struct ChatView: View {
             let scrollDelta = abs(currentPosition - lastScrollPosition)
             
             // Only hide keyboard for significant upward scrolls
-            if isScrollingUp && scrollDelta > 20 && isKeyboardVisible {
+            if isScrollingUp && scrollDelta > 50 {
                 hideKeyboard()
             }
             
@@ -352,17 +410,7 @@ struct ChatView: View {
     }
     
     private func hideKeyboard() {
-        withAnimation(.easeInOut(duration: 0.25)) {
-            isInputFocused = false
-            isKeyboardVisible = false
-        }
-    }
-    
-    private func showKeyboard() {
-        withAnimation(.easeInOut(duration: 0.25)) {
-            isInputFocused = true
-            isKeyboardVisible = true
-        }
+        isInputFocused = false
     }
 }
 

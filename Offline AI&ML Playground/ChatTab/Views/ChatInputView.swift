@@ -17,41 +17,55 @@ struct ChatInputView: View {
     let onSend: () -> Void
     let onFocusChanged: (Bool) -> Void
     
-    // Throttle focus change callbacks for better performance
-    @State private var debounceTimer: Timer?
-    
     var body: some View {
         HStack(spacing: 12) {
-            // Optimized text field with better performance
+            // Simplified text field for better performance
             TextField("Type a message...", text: $text, axis: .vertical)
-                .textFieldStyle(OptimizedTextFieldStyle())
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color(.systemGray6))
+                )
+                .font(.body)
                 .focused($isInputFocused)
                 .disabled(isGenerating)
-                .lineLimit(1...4) // Reduced max lines for better performance
+                .lineLimit(1...5)
                 .onSubmit {
                     if canSend {
                         onSend()
                     }
                 }
                 .onChange(of: isInputFocused) { _, focused in
-                    // Debounce focus changes to reduce UI updates
-                    debounceTimer?.invalidate()
-                    debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { _ in
-                        onFocusChanged(focused)
-                    }
+                    onFocusChanged(focused)
                 }
             
-            // Optimized send button with better animations
-            SendButton(
-                canSend: canSend,
-                isGenerating: isGenerating,
-                onSend: {
+            // Send button
+            Button(action: {
+                if canSend {
                     onSend()
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isInputFocused = false
+                    isInputFocused = false
+                }
+            }) {
+                Group {
+                    if isGenerating {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white)
+                    } else {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
                     }
                 }
-            )
+                .frame(width: 36, height: 36)
+                .background(
+                    Circle()
+                        .fill(canSend ? Color.accentColor : Color.secondary)
+                )
+            }
+            .disabled(!canSend)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -63,65 +77,8 @@ struct ChatInputView: View {
         .padding(.horizontal, 12)
         .padding(.bottom, 12)
     }
-    
-    // Public methods for focus control
-    func focusInput() {
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isInputFocused = true
-        }
-    }
-    
-    func unfocusInput() {
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isInputFocused = false
-        }
-    }
 }
 
-// MARK: - Optimized Text Field Style
-struct OptimizedTextFieldStyle: TextFieldStyle {
-    func _body(configuration: TextField<Self._Label>) -> some View {
-        configuration
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(.systemGray6))
-            )
-            .font(.body)
-    }
-}
-
-// MARK: - Optimized Send Button
-struct SendButton: View {
-    let canSend: Bool
-    let isGenerating: Bool
-    let onSend: () -> Void
-    
-    var body: some View {
-        Button(action: onSend) {
-            Group {
-                if isGenerating {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(.white)
-                } else {
-                    Image(systemName: "arrow.up")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-            }
-        }
-        .frame(width: 36, height: 36)
-        .background(
-            Circle()
-                .fill(canSend ? Color.accentColor : Color.secondary)
-                .scaleEffect(canSend ? 1.0 : 0.8)
-        )
-        .disabled(!canSend)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: canSend)
-    }
-}
 
 // MARK: - Preview
 #Preview {

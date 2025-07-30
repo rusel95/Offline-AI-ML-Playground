@@ -22,6 +22,41 @@ public struct AIModel: Identifiable {
     public let isGated: Bool
     public let provider: Provider // Add provider property
     
+    // Context window size in tokens (approximate)
+    public var maxContextTokens: Int {
+        switch id {
+        // Small models with limited context
+        case "gpt2": return 1024
+        case "distilbert": return 512
+        case "all-minilm-l6-v2": return 512
+        case "mobilevit": return 512
+        
+        // Medium models with standard context
+        case "tinyllama-1.1b": return 2048
+        case "smollm-135m": return 2048
+        case "deepseek-coder-1.3b": return 4096
+        case "openelm-1.1b": return 2048
+        case "gemma-2b": return 8192
+        case "phi-2": return 2048
+        case "openelm-3b": return 2048
+        case "starcoder2-3b": return 4096
+        
+        // Larger models with extended context
+        case "llama-3.2-3b": return 8192
+        case "qwen2.5-3b": return 8192
+        case "phi-3-mini-4k": return 4096
+        case "phi-3-mini-128k": return 131072
+        case "mistral-7b-instruct", "mistral-7b-openorca": return 8192
+        case "llama-2-7b": return 4096
+        case "deepseek-llm-7b": return 4096
+        case "codellama-7b": return 16384
+        case "grok-beta": return 8192
+        
+        // Default conservative estimate
+        default: return 2048
+        }
+    }
+    
     public var formattedSize: String {
         let gb = Double(sizeInBytes) / 1_073_741_824.0
         if gb >= 1.0 {
