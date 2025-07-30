@@ -11,6 +11,29 @@ import MLXLLM
 import MLXLMCommon
 #endif
 
+/// Streaming response that includes both text and token metrics
+struct StreamingResponse {
+    let text: String
+    let metrics: TokenMetrics
+}
+
+/// Actor to handle concurrent access to token metrics
+actor MetricsActor {
+    private var metrics = TokenMetrics()
+    
+    func update(tokenCount: Int, currentTime: Date) {
+        metrics.update(tokenCount: tokenCount, currentTime: currentTime)
+    }
+    
+    func finalize() {
+        metrics.finalize()
+    }
+    
+    func getMetrics() -> TokenMetrics {
+        return metrics
+    }
+}
+
 /// Manager for handling real on-device AI inference using MLX Swift
 @MainActor
 class AIInferenceManager: ObservableObject {
@@ -120,11 +143,20 @@ class AIInferenceManager: ObservableObject {
             await waitForMemoryCleanup()
         }
         
-        // **CRITICAL FIX**: Check if model exists locally FIRST - no network fallback
-        let localModelPath = getLocalModelPath(for: model)
-        let isLocallyAvailable = FileManager.default.fileExists(atPath: localModelPath.path)
+        // **CRITICAL FIX**: Check if model exists locally
+        // For MLX models, we need to handle the download properly
+        let _ = getLocalModelPath(for: model)
         
-        print("📁 Local model path: \(localModelPath.path)")
+        // Check if we have a single file download (marker file)
+        let markerFilePath = ModelFileManager.shared.getModelPath(for: model.id)
+        
+        // Check for actual MLX model directory
+        let mlxModelPath = ModelFileManager.shared.getMLXModelDirectory(for: model.id)
+        let modelFilePath = mlxModelPath.appendingPathComponent("model.safetensors")
+        let isLocallyAvailable = FileManager.default.fileExists(atPath: modelFilePath.path)
+        
+        print("📁 Checking for marker at: \(markerFilePath.path)")
+        print("📁 Checking for MLX model at: \(modelFilePath.path)")
         print("🔍 Model exists locally: \(isLocallyAvailable)")
         
         // **CRITICAL FIX**: If model doesn't exist locally, don't download - fail immediately
@@ -145,17 +177,18 @@ class AIInferenceManager: ObservableObject {
                 loadingStatus = "Creating model configuration..."
             }
             
-            // Check if the model file actually exists
-            let modelPath = ModelFileManager.shared.getModelPath(for: model.id)
-            print("📁 Checking model file at path: \(modelPath.path)")
+            // Check if the actual model.safetensors file exists
+            let mlxModelPath = ModelFileManager.shared.getMLXModelDirectory(for: model.id)
+            let actualModelPath = mlxModelPath.appendingPathComponent("model.safetensors")
+            print("📁 Checking model file at path: \(actualModelPath.path)")
             
-            if FileManager.default.fileExists(atPath: modelPath.path) {
+            if FileManager.default.fileExists(atPath: actualModelPath.path) {
                 print("✅ Model file exists!")
-                let fileSize = (try? FileManager.default.attributesOfItem(atPath: modelPath.path)[.size] as? Int64) ?? 0
+                let fileSize = (try? FileManager.default.attributesOfItem(atPath: actualModelPath.path)[.size] as? Int64) ?? 0
                 print("📊 File size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
                 
                 // Read first few bytes to check file format
-                if let fileHandle = FileHandle(forReadingAtPath: modelPath.path) {
+                if let fileHandle = FileHandle(forReadingAtPath: actualModelPath.path) {
                     let headerData = fileHandle.readData(ofLength: 8)
                     let bytes = [UInt8](headerData)
                     print("🔍 File header bytes: \(bytes.map { String(format: "0x%02X", $0) }.joined(separator: " "))")
@@ -190,10 +223,39 @@ class AIInferenceManager: ObservableObject {
                 loadingStatus = "Loading from local cache..."
             }
             
-            // **CRITICAL FIX**: Create Hub API that ONLY uses local files - no downloads
+            // **CRITICAL FIX**: Create Hub API with proper directory structure
             let downloadDirectory = getModelDownloadDirectory()
+            
+            print("📁 Base download directory: \(downloadDirectory.path)")
+            
+            // For MLX models, check if we have the model in MLX structure
+            if model.huggingFaceRepo.contains("mlx-community") {
+                let mlxModelPath = downloadDirectory
+                    .appendingPathComponent("models")
+                    .appendingPathComponent("mlx-community")
+                    .appendingPathComponent(model.huggingFaceRepo.components(separatedBy: "/").last ?? model.id)
+                
+                print("📁 MLX model path: \(mlxModelPath.path)")
+                
+                // Check if we have the required files
+                let configPath = mlxModelPath.appendingPathComponent("config.json")
+                let modelPath = mlxModelPath.appendingPathComponent("model.safetensors")
+                
+                if !FileManager.default.fileExists(atPath: modelPath.path) {
+                    print("❌ model.safetensors not found at: \(modelPath.path)")
+                    print("❌ Model needs to be downloaded with proper MLX structure")
+                    throw AIInferenceError.modelFileNotFound
+                }
+                
+                // If we don't have config.json, we need to create a minimal one
+                if !FileManager.default.fileExists(atPath: configPath.path) {
+                    print("⚠️ config.json missing, creating minimal config")
+                    try createMinimalConfig(for: model, at: configPath)
+                }
+            }
+            
+            // Create Hub API
             let hub = HubApi(downloadBase: downloadDirectory)
-            print("📁 Using download directory: \(downloadDirectory.path)")
             print("✅ Using locally cached model files ONLY - no network downloads")
             
             // Load model container with proper error handling
@@ -446,6 +508,123 @@ class AIInferenceManager: ObservableObject {
         }
     }
     
+    /// Generate a streaming response with token metrics
+    /// - Parameters:
+    ///   - prompt: The input prompt
+    ///   - maxTokens: Maximum number of tokens to generate
+    ///   - temperature: Sampling temperature
+    /// - Returns: AsyncStream of StreamingResponse containing text chunks and metrics
+    func generateStreamingTextWithMetrics(
+        prompt: String,
+        maxTokens: Int = 512,
+        temperature: Float = 0.7
+    ) -> AsyncStream<StreamingResponse> {
+        
+        print("🌊 Starting streaming text generation with metrics")
+        print("📝 Prompt: \(String(prompt.prefix(100)))")
+        
+        return AsyncStream { continuation in
+            Task {
+                do {
+                    guard isModelLoaded, let _ = currentModel else {
+                        print("❌ Cannot stream text: Model not loaded")
+                        continuation.finish()
+                        return
+                    }
+                    
+                    guard let container = modelContainer else {
+                        print("❌ Model container is nil for streaming")
+                        continuation.finish()
+                        return
+                    }
+                    
+                    print("🏃‍♂️ Performing streaming inference with metrics")
+                    
+                    // Initialize metrics with an actor to handle concurrent access
+                    let metricsActor = MetricsActor()
+                    
+                    let _ = try await container.perform { context in
+                        print("🔧 Streaming context ready")
+                        
+                        // Create user input
+                        let userInput = UserInput(prompt: prompt)
+                        
+                        // Prepare input using processor
+                        let input = try await context.processor.prepare(input: userInput)
+                        print("✅ Streaming input prepared")
+                        
+                        // Setup generation parameters
+                        let parameters = GenerateParameters(
+                            maxTokens: maxTokens,
+                            temperature: temperature,
+                            topP: 0.9
+                        )
+                        
+                        // Generate text with streaming using MLX
+                        var previousLength = 0
+                        
+                        let _ = try MLXLMCommon.generate(
+                            input: input,
+                            parameters: parameters,
+                            context: context
+                        ) { tokens in
+                            let currentTime = Date()
+                            let fullText = context.tokenizer.decode(tokens: tokens)
+                            
+                            // Calculate new tokens generated
+                            let currentTokenCount = tokens.count
+                            
+                            // Update metrics via actor
+                            Task {
+                                await metricsActor.update(tokenCount: currentTokenCount, currentTime: currentTime)
+                            }
+                            
+                            // Only yield the new part since last time
+                            let newText = String(fullText.dropFirst(previousLength))
+                            previousLength = fullText.count
+                            
+                            if !newText.isEmpty {
+                                Task {
+                                    let currentMetrics = await metricsActor.getMetrics()
+                                    print("🌊 Streaming chunk: \(String(newText.prefix(20))...) [Tokens: \(currentTokenCount), Rate: \(String(format: "%.1f", currentMetrics.currentTokensPerSecond)) tok/s]")
+                                    
+                                    // Create response with current metrics
+                                    let response = StreamingResponse(
+                                        text: newText,
+                                        metrics: currentMetrics
+                                    )
+                                    continuation.yield(response)
+                                }
+                            }
+                            return .more
+                        }
+                        
+                        // Finalize metrics
+                        await metricsActor.finalize()
+                        
+                        // Send final metrics update
+                        let finalMetrics = await metricsActor.getMetrics()
+                        let finalResponse = StreamingResponse(
+                            text: "",
+                            metrics: finalMetrics
+                        )
+                        continuation.yield(finalResponse)
+                        
+                        print("✅ Streaming generation completed - Total tokens: \(finalMetrics.totalTokens), Avg speed: \(String(format: "%.1f", finalMetrics.averageTokensPerSecond)) tok/s")
+                        
+                        return ""
+                    }
+                    
+                    continuation.finish()
+                    
+                } catch {
+                    print("❌ Error in streaming generation with metrics: \(error.localizedDescription)")
+                    continuation.finish()
+                }
+            }
+        }
+    }
+    
     /// Unload the current model (synchronous version)
     func unloadModel() {
         Task {
@@ -599,46 +778,38 @@ class AIInferenceManager: ObservableObject {
         return nil
     }
     
-    /// Create model configuration for public repositories
+    /// Create model configuration for MLX models
     private func createModelConfigurationForDownloadedModel(_ model: AIModel) -> ModelConfiguration {
-        // ==================== MODEL CONFIGURATION CRITICAL DECISION ====================
+        // ==================== MLX MODEL CONFIGURATION ====================
         //
-        // PROBLEM SOLVED: "config.json not found" errors from MLX community mapping
+        // SOLUTION: Use mlx-community models that include config.json
         //
-        // OLD APPROACH (BROKEN):
-        // 1. Download file from public repo: "openai-community/gpt2" 
-        // 2. Map to MLX community: "mlx-community/gpt2-4bit"
-        // 3. MLX looks for: /Documents/Models/models/mlx-community/gpt2-4bit/config.json
-        // 4. File doesn't exist → NSCocoaErrorDomain Code=260 error
-        //
-        // NEW APPROACH (WORKING):
-        // 1. Download file from public repo: "openai-community/gpt2"
-        // 2. Use SAME repository in configuration: "openai-community/gpt2"  
-        // 3. MLX Hub integration auto-handles format conversion
-        // 4. MLX creates missing config files as needed
+        // WORKING APPROACH:
+        // 1. Download from mlx-community repos (e.g., "mlx-community/SmolLM-135M-Instruct-4bit")
+        // 2. These repos include config.json and model.safetensors
+        // 3. Use the repository ID directly in configuration
+        // 4. MLX Swift loads the model successfully
         //
         // WHY THIS WORKS:
-        // ✅ No repository mismatch between download and loading
-        // ✅ MLX Swift's HuggingFace Hub integration handles conversions
-        // ✅ Missing config.json files are auto-generated by MLX  
-        // ✅ PyTorch models auto-converted to MLX format during loading
-        //
-        // CRITICAL: NEVER map to mlx-community/* - use original public repo!
+        // ✅ MLX-community models are pre-optimized for MLX Swift
+        // ✅ All required files (config.json, tokenizer) are included
+        // ✅ 4-bit quantization for efficient iPhone performance
+        // ✅ No format conversion needed
         //
         // =============================================================================
         
-        print("🔧 CREATING MODEL CONFIGURATION FOR: \(model.name)")
+        print("🔧 CREATING MLX MODEL CONFIGURATION FOR: \(model.name)")
         
         let modelRepo = model.huggingFaceRepo
-        print("📋 Using PUBLIC repository directly: \(modelRepo)")
-        print("🔄 MLX Swift Hub integration will handle:")
-        print("   • Format conversion (PyTorch → MLX)")
-        print("   • Missing config.json generation")
-        print("   • Tokenizer setup and download")
-        print("   • Model optimization for Apple Silicon")
+        print("📋 Using MLX-community repository: \(modelRepo)")
+        print("✅ Model includes:")
+        print("   • config.json (model configuration)")
+        print("   • model.safetensors (MLX-optimized weights)")
+        print("   • tokenizer files")
+        print("   • 4-bit quantization for iPhone")
         
         return ModelConfiguration(
-            id: modelRepo  // CRITICAL: Use original public repo, not MLX community mapping
+            id: modelRepo  // Use MLX-community repo directly
         )
     }
     
@@ -681,9 +852,6 @@ class AIInferenceManager: ObservableObject {
     /// Get the local path for a specific model with iOS simulator compatibility
     private func getLocalModelPath(for model: AIModel) -> URL {
         // Use ModelFileManager to get the model path
-        return ModelFileManager.shared.getModelPath(for: model.id)
-        
-        // Simply use ModelFileManager to get the proper path
         return ModelFileManager.shared.getModelPath(for: model.id)
     }
     
@@ -756,6 +924,55 @@ class AIInferenceManager: ObservableObject {
             }
         } catch {
             print("⚠️ Error during cleanup: \(error)")
+        }
+    }
+    
+    /// Create minimal config.json for MLX models
+    private func createMinimalConfig(for model: AIModel, at path: URL) throws {
+        // Create a minimal config that MLX can work with
+        let config: [String: Any] = [
+            "model_type": getModelType(for: model),
+            "architectures": [getArchitecture(for: model)],
+            "hidden_size": 768,
+            "num_hidden_layers": 12,
+            "num_attention_heads": 12,
+            "intermediate_size": 3072,
+            "vocab_size": 50257,
+            "max_position_embeddings": 1024,
+            "torch_dtype": "float16",
+            "transformers_version": "4.36.0"
+        ]
+        
+        let jsonData = try JSONSerialization.data(withJSONObject: config, options: .prettyPrinted)
+        try jsonData.write(to: path)
+        print("✅ Created minimal config.json")
+    }
+    
+    private func getModelType(for model: AIModel) -> String {
+        if model.name.lowercased().contains("llama") {
+            return "llama"
+        } else if model.name.lowercased().contains("phi") {
+            return "phi"
+        } else if model.name.lowercased().contains("gemma") {
+            return "gemma"
+        } else if model.name.lowercased().contains("qwen") {
+            return "qwen2"
+        } else {
+            return "gpt2" // Default fallback
+        }
+    }
+    
+    private func getArchitecture(for model: AIModel) -> String {
+        if model.name.lowercased().contains("llama") {
+            return "LlamaForCausalLM"
+        } else if model.name.lowercased().contains("phi") {
+            return "PhiForCausalLM"
+        } else if model.name.lowercased().contains("gemma") {
+            return "GemmaForCausalLM"
+        } else if model.name.lowercased().contains("qwen") {
+            return "Qwen2ForCausalLM"
+        } else {
+            return "GPT2LMHeadModel" // Default fallback
         }
     }
     
