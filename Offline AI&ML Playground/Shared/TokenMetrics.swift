@@ -1,39 +1,39 @@
 import Foundation
 
 /// Metrics for token generation during AI inference
-struct TokenMetrics: Codable, Equatable {
+public struct TokenMetrics: Codable, Equatable {
     /// Total number of tokens generated
-    var totalTokens: Int = 0
+    public var totalTokens: Int = 0
     
     /// Current tokens per second rate
-    var currentTokensPerSecond: Double = 0.0
+    public var currentTokensPerSecond: Double = 0.0
     
     /// Average tokens per second over the entire generation
-    var averageTokensPerSecond: Double = 0.0
+    public var averageTokensPerSecond: Double = 0.0
     
     /// Time to first token in seconds
-    var timeToFirstToken: TimeInterval?
+    public var timeToFirstToken: TimeInterval?
     
     /// Total generation time in seconds
-    var totalGenerationTime: TimeInterval = 0.0
+    public var totalGenerationTime: TimeInterval = 0.0
     
     /// Whether generation is currently in progress
-    var isGenerating: Bool = false
+    public var isGenerating: Bool = false
     
     /// Timestamp when generation started
-    var generationStartTime: Date?
+    public var generationStartTime: Date?
     
     /// Timestamp when first token was received
-    var firstTokenTime: Date?
+    public var firstTokenTime: Date?
     
     /// Timestamp of last update
-    var lastUpdateTime: Date?
+    public var lastUpdateTime: Date?
     
     /// Initialize empty metrics
-    init() {}
+    public init() {}
     
     /// Format metrics for display
-    var displayString: String {
+    public var displayString: String {
         if totalTokens == 0 {
             return ""
         }
@@ -59,7 +59,7 @@ struct TokenMetrics: Codable, Equatable {
     }
     
     /// Update metrics with new token count
-    mutating func update(tokenCount: Int, currentTime: Date = Date()) {
+    public mutating func update(tokenCount: Int, currentTime: Date = Date()) {
         // Update total tokens
         totalTokens = tokenCount
         
@@ -103,7 +103,7 @@ struct TokenMetrics: Codable, Equatable {
     }
     
     /// Mark generation as completed
-    mutating func finalize() {
+    public mutating func finalize() {
         isGenerating = false
         // Final calculation of average
         if let startTime = generationStartTime {

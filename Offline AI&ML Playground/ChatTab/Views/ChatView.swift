@@ -22,15 +22,24 @@ extension UserDefaults {
 }
 
 // MARK: - Chat Message
-struct ChatMessage: Identifiable, Codable {
-    var id = UUID()
-    var content: String
-    let role: MessageRole
-    let timestamp: Date
-    let modelUsed: String?
-    var tokenMetrics: TokenMetrics?
+public struct ChatMessage: Identifiable, Codable {
+    public var id = UUID()
+    public var content: String
+    public let role: MessageRole
+    public let timestamp: Date
     
-    enum MessageRole: String, Codable, CaseIterable {
+    public let modelUsed: String?
+    public var tokenMetrics: TokenMetrics?
+    
+    public init(content: String, role: MessageRole, timestamp: Date = Date(), modelUsed: String? = nil, tokenMetrics: TokenMetrics? = nil) {
+        self.content = content
+        self.role = role
+        self.timestamp = timestamp
+        self.modelUsed = modelUsed
+        self.tokenMetrics = tokenMetrics
+    }
+    
+    public enum MessageRole: String, Codable, CaseIterable {
         case user = "user"
         case assistant = "assistant"
         case system = "system"

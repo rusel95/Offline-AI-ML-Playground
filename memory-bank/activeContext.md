@@ -87,6 +87,78 @@
    - 8 different providers
    - All optimized for conversational AI
 
+## SOLID/DRY Refactoring Completed (January 8, 2025)
+
+### Major Architectural Improvements
+
+1. **Single Responsibility Principle (SRP):**
+   - Split 1232-line `AIInferenceManager` into focused components:
+     - `ModelLoader` - Model loading/unloading only
+     - `InferenceEngine` - Text generation only
+     - `AIInferenceCoordinator` - Thin facade
+   - Created specialized utilities:
+     - `MemoryManager` - Memory monitoring
+     - `StorageCalculator` - Storage calculations
+     - `DownloadProgressTracker` - Progress tracking
+
+2. **Open/Closed Principle (OCP):**
+   - Implemented Strategy pattern for downloads:
+     - `GGUFDownloadStrategy`
+     - `SafetensorsDownloadStrategy`
+     - `MLXDownloadStrategy`
+     - `MultiPartDownloadStrategy`
+   - New formats can be added without modifying existing code
+
+3. **Dependency Inversion Principle (DIP):**
+   - Created protocol-based architecture:
+     - `ModelLoaderProtocol`
+     - `ModelInferenceProtocol`
+     - `DownloadManagerProtocol`
+     - `StorageManagerProtocol`
+   - Refactored `ChatViewModel` with dependency injection
+
+4. **DRY Violations Fixed:**
+   - Removed duplicate `AIInferenceError` enum
+   - Centralized error types in `ModelErrors.swift`
+   - Unified storage calculations in `StorageCalculator`
+   - Consolidated path management in `ModelPaths`
+   - Shared memory logic in `MemoryManager`
+
+### New File Structure
+```
+Shared/
+├── Core/
+│   ├── Errors/
+│   │   └── ModelErrors.swift
+│   ├── Memory/
+│   │   └── MemoryManager.swift
+│   ├── Storage/
+│   │   ├── StorageCalculator.swift
+│   │   └── ModelPaths.swift
+│   ├── Downloads/
+│   │   ├── DownloadService.swift
+│   │   ├── DownloadProgressTracker.swift
+│   │   └── Strategies/
+│   │       ├── DownloadStrategy.swift
+│   │       ├── GGUFDownloadStrategy.swift
+│   │       ├── SafetensorsDownloadStrategy.swift
+│   │       ├── MLXDownloadStrategy.swift
+│   │       └── MultiPartDownloadStrategy.swift
+│   └── Inference/
+│       ├── ModelLoader.swift
+│       ├── InferenceEngine.swift
+│       └── AIInferenceCoordinator.swift
+└── Protocols/
+    └── ModelLoaderProtocol.swift
+```
+
+### Benefits Achieved
+- **Maintainability:** Each class has a single, clear purpose
+- **Testability:** Components can be tested in isolation
+- **Extensibility:** New features don't require modifying existing code
+- **Consistency:** Shared utilities eliminate duplication
+- **Flexibility:** Protocol-based design enables easy swapping of implementations
+
 ## Next Steps
 
 The app now provides:
@@ -95,8 +167,13 @@ The app now provides:
 2. **Apple Silicon Native:** Includes Apple's own OpenELM models
 3. **Stable Downloads UI:** Fixed crash and UI disappearing issues
 4. **Static Model Management:** No dynamic loading or verification
+5. **SOLID Architecture:** Clean, maintainable, and extensible codebase
+6. **DRY Compliance:** No code duplication, shared utilities
 
 Future enhancements:
+- Migrate existing code to use new refactored components
+- Add comprehensive unit tests for new utilities
+- Implement remaining protocol adoptions
 - Add vision models (separate from chat)
 - Add code-specific models
 - Implement model search/filtering

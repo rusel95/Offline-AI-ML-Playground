@@ -15,6 +15,10 @@ enum ModelError: LocalizedError {
     case networkError(String)
     case fileSystemError(String)
     case authenticationError(String)
+    case downloadError(String)
+    case loadingError(String)
+    case memoryError(String)
+    case formatError(String)
     
     var errorDescription: String? {
         switch self {
@@ -26,6 +30,14 @@ enum ModelError: LocalizedError {
             return "File System Error: \(message)"
         case .authenticationError(let message):
             return "Authentication Error: \(message)"
+        case .downloadError(let message):
+            return "Download Error: \(message)"
+        case .loadingError(let message):
+            return "Loading Error: \(message)"
+        case .memoryError(let message):
+            return "Memory Error: \(message)"
+        case .formatError(let message):
+            return "Format Error: \(message)"
         }
     }
 }

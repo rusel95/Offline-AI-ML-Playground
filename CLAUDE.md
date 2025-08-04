@@ -136,6 +136,17 @@ Offline AI&ML Playground/
 
 ## Development Patterns
 
+### SOLID and DRY Principles
+**IMPORTANT**: All code in this project must follow SOLID and DRY principles. See [SOLID-DRY-Guidelines.md](./SOLID-DRY-Guidelines.md) for detailed requirements.
+
+Key principles:
+- **Single Responsibility**: Each class has one reason to change
+- **Open/Closed**: Open for extension, closed for modification
+- **Liskov Substitution**: Subtypes must be substitutable
+- **Interface Segregation**: Many specific interfaces over general ones
+- **Dependency Inversion**: Depend on abstractions, not concretions
+- **DRY**: Don't Repeat Yourself - extract common functionality
+
 ### SwiftUI Patterns
 - Extensive use of `@StateObject` and `@ObservedObject` for reactive UI
 - Custom view components with consistent styling

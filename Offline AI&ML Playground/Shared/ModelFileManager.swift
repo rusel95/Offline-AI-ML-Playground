@@ -29,7 +29,9 @@ public class ModelFileManager: NSObject, ObservableObject {
         super.init()
         
         setupDirectories()
-        refreshDownloadedModels()
+        
+        // Don't scan file system on init - only refresh when explicitly needed
+        // This avoids the main thread hang when the app starts
     }
     
     // MARK: - Setup
@@ -86,18 +88,13 @@ public class ModelFileManager: NSObject, ObservableObject {
     
     /// Check if a model is downloaded
     public func isModelDownloaded(_ modelId: String) -> Bool {
-        // First check if we have it in our tracked set
-        if downloadedModels.contains(modelId) {
-            return true
-        }
-        
-        // Also check if marker file exists
+        // Direct file system check - fast and accurate
         let path = getModelPath(for: modelId)
         if fileManager.fileExists(atPath: path.path) {
             return true
         }
         
-        // For backward compatibility, check MLX directory structure
+        // For MLX models, check the MLX directory structure
         // This helps if refreshDownloadedModels hasn't been called yet
         let mlxModelsDir = modelsDirectory.appendingPathComponent("models/mlx-community")
         if let mlxContents = try? fileManager.contentsOfDirectory(at: mlxModelsDir, includingPropertiesForKeys: nil) {
@@ -191,8 +188,25 @@ public class ModelFileManager: NSObject, ObservableObject {
         return totalSize
     }
     
-    /// Refresh the list of downloaded models
+    /// Refresh the list of downloaded models asynchronously
+    public func refreshDownloadedModelsAsync() async {
+        await withCheckedContinuation { continuation in
+            Task.detached(priority: .background) {
+                self.refreshDownloadedModelsSync()
+                continuation.resume()
+            }
+        }
+    }
+    
+    /// Refresh the list of downloaded models (synchronous version for compatibility)
     public func refreshDownloadedModels() {
+        Task {
+            await refreshDownloadedModelsAsync()
+        }
+    }
+    
+    /// Internal synchronous refresh implementation
+    private func refreshDownloadedModelsSync() {
         do {
             var modelIds: Set<String> = []
             
@@ -241,7 +255,7 @@ public class ModelFileManager: NSObject, ObservableObject {
                 }
             }
             
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
                 self?.downloadedModels = modelIds
                 print("📊 Found \(modelIds.count) downloaded models: \(modelIds)")
             }

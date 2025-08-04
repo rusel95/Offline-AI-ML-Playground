@@ -12,9 +12,14 @@ import MLXLMCommon
 #endif
 
 /// Streaming response that includes both text and token metrics
-struct StreamingResponse {
-    let text: String
-    let metrics: TokenMetrics
+public struct StreamingResponse {
+    public let text: String
+    public let metrics: TokenMetrics
+    
+    public init(text: String, metrics: TokenMetrics) {
+        self.text = text
+        self.metrics = metrics
+    }
 }
 
 /// Actor to handle concurrent access to token metrics
@@ -1111,17 +1116,37 @@ class AIInferenceManager: ObservableObject {
 /// Errors that can occur during AI inference
 enum AIInferenceError: LocalizedError {
     case modelNotLoaded
+    case generationFailed(String)
+    case streamingNotSupported
+    case contextSizeExceeded(Int, Int)
+    case invalidInput(String)
     case modelFileNotFound
+    case memoryPressure(Double)
+    case configurationError(String)
+    case formatNotSupported(String)
     case invalidModelFormat
     case inferenceError(String)
     case tokenizationError
     case outOfMemory
-    case configurationError(String)
     
     var errorDescription: String? {
         switch self {
         case .modelNotLoaded:
             return "No model is currently loaded"
+        case .generationFailed(let reason):
+            return "Text generation failed: \(reason)"
+        case .streamingNotSupported:
+            return "Streaming is not supported for this model"
+        case .contextSizeExceeded(let used, let max):
+            return "Context size exceeded: \(used) tokens used, maximum is \(max)"
+        case .invalidInput(let reason):
+            return "Invalid input: \(reason)"
+        case .memoryPressure(let usage):
+            return "High memory pressure detected: \(Int(usage * 100))% memory used"
+        case .configurationError(let reason):
+            return "Model configuration error: \(reason)"
+        case .formatNotSupported(let format):
+            return "Model format not supported: \(format)"
         case .modelFileNotFound:
             return "Model file not found"
         case .invalidModelFormat:
@@ -1132,8 +1157,6 @@ enum AIInferenceError: LocalizedError {
             return "Error tokenizing input"
         case .outOfMemory:
             return "Insufficient memory to load model"
-        case .configurationError(let message):
-            return "Configuration error: \(message)"
         }
     }
 }

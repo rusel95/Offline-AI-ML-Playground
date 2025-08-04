@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import Combine
 
 @MainActor
 class ChatViewModel: ObservableObject {
@@ -43,7 +42,6 @@ class ChatViewModel: ObservableObject {
     private let sharedManager = SharedModelManager.shared
     private let aiInferenceManager = AIInferenceManager()
     private var historyManager: ChatHistoryManager?
-    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Computed Properties
     var modelDisplayName: String {
@@ -65,15 +63,16 @@ class ChatViewModel: ObservableObject {
     
     // MARK: - Initialization
     init() {
-        // ModelFileManager handles synchronization automatically
-        // Set up reactive model loading
-        setupModelLoadingObserver()
-        
         // Restore context preferences
         useMaxContext = UserDefaults.standard.object(forKey: "chatUseMaxContext") as? Bool ?? true
         let savedCustomSize = UserDefaults.standard.integer(forKey: "chatCustomContextSize")
         if savedCustomSize > 0 {
             customContextSize = savedCustomSize
+        }
+        
+        // Load models on first access instead of during init
+        Task {
+            await loadInitialModel()
         }
     }
     
@@ -82,58 +81,32 @@ class ChatViewModel: ObservableObject {
         historyManager = ChatHistoryManager(modelContext: modelContext)
     }
     
-    private func setupModelLoadingObserver() {
-        // Observe changes to downloadedModels to handle model restoration after sync
-        ModelFileManager.shared.$downloadedModels
-            .receive(on: RunLoop.main)
-            .sink { [weak self] downloadedModelIds in
-                guard let self = self else { return }
-                
-                // Only proceed if we don't already have a selected model and there are downloaded models
-                guard self.selectedModel == nil && !downloadedModelIds.isEmpty else { return }
-                
-                self.restoreOrSelectDefaultModel()
+    private func loadInitialModel() async {
+        // Quick check for available models without file system scan
+        let availableModels = sharedManager.availableModels
+        
+        // Try to restore last selected model
+        if let savedModelID = UserDefaults.standard.lastSelectedModelID,
+           let savedModel = availableModels.first(where: { $0.id == savedModelID }),
+           sharedManager.isModelDownloaded(savedModelID) {
+            await MainActor.run {
+                self.selectedModel = savedModel
             }
-            .store(in: &cancellables)
+        } else {
+            // Find first downloaded model
+            for model in availableModels {
+                if sharedManager.isModelDownloaded(model.id) {
+                    await MainActor.run {
+                        self.selectedModel = model
+                    }
+                    break
+                }
+            }
+        }
     }
     
+    
     // MARK: - Model Management
-    private func restoreOrSelectDefaultModel() {
-        let downloadedModels = sharedManager.getDownloadedModels()
-        let lastSelectedModelID = UserDefaults.standard.lastSelectedModelID
-        
-        var modelToLoad: AIModel?
-        
-        // First priority: Try to find the previously selected model
-        if let savedModelID = lastSelectedModelID,
-           let savedModel = downloadedModels.first(where: { $0.id == savedModelID }) {
-            // Check if the saved model is a vision or embedding model that should be filtered out
-            if isVisionOrEmbeddingModel(savedModel) {
-                print("⚠️ Saved model is a vision or embedding model, will use fallback")
-            } else {
-                selectedModel = savedModel
-                modelToLoad = savedModel
-                print("🔄 Restored last selected model: \(savedModel.name)")
-            }
-        }
-        
-        // Fallback: Use the first available model if no saved model found or if saved model was vision
-        if modelToLoad == nil {
-            let availableModels = self.availableModels // Use the filtered list
-            if let firstModel = availableModels.first {
-                selectedModel = firstModel
-                modelToLoad = firstModel
-                print("🔄 Using first available language model: \(firstModel.name)")
-            }
-        }
-        
-        // Load the selected model for inference
-        if let model = modelToLoad {
-            Task {
-                await loadModelForInference(model)
-            }
-        }
-    }
     
     private func isVisionOrEmbeddingModel(_ model: AIModel) -> Bool {
         let name = model.name.lowercased()
@@ -265,10 +238,7 @@ class ChatViewModel: ObservableObject {
                     }
                 }
                 
-                // If no model selected but models are available, try to restore preference
-                if selectedModel == nil && !availableModels.isEmpty {
-                    self.restoreOrSelectDefaultModel()
-                }
+                // Model loading is now handled in init() via loadInitialModel()
             }
         }
     }
@@ -406,17 +376,88 @@ class ChatViewModel: ObservableObject {
             let conversationContext = buildConversationContext(currentMessage: userMessage)
             
             // Use streaming generation with metrics from AIInferenceManager
+            var shouldStopGeneration = false
+            var accumulatedResponse = ""
+            
             for await response in aiInferenceManager.generateStreamingTextWithMetrics(
                 prompt: conversationContext,
                 maxTokens: 512,
                 temperature: 0.7
             ) {
-                // Update the message content and metrics with streaming data
+                // Accumulate the full response to check for patterns
+                accumulatedResponse += response.text
+                
+                var foundPattern = false
+                
+                // Check if accumulated response contains self-conversation patterns
+                // Look for patterns that indicate the model is creating a conversation
+                if accumulatedResponse.contains("\n\nUser:") || accumulatedResponse.contains("\nUser:") {
+                    foundPattern = true
+                    shouldStopGeneration = true
+                    
+                    // Extract text before the User: marker
+                    let patterns = ["\n\nUser:", "\nUser:"]
+                    var cleanedText = accumulatedResponse
+                    
+                    for pattern in patterns {
+                        if let range = cleanedText.range(of: pattern) {
+                            cleanedText = String(cleanedText[..<range.lowerBound])
+                            break
+                        }
+                    }
+                    
+                    // Remove any leading "\n\nAssistant:" or similar patterns from the response
+                    let prefixPatterns = ["\n\nAssistant:", "\nAssistant:", "Assistant:"]
+                    for prefix in prefixPatterns {
+                        if cleanedText.hasPrefix(prefix) {
+                            cleanedText = String(cleanedText.dropFirst(prefix.count))
+                            break
+                        }
+                    }
+                    
+                    cleanedText = cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    
+                    await MainActor.run {
+                        if messageIndex < messages.count {
+                            if !cleanedText.isEmpty {
+                                messages[messageIndex].content = cleanedText
+                            } else {
+                                messages[messageIndex].content = "I'm having trouble generating a proper response. Please try again with a different model."
+                            }
+                            messages[messageIndex].tokenMetrics = response.metrics
+                        }
+                    }
+                }
+                
+                if shouldStopGeneration || foundPattern {
+                    break
+                }
+                
+                // For normal streaming (no self-conversation detected)
+                // Update the message with the new chunk of text
                 await MainActor.run {
-                    if messageIndex < messages.count {
-                        messages[messageIndex].content += response.text
+                    if messageIndex < messages.count && !shouldStopGeneration {
+                        // Clear and set the full accumulated response
+                        messages[messageIndex].content = accumulatedResponse
+                        
+                        // Remove any leading Assistant: prefix that might be included
+                        let prefixPatterns = ["\n\nAssistant:", "\nAssistant:", "Assistant:"]
+                        for prefix in prefixPatterns {
+                            if messages[messageIndex].content.hasPrefix(prefix) {
+                                messages[messageIndex].content = String(messages[messageIndex].content.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+                                break
+                            }
+                        }
+                        
                         messages[messageIndex].tokenMetrics = response.metrics
                     }
+                }
+            }
+            
+            // Clean up the final message by trimming trailing whitespace
+            await MainActor.run {
+                if messageIndex < messages.count {
+                    messages[messageIndex].content = messages[messageIndex].content.trimmingCharacters(in: .whitespacesAndNewlines)
                 }
             }
             
@@ -442,66 +483,11 @@ class ChatViewModel: ObservableObject {
     
     // MARK: - Conversation Context Building
     private func buildConversationContext(currentMessage: String) -> String {
-        guard let model = selectedModel else {
-            return "User: \(currentMessage)\n\nAssistant:"
-        }
+        // Simplified: Only send the current message without history
+        // This helps avoid self-conversation issues with certain models
+        let context = "You are a helpful AI assistant. Respond directly to the user's message.\n\nUser: \(currentMessage)\n\nAssistant: "
         
-        // Calculate approximate token budget (reserve ~200 tokens for response)
-        let maxTokens = model.maxContextTokens
-        let responseTokenBuffer = 200
-        let availableTokens = maxTokens - responseTokenBuffer
-        
-        // Build context with all messages that fit within token limit
-        var context = ""
-        var estimatedTokens = 0
-        var includedMessages: [ChatMessage] = []
-        
-        // Start with current message
-        let currentMessageFormatted = "User: \(currentMessage)\n\nAssistant:"
-        let currentMessageTokens = estimateTokenCount(currentMessageFormatted)
-        estimatedTokens += currentMessageTokens
-        
-        if useMaxContext {
-            // Try to include as many messages as possible within token limit
-            for message in messages.reversed() {
-                let role = message.role == .user ? "User" : "Assistant"
-                let formattedMessage = "\(role): \(message.content)\n\n"
-                let messageTokens = estimateTokenCount(formattedMessage)
-                
-                if estimatedTokens + messageTokens < availableTokens {
-                    includedMessages.insert(message, at: 0)
-                    estimatedTokens += messageTokens
-                } else {
-                    // Stop if we would exceed token limit
-                    break
-                }
-            }
-        } else {
-            // Use custom message limit
-            let limitedMessages = messages.suffix(customContextSize)
-            for message in limitedMessages {
-                let role = message.role == .user ? "User" : "Assistant"
-                let formattedMessage = "\(role): \(message.content)\n\n"
-                let messageTokens = estimateTokenCount(formattedMessage)
-                
-                if estimatedTokens + messageTokens < availableTokens {
-                    includedMessages.append(message)
-                    estimatedTokens += messageTokens
-                }
-            }
-        }
-        
-        // Build final context
-        for message in includedMessages {
-            let role = message.role == .user ? "User" : "Assistant"
-            context += "\(role): \(message.content)\n\n"
-        }
-        
-        // Add current message
-        context += currentMessageFormatted
-        
-        print("📝 Built conversation context with \(includedMessages.count) messages")
-        print("🧮 Estimated tokens: \(estimatedTokens) / \(maxTokens) (using \(Int(Double(estimatedTokens) / Double(maxTokens) * 100))%)")
+        print("📝 Built conversation context (no history)")
         print("📏 Context length: \(context.count) characters")
         
         return context

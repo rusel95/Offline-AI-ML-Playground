@@ -79,13 +79,14 @@ class StoredChatMessage {
     
     // Convert to ChatMessage
     var toChatMessage: ChatMessage {
-        ChatMessage(
-            id: self.id,
+        var message = ChatMessage(
             content: self.content,
             role: ChatMessage.MessageRole(rawValue: self.role) ?? .user,
             timestamp: self.timestamp,
             modelUsed: self.modelUsed
         )
+        message.id = self.id
+        return message
     }
 }
 
