@@ -22,6 +22,38 @@ public struct AIModel: Identifiable {
     public let isGated: Bool
     public let provider: Provider // Add provider property
     
+    // Swift Transformers tokenizer compatibility
+    public var hasSwiftTransformersSupport: Bool {
+        let supportedTypes = ["gpt2", "gpt-neo", "gpt-j", "santacoder", "starcoder", "falcon", "llama", "llama2"]
+        let lowercasedRepo = huggingFaceRepo.lowercased()
+        
+        // Check for exact matches or partial matches
+        for supportedType in supportedTypes {
+            if lowercasedRepo.contains(supportedType) {
+                return true
+            }
+        }
+        
+        // Additional checks for specific models
+        if lowercasedRepo.contains("tinyllama") ||
+           lowercasedRepo.contains("dialogpt") ||
+           lowercasedRepo.contains("pythia") ||
+           lowercasedRepo.contains("opt-") {
+            return true
+        }
+        
+        return false
+    }
+    
+    // Get tokenizer type description
+    public var tokenizerInfo: String {
+        if hasSwiftTransformersSupport {
+            return "Swift Transformers + MLX"
+        } else {
+            return "MLX Built-in"
+        }
+    }
+    
     // Context window size in tokens (approximate)
     public var maxContextTokens: Int {
         switch id {

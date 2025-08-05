@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		851F91842E420340002B9CB6 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 851F91832E420340002B9CB6 /* MLXLLM */; };
+		851F91862E420340002B9CB6 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 851F91852E420340002B9CB6 /* MLXLMCommon */; };
+		851F91892E42034F002B9CB6 /* Transformers in Frameworks */ = {isa = PBXBuildFile; productRef = 851F91882E42034F002B9CB6 /* Transformers */; };
 		852C2E092E2020F3004D03BD /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 852C2E082E2020F3004D03BD /* README.md */; };
 		85325C312E2E36FA0081A0A5 /* productContext.md in Resources */ = {isa = PBXBuildFile; fileRef = 85325C2A2E2E36FA0081A0A5 /* productContext.md */; };
 		85325C332E2E36FA0081A0A5 /* techContext.md in Resources */ = {isa = PBXBuildFile; fileRef = 85325C2F2E2E36FA0081A0A5 /* techContext.md */; };
@@ -17,11 +20,6 @@
 		85C974C52E1BC88F00143F63 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974C42E1BC88F00143F63 /* MLX */; };
 		85C974C72E1BC88F00143F63 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974C62E1BC88F00143F63 /* MLXNN */; };
 		85C974C82E1BC88F00143F63 /* MLXRandom in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974C32E1BC88F00143F63 /* MLXRandom */; };
-		85C974CC2E1BC88F00143F63 /* MLXEmbedders in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974CB2E1BC88F00143F63 /* MLXEmbedders */; };
-		85C974CE2E1BC88F00143F63 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974CD2E1BC88F00143F63 /* MLXLLM */; };
-		85C974D02E1BC88F00143F63 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974CF2E1BC88F00143F63 /* MLXLMCommon */; };
-		85C974D22E1BC88F00143F63 /* MLXMNIST in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974D12E1BC88F00143F63 /* MLXMNIST */; };
-		85C974D42E1BC88F00143F63 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = 85C974D32E1BC88F00143F63 /* MLXVLM */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -90,14 +88,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				851F91892E42034F002B9CB6 /* Transformers in Frameworks */,
+				851F91842E420340002B9CB6 /* MLXLLM in Frameworks */,
 				85C974C52E1BC88F00143F63 /* MLX in Frameworks */,
 				85C974C72E1BC88F00143F63 /* MLXNN in Frameworks */,
+				851F91862E420340002B9CB6 /* MLXLMCommon in Frameworks */,
 				85C974C82E1BC88F00143F63 /* MLXRandom in Frameworks */,
-				85C974D42E1BC88F00143F63 /* MLXVLM in Frameworks */,
-				85C974D22E1BC88F00143F63 /* MLXMNIST in Frameworks */,
-				85C974CE2E1BC88F00143F63 /* MLXLLM in Frameworks */,
-				85C974D02E1BC88F00143F63 /* MLXLMCommon in Frameworks */,
-				85C974CC2E1BC88F00143F63 /* MLXEmbedders in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -176,11 +172,9 @@
 				85C974C42E1BC88F00143F63 /* MLX */,
 				85C974C62E1BC88F00143F63 /* MLXNN */,
 				85C974C32E1BC88F00143F63 /* MLXRandom */,
-				85C974CB2E1BC88F00143F63 /* MLXEmbedders */,
-				85C974CD2E1BC88F00143F63 /* MLXLLM */,
-				85C974CF2E1BC88F00143F63 /* MLXLMCommon */,
-				85C974D12E1BC88F00143F63 /* MLXMNIST */,
-				85C974D32E1BC88F00143F63 /* MLXVLM */,
+				851F91832E420340002B9CB6 /* MLXLLM */,
+				851F91852E420340002B9CB6 /* MLXLMCommon */,
+				851F91882E42034F002B9CB6 /* Transformers */,
 			);
 			productName = "Offline AI&ML Playground";
 			productReference = 857668CE2E166CED0098BDAA /* Offline AI&ML Playground.app */;
@@ -265,7 +259,8 @@
 			mainGroup = 857668C52E166CED0098BDAA;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				85C974CA2E1BC88F00143F63 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */,
+				851F91822E420340002B9CB6 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */,
+				851F91872E42034F002B9CB6 /* XCRemoteSwiftPackageReference "swift-transformers" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 857668CF2E166CED0098BDAA /* Products */;
@@ -682,6 +677,22 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		851F91822E420340002B9CB6 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift-examples/";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.25.5;
+			};
+		};
+		851F91872E42034F002B9CB6 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/huggingface/swift-transformers";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.22;
+			};
+		};
 		85C974C92E1BC88F00143F63 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ml-explore/mlx-swift/";
@@ -690,17 +701,24 @@
 				minimumVersion = 0.10.0;
 			};
 		};
-		85C974CA2E1BC88F00143F63 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/ml-explore/mlx-swift-examples/";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.25.4;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		851F91832E420340002B9CB6 /* MLXLLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 851F91822E420340002B9CB6 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
+			productName = MLXLLM;
+		};
+		851F91852E420340002B9CB6 /* MLXLMCommon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 851F91822E420340002B9CB6 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
+			productName = MLXLMCommon;
+		};
+		851F91882E42034F002B9CB6 /* Transformers */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 851F91872E42034F002B9CB6 /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			productName = Transformers;
+		};
 		85C974C32E1BC88F00143F63 /* MLXRandom */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 85C974C92E1BC88F00143F63 /* XCRemoteSwiftPackageReference "mlx-swift" */;
@@ -715,31 +733,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 85C974C92E1BC88F00143F63 /* XCRemoteSwiftPackageReference "mlx-swift" */;
 			productName = MLXNN;
-		};
-		85C974CB2E1BC88F00143F63 /* MLXEmbedders */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 85C974CA2E1BC88F00143F63 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
-			productName = MLXEmbedders;
-		};
-		85C974CD2E1BC88F00143F63 /* MLXLLM */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 85C974CA2E1BC88F00143F63 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
-			productName = MLXLLM;
-		};
-		85C974CF2E1BC88F00143F63 /* MLXLMCommon */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 85C974CA2E1BC88F00143F63 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
-			productName = MLXLMCommon;
-		};
-		85C974D12E1BC88F00143F63 /* MLXMNIST */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 85C974CA2E1BC88F00143F63 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
-			productName = MLXMNIST;
-		};
-		85C974D32E1BC88F00143F63 /* MLXVLM */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 85C974CA2E1BC88F00143F63 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
-			productName = MLXVLM;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
