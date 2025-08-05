@@ -157,6 +157,7 @@ public class InferenceEngine: ObservableObject {
                             
                             let metrics = TokenMetrics()
                             let response = StreamingResponse(text: newText, metrics: metrics)
+                            continuation.yield(response)
                             
                             return tokens.count >= maxTokens ? .stop : .more
                         }
