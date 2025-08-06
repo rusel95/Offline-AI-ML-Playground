@@ -456,9 +456,11 @@ public class ModelDownloadManager: NSObject, ObservableObject {
     
     public func cancelDownload(_ modelId: String) {
         guard let download = activeDownloads[modelId] else { return }
-        download.task.cancel()
+        if let task = download.task {
+            task.cancel()
+            speedTrackers.removeValue(forKey: task)
+        }
         activeDownloads.removeValue(forKey: modelId)
-        speedTrackers.removeValue(forKey: download.task)
     }
     
     public func deleteModel(_ modelId: String) {

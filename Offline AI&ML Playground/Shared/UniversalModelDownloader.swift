@@ -23,7 +23,7 @@ public class UniversalModelDownloader: NSObject, ObservableObject {
     
     // MARK: - Private Properties
     private var downloadTasks: [URLSessionDownloadTask] = []
-    private var urlSession: URLSession!
+    private var urlSession: URLSession?
     private var downloadStartTime = Date()
     private var fileProgress: [String: Double] = [:]
     private var pendingFiles: [(filename: String, url: URL)] = []
@@ -139,7 +139,10 @@ public class UniversalModelDownloader: NSObject, ObservableObject {
     }
     
     private func downloadFile(from url: URL, filename: String) async throws {
-        let (tempURL, response) = try await urlSession.download(from: url)
+        guard let session = urlSession else {
+            throw ModelError.invalidModel("URLSession not initialized")
+        }
+        let (tempURL, response) = try await session.download(from: url)
         
         // Check response
         if let httpResponse = response as? HTTPURLResponse {
@@ -162,9 +165,14 @@ public class UniversalModelDownloader: NSObject, ObservableObject {
     
     private func downloadMultiPartModel(model: AIModel) async throws {
         // First download the index file to determine parts
-        let indexURL = URL(string: "https://huggingface.co/\(model.huggingFaceRepo)/resolve/main/model.safetensors.index.json")!
+        guard let indexURL = URL(string: "https://huggingface.co/\(model.huggingFaceRepo)/resolve/main/model.safetensors.index.json") else {
+            throw ModelError.invalidModel("Invalid URL for model index")
+        }
         
-        let (tempURL, _) = try await urlSession.download(from: indexURL)
+        guard let session = urlSession else {
+            throw ModelError.invalidModel("URLSession not initialized")
+        }
+        let (tempURL, _) = try await session.download(from: indexURL)
         let indexData = try Data(contentsOf: tempURL)
         let destURL = destinationDirectory!.appendingPathComponent("model.safetensors.index.json")
         try indexData.write(to: destURL)

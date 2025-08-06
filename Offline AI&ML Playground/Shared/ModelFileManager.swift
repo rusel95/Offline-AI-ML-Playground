@@ -23,7 +23,10 @@ public class ModelFileManager: NSObject, ObservableObject {
     
     // MARK: - Initialization
     private override init() {
-        self.documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            fatalError("Failed to get documents directory")
+        }
+        self.documentsDirectory = documentsDir
         self.modelsDirectory = documentsDirectory.appendingPathComponent("Models")
         
         super.init()

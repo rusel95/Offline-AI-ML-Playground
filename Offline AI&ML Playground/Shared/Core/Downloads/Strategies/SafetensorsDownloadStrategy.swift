@@ -49,20 +49,6 @@ public class SafetensorsDownloadStrategy: DownloadStrategy {
             }
             
             do {
-                // Create a temporary model for each file download
-                let fileModel = AIModel(
-                    id: "\(model.id)_\(filename)",
-                    name: filename,
-                    description: "Part of \(model.name)",
-                    huggingFaceRepo: model.huggingFaceRepo,
-                    filename: filename,
-                    sizeInBytes: 0, // Unknown size
-                    type: model.type,
-                    tags: model.tags,
-                    isGated: model.isGated,
-                    provider: model.provider
-                )
-                
                 // Download the file directly
                 let (tempURL, response) = try await URLSession.shared.download(from: downloadURL)
                 

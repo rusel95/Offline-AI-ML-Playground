@@ -394,7 +394,10 @@ final class PerformanceMonitorTests: XCTestCase {
         print("🧪 Testing basic performance monitoring")
         
         // Test that we can access basic system information
-        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            XCTFail("Failed to get documents directory")
+            return
+        }
         XCTAssertNotNil(documentsDir, "Documents directory should be accessible")
         
         print("📊 Documents directory: \(documentsDir.path)")

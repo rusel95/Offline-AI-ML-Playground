@@ -90,7 +90,7 @@ class SharedModelManager: NSObject, ObservableObject {
     }
     
     // MARK: - Private Properties
-    private var urlSession: URLSession!
+    private var urlSession: URLSession?
     private let fileManager = ModelFileManager.shared
     private let resumeManager = DownloadResumeManager.shared
     private let networkMonitor = NetworkMonitor.shared
@@ -434,17 +434,14 @@ class SharedModelManager: NSObject, ObservableObject {
             let mlxDownloader = MLXModelDownloader()
             
             // Create a placeholder download for UI tracking
-            // Note: We'll use a dummy task since MLXModelDownloader manages its own downloads
-            let dummyURL = URL(string: "https://example.com")!
-            let dummyTask = urlSession.downloadTask(with: dummyURL)
-            
+            // Note: MLXModelDownloader manages its own downloads, so task is nil
             let placeholderDownload = ModelDownload(
                 modelId: model.id,
                 progress: 0.0,
                 totalBytes: model.sizeInBytes,
                 downloadedBytes: 0,
                 speed: 0.0,
-                task: dummyTask
+                task: nil
             )
             activeDownloads[model.id] = placeholderDownload
             
@@ -493,7 +490,11 @@ class SharedModelManager: NSObject, ObservableObject {
         // Try to resume if we have resume data
         if let resumeData = resumeManager.loadResumeData(for: model.id) {
             print("📂 Found resume data for \(model.name), attempting to resume...")
-            let task = urlSession.downloadTask(withResumeData: resumeData)
+            guard let session = urlSession else {
+                print("URLSession not initialized")
+                return
+            }
+            let task = session.downloadTask(withResumeData: resumeData)
             
             // Create download tracking object
             let download = ModelDownload(
@@ -524,7 +525,11 @@ class SharedModelManager: NSObject, ObservableObject {
         let request = URLRequest(url: url)
         
         // Use URLSession for all downloads
-        let task = self.urlSession.downloadTask(with: request)
+        guard let session = self.urlSession else {
+            print("URLSession not initialized")
+            return
+        }
+        let task = session.downloadTask(with: request)
         
         // Create download tracking object
         let download = ModelDownload(
@@ -568,18 +573,20 @@ class SharedModelManager: NSObject, ObservableObject {
     func cancelDownload(_ modelId: String) {
         guard let download = activeDownloads[modelId] else { return }
         
-        // Cancel with resume data
-        download.task.cancel { resumeData in
-            if let resumeData = resumeData {
-                Task { @MainActor in
-                    self.resumeManager.saveResumeData(resumeData, for: modelId)
-                    print("💾 Saved resume data for cancelled download: \(modelId)")
+        // Cancel with resume data if task exists
+        if let task = download.task {
+            task.cancel { resumeData in
+                if let resumeData = resumeData {
+                    Task { @MainActor in
+                        self.resumeManager.saveResumeData(resumeData, for: modelId)
+                        print("💾 Saved resume data for cancelled download: \(modelId)")
+                    }
                 }
             }
+            speedTrackers.removeValue(forKey: task)
         }
         
         activeDownloads.removeValue(forKey: modelId)
-        speedTrackers.removeValue(forKey: download.task)
         modelTaskMapping.removeValue(forKey: modelId)
         print("🛑 Cancelled download for model: \(modelId)")
     }
@@ -642,7 +649,8 @@ class SharedModelManager: NSObject, ObservableObject {
             guard !recentSamples.isEmpty else { return 0 }
             
             let totalBytes = recentSamples.map { $0.bytes }.reduce(0, +)
-            let timeSpan = now.timeIntervalSince(recentSamples.first!.timestamp)
+            guard let firstSample = recentSamples.first else { return 0 }
+            let timeSpan = now.timeIntervalSince(firstSample.timestamp)
             let effectiveSpan = max(timeSpan, 0.1)
             
             return Double(totalBytes) / effectiveSpan
@@ -680,7 +688,7 @@ extension SharedModelManager: URLSessionDownloadDelegate {
         var targetModelId: String?
         
         for (modelId, download) in activeDownloads {
-            if download.task == downloadTask {
+            if let task = download.task, task == downloadTask {
                 targetModelId = modelId
                 break
             }
@@ -762,7 +770,7 @@ extension SharedModelManager: URLSessionDownloadDelegate {
     @MainActor
     private func handleDownloadError(downloadTask: URLSessionDownloadTask, error: Error) async {
         for (modelId, download) in activeDownloads {
-            if download.task == downloadTask {
+            if let task = download.task, task == downloadTask {
                 activeDownloads.removeValue(forKey: modelId)
                 speedTrackers.removeValue(forKey: downloadTask)
                 lastProgressUpdate.removeValue(forKey: downloadTask)
@@ -786,7 +794,7 @@ extension SharedModelManager: URLSessionDownloadDelegate {
             lastProgressUpdate[downloadTask] = now
             
             for (modelId, download) in activeDownloads {
-                if download.task == downloadTask {
+                if let task = download.task, task == downloadTask {
                     // Update speed tracking
                     if speedTrackers[downloadTask] == nil {
                         speedTrackers[downloadTask] = DownloadSpeedTracker()
@@ -834,7 +842,7 @@ extension SharedModelManager: URLSessionDownloadDelegate {
                 Task { @MainActor in
                     // Find the model ID for this task
                     for (modelId, download) in activeDownloads {
-                        if download.task == task {
+                        if let downloadTask = download.task, downloadTask == task {
                             // Save resume data
                             resumeManager.saveResumeData(resumeData, for: modelId)
                             print("💾 Saved resume data for interrupted download: \(modelId)")
@@ -864,7 +872,7 @@ extension SharedModelManager: URLSessionDownloadDelegate {
                 // Non-resumable error
                 Task { @MainActor in
                     for (modelId, download) in activeDownloads {
-                        if download.task == task {
+                        if let downloadTask = download.task, downloadTask == task {
                             activeDownloads.removeValue(forKey: modelId)
                             speedTrackers.removeValue(forKey: task)
                             lastProgressUpdate.removeValue(forKey: task)

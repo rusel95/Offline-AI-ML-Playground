@@ -505,7 +505,7 @@ public struct ModelDownload: Identifiable {
     public let totalBytes: Int64
     public let downloadedBytes: Int64
     public let speed: Double // bytes per second
-    public let task: URLSessionDownloadTask
+    public let task: URLSessionDownloadTask?
     
     public var formattedSpeed: String {
         if speed < 1024 {

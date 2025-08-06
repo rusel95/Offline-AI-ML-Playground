@@ -14,7 +14,9 @@ class DownloadResumeManager {
     private let resumeDataDirectory: URL
     
     private init() {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            fatalError("Failed to get documents directory")
+        }
         resumeDataDirectory = documentsPath.appendingPathComponent("DownloadResumeData")
         
         // Create directory if it doesn't exist

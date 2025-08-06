@@ -187,7 +187,7 @@ public class InferenceEngine: ObservableObject {
         modelContainer: Any?
     ) -> Int {
         #if canImport(MLX)
-        guard let container = modelContainer as? ModelContainer else { return 0 }
+        guard modelContainer is ModelContainer else { return 0 }
         
         // For now, return an estimate since we can't do async in sync context
         // A more accurate count would require making this method async
