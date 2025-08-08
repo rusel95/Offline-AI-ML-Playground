@@ -15,6 +15,7 @@
 - **FIXED**: Proper error handling for HTTP failures and authentication issues
 - **FIXED**: Path consistency throughout application using `/Documents/Models`
 - **FIXED**: ProgressView bounds issue in PerformanceSettingsView
+- **NEW**: Chat memory with token-aware history context (full conversation used within model limits)
 
 ## All Critical Issues Resolved ✅
 
@@ -79,6 +80,7 @@ The core offline AI&ML functionality is now working correctly. Future enhancemen
 - Download resume capability
 - Model compression options
 - Advanced chat features
+- Token usage UI: show prompt tokens used and truncation when applicable
 - Performance optimizations
 
 ## Technical Debt

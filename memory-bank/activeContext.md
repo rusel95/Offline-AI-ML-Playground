@@ -47,12 +47,15 @@
 - `SharedModelManager.swift` - Real download implementation with error handling
 - `AIInferenceManager.swift` - Offline-first model loading with proper mapping
 - `PerformanceSettingsView.swift` - Fixed ProgressView bounds issue
+ - `ChatTab/ViewModels/ChatViewModel.swift` - Implemented token-aware, history-based context building for chat memory
+ - `ChatTab/ViewModels/ChatViewModelRefactored.swift` - Updated `ContextBuilder` to support token-aware, history-based prompts
 
 **🔧 Technical Implementation:**
 - Replaced static model arrays with dynamic verification
 - Added async/await download functionality
 - Implemented proper HTTP response handling
 - Created model configuration mapping system
+ - Implemented chat memory feature: full-history prompt assembly with token budgeting and response buffer
 
 ## Verification Status
 
@@ -61,6 +64,7 @@
 **✅ Error Handling:** Proper feedback for network and authentication issues
 **✅ Chat Flow:** Offline-first model loading from local files
 **✅ Model Mapping:** Correct configuration matching between download and inference
+**✅ Chat Memory:** Model now receives full conversation history (trimmed to token budget)
 
 ## Recent Updates (July 25, 2025)
 
@@ -169,6 +173,7 @@ The app now provides:
 4. **Static Model Management:** No dynamic loading or verification
 5. **SOLID Architecture:** Clean, maintainable, and extensible codebase
 6. **DRY Compliance:** No code duplication, shared utilities
+7. **Chat Memory:** Token-aware conversation context leveraging full history
 
 Future enhancements:
 - Migrate existing code to use new refactored components
@@ -178,3 +183,4 @@ Future enhancements:
 - Add code-specific models
 - Implement model search/filtering
 - Add model performance benchmarks
+ - Add UI telemetry for prompt token usage and truncation indicators
