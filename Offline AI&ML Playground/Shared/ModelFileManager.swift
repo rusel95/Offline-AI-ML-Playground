@@ -153,16 +153,28 @@ public class ModelFileManager: NSObject, ObservableObject {
     
     /// Delete a model file
     public func deleteModel(_ modelId: String) throws {
-        let path = getModelPath(for: modelId)
-        
-        if fileManager.fileExists(atPath: path.path) {
-            try fileManager.removeItem(at: path)
-            print("🗑️ Deleted model: \(modelId)")
-            
-            // Update downloaded models set
-            DispatchQueue.main.async { [weak self] in
-                self?.downloadedModels.remove(modelId)
+        // Remove marker file (simple path)
+        let markerPath = getModelPath(for: modelId)
+        if fileManager.fileExists(atPath: markerPath.path) {
+            try fileManager.removeItem(at: markerPath)
+            print("🗑️ Deleted marker for model: \(modelId)")
+        }
+
+        // Remove MLX directory (real files)
+        let mlxDir = getMLXModelDirectory(for: modelId)
+        if fileManager.fileExists(atPath: mlxDir.path) {
+            do {
+                try fileManager.removeItem(at: mlxDir)
+                print("🗑️ Deleted MLX directory for model: \(modelId)")
+            } catch {
+                print("⚠️ Failed to delete MLX directory for \(modelId): \(error)")
+                throw ModelFileError.deleteFailed("Could not delete MLX directory: \(error.localizedDescription)")
             }
+        }
+
+        // Update downloaded models set
+        DispatchQueue.main.async { [weak self] in
+            self?.downloadedModels.remove(modelId)
         }
     }
     

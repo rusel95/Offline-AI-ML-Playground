@@ -212,7 +212,12 @@ final class MLXInferenceTests: XCTestCase {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
         XCTAssertNotNil(documentsPath, "Should have access to documents directory")
         
-        let modelsPath = documentsPath!.appendingPathComponent("MLXModels")
+        guard let documentsPath = documentsPath else {
+            XCTFail("Documents path is nil")
+            return
+        }
+        
+        let modelsPath = documentsPath.appendingPathComponent("MLXModels")
         print("📁 Models directory path: \(modelsPath.path)")
         
         // Test directory creation
