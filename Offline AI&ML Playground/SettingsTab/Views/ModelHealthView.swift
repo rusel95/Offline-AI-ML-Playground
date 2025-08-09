@@ -2,7 +2,7 @@
 //  ModelHealthView.swift
 //  Offline AI&ML Playground
 //
-//  Created by Assistant on 07.01.2025.
+//  Created by Ruslan Popesku on 09.08.2025.
 //
 
 import SwiftUI

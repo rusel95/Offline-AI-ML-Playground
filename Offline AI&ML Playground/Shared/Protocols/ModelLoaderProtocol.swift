@@ -50,12 +50,3 @@ public protocol StorageManagerProtocol {
     func getTotalStorageUsed() -> Int64
 }
 
-/// Protocol for model catalog
-@MainActor
-public protocol ModelCatalogProtocol {
-    var availableModels: [AIModel] { get }
-    
-    func loadModels() async
-    func searchModels(query: String) -> [AIModel]
-    func getModel(by id: String) -> AIModel?
-}

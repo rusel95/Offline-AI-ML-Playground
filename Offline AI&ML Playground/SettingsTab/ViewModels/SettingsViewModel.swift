@@ -11,6 +11,7 @@ import Combine
 // MARK: - Settings Section Model
 enum SettingsSection: String, CaseIterable, Identifiable {
     case performance = "Performance"
+    case generation = "Generation"
     case storage = "Storage"
     case about = "About"
     
@@ -19,6 +20,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .performance: return "speedometer"
+        case .generation: return "slider.horizontal.3"
         case .storage: return "internaldrive"
         case .about: return "info.circle"
         }
@@ -27,6 +29,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var iconColor: Color {
         switch self {
         case .performance: return .green
+        case .generation: return .purple
         case .storage: return .orange
         case .about: return .blue
         }
@@ -42,6 +45,7 @@ class SettingsViewModel: ObservableObject {
     
     // Sub-ViewModels
     let performanceViewModel: PerformanceSettingsViewModel
+    let generationViewModel: GenerationSettingsViewModel
     let storageViewModel: StorageSettingsViewModel
     let aboutViewModel: AboutSettingsViewModel
     
@@ -51,6 +55,7 @@ class SettingsViewModel: ObservableObject {
     // MARK: - Initialization
     init() {
         self.performanceViewModel = PerformanceSettingsViewModel()
+        self.generationViewModel = GenerationSettingsViewModel()
         self.storageViewModel = StorageSettingsViewModel()
         self.aboutViewModel = AboutSettingsViewModel()
         
@@ -67,6 +72,8 @@ class SettingsViewModel: ObservableObject {
         switch section {
         case .performance:
             return performanceViewModel
+        case .generation:
+            return generationViewModel
         case .storage:
             return storageViewModel
         case .about:

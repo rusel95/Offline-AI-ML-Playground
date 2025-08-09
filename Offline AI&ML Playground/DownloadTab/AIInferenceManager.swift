@@ -1,3 +1,10 @@
+//
+//  AIInferenceManager.swift
+//  Offline AI&ML Playground
+//
+//  Created by Ruslan Popesku on 09.08.2025.
+//
+
 import Foundation
 import SwiftUI
 #if canImport(Hub)
@@ -522,7 +529,8 @@ class AIInferenceManager: ObservableObject {
     func generateStreamingTextWithMetrics(
         prompt: String,
         maxTokens: Int = 512,
-        temperature: Float = 0.7
+        temperature: Float = 0.7,
+        topP: Float = 0.9
     ) -> AsyncStream<StreamingResponse> {
         
         print("🌊 Starting streaming text generation with metrics")
@@ -562,7 +570,7 @@ class AIInferenceManager: ObservableObject {
                         let parameters = GenerateParameters(
                             maxTokens: maxTokens,
                             temperature: temperature,
-                            topP: 0.9
+                            topP: topP
                         )
                         
                         // Generate text with streaming using MLX

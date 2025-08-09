@@ -1,3 +1,10 @@
+//
+//  TestMLXFunctionality.swift
+//  Offline AI&ML Playground
+//
+//  Created by Ruslan Popesku on 09.08.2025.
+//
+
 import Foundation
 import MLX
 import MLXNN

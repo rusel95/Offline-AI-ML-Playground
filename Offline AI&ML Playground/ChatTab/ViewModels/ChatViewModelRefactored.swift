@@ -182,11 +182,6 @@ protocol ConversationManagerProtocol {
     func loadConversation(_ id: String) async -> [ChatMessage]?
 }
 
-/// Builds context for AI generation
-protocol ContextBuilderProtocol {
-    func buildContext(messages: [ChatMessage], maxTokens: Int, useFullHistory: Bool) -> String
-}
-
 // MARK: - Concrete Implementations
 
 public class ConversationManager: ConversationManagerProtocol {
@@ -215,22 +210,93 @@ public class ConversationManager: ConversationManagerProtocol {
     }
 }
 
+@MainActor
 public class ContextBuilder: ContextBuilderProtocol {
     public init() {}
     
     public func buildContext(messages: [ChatMessage], maxTokens: Int, useFullHistory: Bool) -> String {
-        // Build context from messages
-        var context = ""
+        let systemPrompt = GenerationSettings.shared.systemPrompt.isEmpty ? "You are a helpful AI assistant. Respond naturally and conversationally." : GenerationSettings.shared.systemPrompt
+        let responseBuffer = 200
+        let availableTokens = max(256, maxTokens - responseBuffer)
         
-        for message in messages {
+        var estimatedTokens = estimateTokenCount(systemPrompt)
+        var included: [ChatMessage] = []
+        
+        let sequence = useFullHistory ? messages.reversed() : messages.suffix(10).reversed()
+        for message in sequence {
             let rolePrefix = message.role == .user ? "User: " : "Assistant: "
-            context += "\(rolePrefix)\(message.content)\n\n"
+            let candidate = rolePrefix + message.content
+            let candidateTokens = estimateTokenCount(candidate) + 2
+            if estimatedTokens + candidateTokens <= availableTokens {
+                included.insert(message, at: 0)
+                estimatedTokens += candidateTokens
+            } else {
+                break
+            }
         }
         
-        return context.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Detect if we're using an instruction-tuned model
+        // This is a simplified check - in production, this info should come from the model metadata
+        let isInstructModel = messages.isEmpty ? false : 
+            messages.last?.modelUsed?.lowercased().contains(where: { 
+                ["instruct", "chat", "alpaca", "vicuna"].contains(String($0)) 
+            }) ?? false
+        
+        var context = ""
+        
+        if isInstructModel {
+            // Use instruction format for instruction-tuned models
+            if !systemPrompt.isEmpty {
+                context += "### System:\n" + systemPrompt + "\n\n"
+            }
+            for message in included {
+                switch message.role {
+                case .user:
+                    context += "### Instruction:\n" + message.content + "\n\n"
+                case .assistant:
+                    context += "### Response:\n" + message.content + "\n\n"
+                case .system:
+                    context += "### System:\n" + message.content + "\n\n"
+                }
+            }
+            context += "### Response:\n"
+        } else {
+            // Use conversational format for base models
+            if !systemPrompt.isEmpty {
+                context = systemPrompt + "\n\n"
+            }
+            
+            for (index, message) in included.enumerated() {
+                switch message.role {
+                case .user:
+                    context += "Human: " + message.content + "\n"
+                case .assistant:
+                    context += "Assistant: " + message.content + "\n"
+                case .system:
+                    context += message.content + "\n"
+                }
+                
+                if index < included.count - 1 {
+                    context += "\n"
+                }
+            }
+            
+            context += "\nAssistant:"
+        }
+        
+        return context
+    }
+    
+    public func estimateTokenCount(for text: String) -> Int {
+        return max(1, text.count / 4)
+    }
+    
+    private func estimateTokenCount(_ text: String) -> Int {
+        return estimateTokenCount(for: text)
     }
 }
 
+@MainActor
 public class ModelCatalog: ModelCatalogProtocol {
     @Published public var availableModels: [AIModel] = []
     

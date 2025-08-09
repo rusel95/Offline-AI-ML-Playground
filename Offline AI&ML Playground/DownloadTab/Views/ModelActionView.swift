@@ -103,7 +103,8 @@ struct ModelActionView: View {
     }
 }
 
-// MARK: - Preview Helpers
+#if DEBUG
+// MARK: - Preview Helpers (DEBUG only)
 private class PreviewDownloadManager: ModelDownloadManager {
     var mockDownloadedModels: Set<String> = []
     var mockActiveDownloads: [String: ModelDownload] = [:]
@@ -117,15 +118,16 @@ private class PreviewDownloadManager: ModelDownloadManager {
     }
     
     func setDownloading(_ modelId: String, progress: Double) {
-        let mockTask = URLSession.shared.downloadTask(with: URL(string: "https://example.com")!)
+        // Do not use network in previews; create a placeholder task without hitting the network
         let download = ModelDownload(
             modelId: modelId,
             progress: progress,
             totalBytes: 1_000_000_000,
             downloadedBytes: Int64(progress * 1_000_000_000),
-            speed: 2_500_000, // 2.5 MB/s
-            task: mockTask
+            speed: 2_500_000,
+            task: nil
         )
         activeDownloads[modelId] = download
     }
 }
+#endif

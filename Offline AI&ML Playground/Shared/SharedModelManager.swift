@@ -457,7 +457,9 @@ class SharedModelManager: NSObject, ObservableObject {
                             speed: download.speed,
                             task: download.task
                         )
-                        activeDownloads[model.id] = updatedDownload
+                        var dict = activeDownloads
+                        dict[model.id] = updatedDownload
+                        activeDownloads = dict
                         
                         if !mlxDownloader.isDownloading {
                             break
@@ -471,7 +473,9 @@ class SharedModelManager: NSObject, ObservableObject {
                 try await mlxDownloader.downloadMLXModel(model)
                 
                 // Remove from active downloads on success
-                activeDownloads.removeValue(forKey: model.id)
+                var dict = activeDownloads
+                dict.removeValue(forKey: model.id)
+                activeDownloads = dict
                 
                 // Refresh downloaded models
                 fileManager.refreshDownloadedModels()
@@ -506,7 +510,9 @@ class SharedModelManager: NSObject, ObservableObject {
                 task: task
             )
             
-            activeDownloads[model.id] = download
+            var dict = activeDownloads
+            dict[model.id] = download
+            activeDownloads = dict
             modelTaskMapping[model.id] = task
             task.resume()
             
@@ -541,7 +547,9 @@ class SharedModelManager: NSObject, ObservableObject {
             task: task
         )
         
-        activeDownloads[model.id] = download
+        var dict = activeDownloads
+        dict[model.id] = download
+        activeDownloads = dict
         modelTaskMapping[model.id] = task
         task.resume()
         
@@ -586,7 +594,9 @@ class SharedModelManager: NSObject, ObservableObject {
             speedTrackers.removeValue(forKey: task)
         }
         
-        activeDownloads.removeValue(forKey: modelId)
+        var dict = activeDownloads
+        dict.removeValue(forKey: modelId)
+        activeDownloads = dict
         modelTaskMapping.removeValue(forKey: modelId)
         print("🛑 Cancelled download for model: \(modelId)")
     }
@@ -746,7 +756,9 @@ extension SharedModelManager: URLSessionDownloadDelegate {
             fileManager.refreshDownloadedModels()
             
             // Remove from active downloads
-            activeDownloads.removeValue(forKey: modelId)
+            var dict = activeDownloads
+            dict.removeValue(forKey: modelId)
+            activeDownloads = dict
             speedTrackers.removeValue(forKey: downloadTask)
             lastProgressUpdate.removeValue(forKey: downloadTask)
             modelTaskMapping.removeValue(forKey: modelId)
@@ -760,7 +772,9 @@ extension SharedModelManager: URLSessionDownloadDelegate {
             lastError = error.localizedDescription
             
             // Clean up
-            activeDownloads.removeValue(forKey: modelId)
+            var dict = activeDownloads
+            dict.removeValue(forKey: modelId)
+            activeDownloads = dict
             speedTrackers.removeValue(forKey: downloadTask)
             lastProgressUpdate.removeValue(forKey: downloadTask)
             try? FileManager.default.removeItem(at: backupLocation)
@@ -799,10 +813,10 @@ extension SharedModelManager: URLSessionDownloadDelegate {
                     if speedTrackers[downloadTask] == nil {
                         speedTrackers[downloadTask] = DownloadSpeedTracker()
                     }
-                    speedTrackers[downloadTask]!.addSample(bytes: bytesWritten)
+                    speedTrackers[downloadTask]?.addSample(bytes: bytesWritten)
                     
                     let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-                    let averageSpeed = speedTrackers[downloadTask]!.getAverageSpeed()
+                    let averageSpeed = speedTrackers[downloadTask]?.getAverageSpeed() ?? 0
                     
                     let updatedDownload = ModelDownload(
                         modelId: download.modelId,
@@ -813,7 +827,9 @@ extension SharedModelManager: URLSessionDownloadDelegate {
                         task: download.task
                     )
                     
-                    activeDownloads[modelId] = updatedDownload
+                    var dict = activeDownloads
+                    dict[modelId] = updatedDownload
+                    activeDownloads = dict
                     
                     // Log progress to console for debugging
                     if let model = availableModels.first(where: { $0.id == modelId }) {
@@ -848,7 +864,9 @@ extension SharedModelManager: URLSessionDownloadDelegate {
                             print("💾 Saved resume data for interrupted download: \(modelId)")
                             
                             // Clean up active download
-                            activeDownloads.removeValue(forKey: modelId)
+                             var dict = activeDownloads
+                             dict.removeValue(forKey: modelId)
+                             activeDownloads = dict
                             speedTrackers.removeValue(forKey: task)
                             lastProgressUpdate.removeValue(forKey: task)
                             modelTaskMapping.removeValue(forKey: modelId)
@@ -873,7 +891,9 @@ extension SharedModelManager: URLSessionDownloadDelegate {
                 Task { @MainActor in
                     for (modelId, download) in activeDownloads {
                         if let downloadTask = download.task, downloadTask == task {
-                            activeDownloads.removeValue(forKey: modelId)
+                             var dict = activeDownloads
+                             dict.removeValue(forKey: modelId)
+                             activeDownloads = dict
                             speedTrackers.removeValue(forKey: task)
                             lastProgressUpdate.removeValue(forKey: task)
                             modelTaskMapping.removeValue(forKey: modelId)

@@ -1,3 +1,10 @@
+//
+//  ModelLoadingTests.swift
+//  Offline AI&ML Playground
+//
+//  Created by Ruslan Popesku on 09.08.2025.
+//
+
 import XCTest
 import Foundation
 import MLX

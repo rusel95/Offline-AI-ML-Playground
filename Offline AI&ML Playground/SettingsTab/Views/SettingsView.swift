@@ -58,6 +58,9 @@ struct SettingsSectionView: View {
                 case .performance:
                     PerformanceSettingsView()
                         .environmentObject(viewModel.performanceViewModel)
+                case .generation:
+                    GenerationSettingsView()
+                        .environmentObject(viewModel.generationViewModel)
                 case .storage:
                     StorageSettingsView()
                         .environmentObject(viewModel.storageViewModel)
