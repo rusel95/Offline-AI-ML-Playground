@@ -18,16 +18,7 @@ import MLXLLM
 import MLXLMCommon
 #endif
 
-/// Streaming response that includes both text and token metrics
-public struct StreamingResponse {
-    public let text: String
-    public let metrics: TokenMetrics
-    
-    public init(text: String, metrics: TokenMetrics) {
-        self.text = text
-        self.metrics = metrics
-    }
-}
+
 
 /// Actor to handle concurrent access to token metrics
 actor MetricsActor {
@@ -105,6 +96,9 @@ class AIInferenceManager: ObservableObject {
         print("   - Is GGUF: \(model.filename.hasSuffix(".gguf"))")
         print("   - Repository: \(model.huggingFaceRepo)")
         print("================================\n")
+        
+        // Log model loading start
+        AIResponseLogger.shared.logModelLoading(model: model.name, stage: "Starting model load")
         
         // Safety check - ensure we're properly initialized
         guard self.isMLXSwiftAvailable else {
@@ -188,6 +182,8 @@ class AIInferenceManager: ObservableObject {
                 loadingProgress = 0.1
                 loadingStatus = "Creating model configuration..."
             }
+            
+            AIResponseLogger.shared.logModelLoading(model: model.name, stage: "Creating configuration", progress: 0.1)
             
             // Check if the actual model.safetensors file exists
             let mlxModelPath = ModelFileManager.shared.getMLXModelDirectory(for: model.id)
@@ -341,10 +337,20 @@ class AIInferenceManager: ObservableObject {
                 modelConfiguration = config
             }
             
+            let memoryUsage = getMemoryUsage()
+            let memoryPressure = getMemoryPressure()
+            
+            AIResponseLogger.shared.logModelLoading(model: model.name, stage: "Model loaded successfully", progress: 1.0)
+            AIResponseLogger.shared.logPerformanceMetrics(
+                memoryUsage: Int(memoryUsage),
+                memoryPressure: memoryPressure,
+                model: model.name
+            )
+            
             print("🎉 Model loaded successfully: \(model.name)")
             print("🔗 Source: Local Cache")
-            print("📈 Final memory usage: \(ByteCountFormatter.string(fromByteCount: Int64(getMemoryUsage()), countStyle: .memory))")
-            print("📊 Memory pressure: \(getMemoryPressure())")
+            print("📈 Final memory usage: \(ByteCountFormatter.string(fromByteCount: Int64(memoryUsage), countStyle: .memory))")
+            print("📊 Memory pressure: \(memoryPressure)")
             
         } catch {
             await MainActor.run {
@@ -418,7 +424,7 @@ class AIInferenceManager: ObservableObject {
                 ) { tokens in
                     let text = context.tokenizer.decode(tokens: tokens)
                     generatedText += text
-                    print("🔄 Generated tokens: \(String(text.prefix(50)))")
+                    // Removed verbose token logging
                     return .more
                 }
                 
@@ -500,7 +506,7 @@ class AIInferenceManager: ObservableObject {
                             previousLength = fullText.count
                             
                             if !newText.isEmpty {
-                                print("🌊 Streaming new chunk: \(String(newText.prefix(20)))")
+                                // Removed verbose chunk logging - too much output
                                 continuation.yield(newText)
                             }
                             return .more
@@ -554,7 +560,7 @@ class AIInferenceManager: ObservableObject {
                     print("🏃‍♂️ Performing streaming inference with metrics")
                     
                     // Initialize metrics with an actor to handle concurrent access
-                    let metricsActor = MetricsActor()
+                    let metricsActor = TokenMetricsActor()
                     
                     let _ = try await container.perform { context in
                         print("🔧 Streaming context ready")
@@ -599,7 +605,11 @@ class AIInferenceManager: ObservableObject {
                             if !newText.isEmpty {
                                 Task {
                                     let currentMetrics = await metricsActor.getMetrics()
-                                    print("🌊 Streaming chunk: \(String(newText.prefix(20))...) [Tokens: \(currentTokenCount), Rate: \(String(format: "%.1f", currentMetrics.currentTokensPerSecond)) tok/s]")
+                                    
+                                    // Only log every 25 tokens to reduce verbosity
+                                    if currentTokenCount % 25 == 0 || currentTokenCount == 1 {
+                                        print("🌊 Progress: \(currentTokenCount) tokens @ \(String(format: "%.1f", currentMetrics.currentTokensPerSecond)) tok/s")
+                                    }
                                     
                                     // Create response with current metrics
                                     let response = StreamingResponse(

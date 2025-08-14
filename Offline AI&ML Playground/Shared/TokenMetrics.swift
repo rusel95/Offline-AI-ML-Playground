@@ -121,3 +121,21 @@ public struct TokenMetrics: Codable, Equatable {
         }
     }
 }
+
+/// Response structure for streaming text generation with metrics
+public struct StreamingResponse {
+    /// The generated text chunk
+    public let text: String
+    
+    /// Performance metrics for this response
+    public let metrics: TokenMetrics
+    
+    /// Whether this is the final response
+    public let isComplete: Bool
+    
+    public init(text: String, metrics: TokenMetrics, isComplete: Bool = false) {
+        self.text = text
+        self.metrics = metrics
+        self.isComplete = isComplete
+    }
+}

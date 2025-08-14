@@ -13,6 +13,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case performance = "Performance"
     case generation = "Generation"
     case storage = "Storage"
+    case logging = "AI Response Logs"
     case about = "About"
     
     var id: String { rawValue }
@@ -22,6 +23,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .performance: return "speedometer"
         case .generation: return "slider.horizontal.3"
         case .storage: return "internaldrive"
+        case .logging: return "doc.text.magnifyingglass"
         case .about: return "info.circle"
         }
     }
@@ -31,6 +33,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .performance: return .green
         case .generation: return .purple
         case .storage: return .orange
+        case .logging: return .cyan
         case .about: return .blue
         }
     }
@@ -76,6 +79,8 @@ class SettingsViewModel: ObservableObject {
             return generationViewModel
         case .storage:
             return storageViewModel
+        case .logging:
+            return performanceViewModel // Reuse performance VM for now
         case .about:
             return aboutViewModel
         }

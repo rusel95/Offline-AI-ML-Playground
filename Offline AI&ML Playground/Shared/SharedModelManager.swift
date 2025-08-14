@@ -95,13 +95,60 @@ class SharedModelManager: NSObject, ObservableObject {
     private let resumeManager = DownloadResumeManager.shared
     private let networkMonitor = NetworkMonitor.shared
     
-    // Download tracking
-    private var lastUpdateTime: [URLSessionTask: Date] = [:]
+    // Download tracking with memory-efficient cleanup
+    private var lastUpdateTime: [URLSessionTask: Date] = [:] {
+        didSet {
+            // Clean up old entries to prevent memory leaks
+            cleanupOldTaskReferences()
+        }
+    }
+    private var lastDownloadAttempt: [String: Date] = [:]
     private var lastBytesWritten: [URLSessionTask: Int64] = [:]
-    private var speedTrackers: [URLSessionTask: DownloadSpeedTracker] = [:]
+    private var speedTrackers: [URLSessionTask: DownloadSpeedTracker] = [:] {
+        didSet {
+            // Clean up old entries to prevent memory leaks
+            cleanupOldTaskReferences()
+        }
+    }
     private var modelTaskMapping: [String: URLSessionTask] = [:] // Map modelId to task for resume
     
+    // Memory management
+    private var memoryCleanupTimer: Timer?
+    private let maxTaskReferenceAge: TimeInterval = 300 // 5 minutes
+    
     // Inference management will be handled by individual components
+    
+    // MARK: - Memory Cleanup
+    private func cleanupOldTaskReferences() {
+        let now = Date()
+        
+        // Clean up old task references that are no longer active
+        for (task, timestamp) in lastUpdateTime {
+            if now.timeIntervalSince(timestamp) > maxTaskReferenceAge {
+                lastUpdateTime.removeValue(forKey: task)
+                speedTrackers.removeValue(forKey: task)
+                lastBytesWritten.removeValue(forKey: task)
+                lastProgressUpdate.removeValue(forKey: task)
+            }
+        }
+        
+        // Also clean up completed downloads
+        let activeTasks = activeDownloads.compactMap { $0.value.task }
+        
+        // Remove references to tasks that are no longer active
+        lastUpdateTime = lastUpdateTime.filter { task, date in
+            activeTasks.contains(where: { $0 === task }) || Date().timeIntervalSince(date) < maxTaskReferenceAge
+        }
+        speedTrackers = speedTrackers.filter { task, _ in
+            activeTasks.contains(where: { $0 === task })
+        }
+        lastBytesWritten = lastBytesWritten.filter { task, _ in
+            activeTasks.contains(where: { $0 === task })
+        }
+        lastProgressUpdate = lastProgressUpdate.filter { task, date in
+            activeTasks.contains(where: { $0 === task }) || Date().timeIntervalSince(date) < maxTaskReferenceAge
+        }
+    }
     
     // MARK: - Initialization
     private override init() {
@@ -426,6 +473,14 @@ class SharedModelManager: NSObject, ObservableObject {
             return
         }
         
+        // Prevent duplicate download requests within a short time window
+        if let lastAttempt = lastDownloadAttempt[model.id], 
+           Date().timeIntervalSince(lastAttempt) < 2.0 {
+            print("⚠️ Ignoring duplicate download request for \(model.name)")
+            return
+        }
+        lastDownloadAttempt[model.id] = Date()
+        
         // For MLX models, use the MLXModelDownloader to get all required files
         if model.huggingFaceRepo.contains("mlx-community") {
             print("🔄 Using MLXModelDownloader for MLX model: \(model.name)")
@@ -445,25 +500,50 @@ class SharedModelManager: NSObject, ObservableObject {
             )
             activeDownloads[model.id] = placeholderDownload
             
+            print("📱 SharedModelManager: Starting download monitor for \(model.name)")
+            print("   Model size: \(ByteCountFormatter.string(fromByteCount: model.sizeInBytes, countStyle: .file))")
+            
             // Monitor MLX downloader progress
             Task { @MainActor in
+                var lastLoggedProgress = 0
+                var lastProgressPercent = 0
                 for await _ in Timer.publish(every: 0.1, on: .main, in: .common).autoconnect().values {
                     if let download = activeDownloads[model.id] {
-                        let updatedDownload = ModelDownload(
-                            modelId: model.id,
-                            progress: mlxDownloader.downloadProgress,
-                            totalBytes: model.sizeInBytes,
-                            downloadedBytes: Int64(Double(model.sizeInBytes) * mlxDownloader.downloadProgress),
-                            speed: download.speed,
-                            task: download.task
-                        )
-                        var dict = activeDownloads
-                        dict[model.id] = updatedDownload
-                        activeDownloads = dict
+                        let currentProgress = mlxDownloader.downloadProgress
+                        let currentSpeed = mlxDownloader.downloadSpeed
+                        
+                        // Only update if progress percentage changed
+                        let progressPercent = Int(currentProgress * 100)
+                        if progressPercent != lastProgressPercent {
+                            let updatedDownload = ModelDownload(
+                                modelId: model.id,
+                                progress: currentProgress,
+                                totalBytes: model.sizeInBytes,
+                                downloadedBytes: Int64(Double(model.sizeInBytes) * currentProgress),
+                                speed: currentSpeed,
+                                task: download.task
+                            )
+                            var dict = activeDownloads
+                            dict[model.id] = updatedDownload
+                            activeDownloads = dict
+                            lastProgressPercent = progressPercent
+                            
+                            // Log progress updates every 10%
+                            if progressPercent >= lastLoggedProgress + 10 {
+                                print("📊 SharedModelManager: \(model.name) download progress: \(progressPercent)%")
+                                let speedStr = formatSpeed(currentSpeed)
+                                print("   Speed: \(speedStr)")
+                                lastLoggedProgress = progressPercent
+                            }
+                        }
                         
                         if !mlxDownloader.isDownloading {
+                            print("✅ SharedModelManager: \(model.name) download monitoring complete")
                             break
                         }
+                    } else {
+                        print("⚠️ SharedModelManager: Lost track of download for \(model.name)")
+                        break
                     }
                 }
             }
@@ -905,6 +985,17 @@ extension SharedModelManager: URLSessionDownloadDelegate {
                     }
                 }
             }
+        }
+    }
+    
+    // MARK: - Private Helpers
+    private func formatSpeed(_ bytesPerSecond: Double) -> String {
+        if bytesPerSecond < 1024 {
+            return "\(Int(bytesPerSecond)) B/s"
+        } else if bytesPerSecond < 1024 * 1024 {
+            return "\(Int(bytesPerSecond / 1024)) KB/s"
+        } else {
+            return String(format: "%.1f MB/s", bytesPerSecond / (1024 * 1024))
         }
     }
 } 

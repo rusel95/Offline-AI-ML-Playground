@@ -41,6 +41,7 @@ class MLXModelDownloader: NSObject, ObservableObject {
     @Published var downloadProgress: Double = 0.0
     @Published var downloadStatus = ""
     @Published var lastError: String?
+    @Published var downloadSpeed: Double = 0.0 // bytes per second
     
     private var downloadTask: URLSessionDownloadTask?
     private var urlSession: URLSession
@@ -48,6 +49,42 @@ class MLXModelDownloader: NSObject, ObservableObject {
     private var totalFiles = 0
     private var fileProgress: [String: Double] = [:]
     private nonisolated let continuationStore = ContinuationStore()
+    private var speedTracker = SpeedTracker()
+    
+    /// Track download speed
+    private struct SpeedTracker {
+        private var samples: [(timestamp: Date, bytes: Int64)] = []
+        private let maxSamples = 10
+        
+        mutating func addSample(bytes: Int64) {
+            let now = Date()
+            samples.append((now, bytes))
+            
+            // Keep only recent samples
+            if samples.count > maxSamples {
+                samples.removeFirst()
+            }
+        }
+        
+        func calculateSpeed() -> Double {
+            guard samples.count >= 2 else { return 0 }
+            
+            let recent = samples.suffix(5) // Use last 5 samples for smoothing
+            guard recent.count >= 2,
+                  let first = recent.first,
+                  let last = recent.last else { return 0 }
+            
+            let timeDiff = last.timestamp.timeIntervalSince(first.timestamp)
+            guard timeDiff > 0 else { return 0 }
+            
+            let bytesDiff = last.bytes - first.bytes
+            return Double(bytesDiff) / timeDiff
+        }
+        
+        mutating func reset() {
+            samples.removeAll()
+        }
+    }
     
     override init() {
         let config = URLSessionConfiguration.default
@@ -63,10 +100,13 @@ class MLXModelDownloader: NSObject, ObservableObject {
     func downloadMLXModel(_ model: AIModel) async throws {
         isDownloading = true
         downloadProgress = 0.0
+        downloadSpeed = 0.0
+        speedTracker.reset()
         lastError = nil
         
         defer {
             isDownloading = false
+            downloadSpeed = 0.0
         }
         
         print("🚀 Starting MLX model download for: \(model.name)")
@@ -92,6 +132,8 @@ class MLXModelDownloader: NSObject, ObservableObject {
             downloadStatus = "Downloading \(filename)..."
             
             do {
+                print("📄 Starting download of \(filename) (\(index + 1)/\(totalFiles))")
+                
                 try await downloadFile(
                     filename: filename,
                     from: model.huggingFaceRepo,
@@ -100,6 +142,10 @@ class MLXModelDownloader: NSObject, ObservableObject {
                 
                 fileProgress[filename] = 1.0
                 updateOverallProgress()
+                print("✅ Completed \(filename) - Overall progress: \(Int(downloadProgress * 100))%")
+                
+                // Reset speed tracker after each file
+                speedTracker.reset()
                 
             } catch {
                 // Some files are optional, only fail on critical files
@@ -178,11 +224,25 @@ class MLXModelDownloader: NSObject, ObservableObject {
     
     /// Update overall download progress based on individual file progress
     private func updateOverallProgress() {
-        let baseProgress = Double(currentFileIndex) / Double(totalFiles)
-        let currentFileProgress = fileProgress.values.reduce(0, +) / Double(max(fileProgress.count, 1))
-        let fileWeight = 1.0 / Double(totalFiles)
+        let completedFiles = fileProgress.values.filter { $0 >= 1.0 }.count
         
-        downloadProgress = baseProgress + (currentFileProgress * fileWeight)
+        // Calculate the average progress of incomplete files
+        let incompleteFiles = fileProgress.filter { $0.value < 1.0 }
+        let incompleteProgress = incompleteFiles.isEmpty ? 0.0 : incompleteFiles.values.reduce(0, +) / Double(incompleteFiles.count)
+        
+        // Overall progress = completed files + average progress of current file(s)
+        let newProgress = (Double(completedFiles) + incompleteProgress) / Double(totalFiles)
+        
+        // Only update and log if progress changed significantly (at least 1%)
+        let oldProgressPercent = Int(downloadProgress * 100)
+        let newProgressPercent = Int(newProgress * 100)
+        
+        // Only update published value if percentage changed
+        if newProgressPercent != oldProgressPercent {
+            downloadProgress = newProgress
+            print("📈 Progress update: \(completedFiles)/\(totalFiles) files complete, Overall: \(newProgressPercent)%")
+        }
+        // Do NOT update downloadProgress if percentage hasn't changed to avoid UI spam
     }
     
     /// Cancel current download
@@ -191,6 +251,17 @@ class MLXModelDownloader: NSObject, ObservableObject {
         downloadTask = nil
         isDownloading = false
         downloadStatus = "Download cancelled"
+    }
+    
+    /// Format speed for display
+    private func formatSpeed(_ bytesPerSecond: Double) -> String {
+        if bytesPerSecond < 1024 {
+            return "\(Int(bytesPerSecond)) B/s"
+        } else if bytesPerSecond < 1024 * 1024 {
+            return "\(Int(bytesPerSecond / 1024)) KB/s"
+        } else {
+            return String(format: "%.1f MB/s", bytesPerSecond / (1024 * 1024))
+        }
     }
 }
 
@@ -202,10 +273,28 @@ extension MLXModelDownloader: URLSessionDownloadDelegate {
         let fileProgress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
         
         Task { @MainActor in
+            // Update speed tracking
+            self.speedTracker.addSample(bytes: totalBytesWritten)
+            self.downloadSpeed = self.speedTracker.calculateSpeed()
+            
             // Update file progress for current file
             if let currentUrl = downloadTask.currentRequest?.url?.lastPathComponent {
+                let previousProgress = self.fileProgress[currentUrl] ?? 0.0
                 self.fileProgress[currentUrl] = fileProgress
                 self.updateOverallProgress()
+                
+                // Log individual file progress every 10%
+                let previousPercentage = Int(previousProgress * 100)
+                let currentPercentage = Int(fileProgress * 100)
+                
+                if currentPercentage >= previousPercentage + 10 {
+                    print("📊 File progress: \(currentUrl) - \(currentPercentage)%")
+                    print("   Downloaded: \(ByteCountFormatter.string(fromByteCount: totalBytesWritten, countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: totalBytesExpectedToWrite, countStyle: .file))")
+                    
+                    // Log speed
+                    let speedStr = self.formatSpeed(self.downloadSpeed)
+                    print("   Speed: \(speedStr)")
+                }
             }
         }
     }

@@ -64,6 +64,8 @@ struct SettingsSectionView: View {
                 case .storage:
                     StorageSettingsView()
                         .environmentObject(viewModel.storageViewModel)
+                case .logging:
+                    LoggingSettingsView()
                 case .about:
                     AboutSettingsView()
                         .environmentObject(viewModel.aboutViewModel)

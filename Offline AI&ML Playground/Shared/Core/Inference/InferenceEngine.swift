@@ -121,7 +121,7 @@ public class InferenceEngine: ObservableObject {
                 
                 #if canImport(MLX)
                 do {
-                    let metricsActor = MetricsActor()
+                    let metricsActor = TokenMetricsActor()
                     
                     let _ = try await container.perform { context in
                         // Create user input
