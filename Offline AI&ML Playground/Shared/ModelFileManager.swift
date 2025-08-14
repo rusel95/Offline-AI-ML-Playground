@@ -77,12 +77,12 @@ public class ModelFileManager: NSObject, ObservableObject {
             "smollm-135m": "SmolLM-135M-Instruct-4bit",
             "smollm-360m": "SmolLM-360M-Instruct-4bit",
             "smollm-1.7b": "SmolLM-1.7B-Instruct-4bit",
-            "tinyllama-1.1b": "TinyLlama-1.1B-Chat-v1.0-4bit",
+
             "deepseek-coder-1.3b": "deepseek-coder-1.3b-instruct-4bit",
             "openelm-1.1b": "OpenELM-1_1B-Instruct-4bit",
             "llama-3.2-1b": "Llama-3.2-1B-Instruct-4bit",
             "deepseek-r1-distill-qwen-1.5b": "DeepSeek-R1-Distill-Qwen-1.5B-4bit",
-            "gemma-2b": "gemma-2b-it-4bit",
+
 
             "phi-3.5-mini": "Phi-3.5-mini-instruct-4bit",
             "openelm-270m": "OpenELM-270M-Instruct-4bit"
@@ -288,13 +288,12 @@ public class ModelFileManager: NSObject, ObservableObject {
             "SmolLM-135M-Instruct-4bit": "smollm-135m",
             "SmolLM-360M-Instruct-4bit": "smollm-360m",
             "SmolLM-1.7B-Instruct-4bit": "smollm-1.7b",
-            "TinyLlama-1.1B-Chat-v1.0-4bit": "tinyllama-1.1b",
+
             "Qwen2.5-0.5B-Instruct-4bit": "qwen2.5-0.5b",
             "Qwen2.5-1.5B-Instruct-4bit": "qwen2.5-1.5b",
             "Qwen2.5-3B-Instruct-4bit": "qwen2.5-3b",
             "deepseek-coder-1.3b-instruct-4bit": "deepseek-coder-1.3b",
-            "gemma-2b-it-4bit": "gemma-2b",
-            "phi-2-4bit": "phi-2",
+
             "OpenELM-1_1B-Instruct-4bit": "openelm-1.1b",
             "Llama-3.2-1B-Instruct-4bit": "llama-3.2-1b"
         ]
@@ -309,13 +308,10 @@ public class ModelFileManager: NSObject, ObservableObject {
             "smollm-135m": "smollm-135m",
             "smollm-360m": "smollm-360m",
             "smollm-1.7b": "smollm-1.7b",
-            "tinyllama-1.1b": "tinyllama-1.1b",
             "qwen2.5-0.5b": "qwen2.5-0.5b",
             "qwen2.5-1.5b": "qwen2.5-1.5b",
             "qwen2.5-3b": "qwen2.5-3b",
             "deepseek-coder-1.3b": "deepseek-coder-1.3b",
-            "gemma-2b": "gemma-2b",
-            "phi-2": "phi-2",
             "openelm-1.1b": "openelm-1.1b",
             "llama-3.2-1b": "llama-3.2-1b"
         ]

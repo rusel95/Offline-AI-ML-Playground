@@ -349,12 +349,17 @@ class ChatViewModel: ObservableObject {
     @MainActor
     private func generateAIResponse(for userMessage: String, using model: AIModel) async {
         print("🤖 Generating real AI response with model: \(model.name)")
+        print("🔍 Model details: id=\(model.id), repo=\(model.huggingFaceRepo)")
+        print("🔍 Selected model matches: \(selectedModel?.id == model.id)")
         
-        // Log conversation start
+        // Build conversation context from message history
+        let conversationContext = buildConversationContext(currentMessage: userMessage)
+        
+        // Log conversation start with actual context
         AIResponseLogger.shared.logConversationStart(
             userMessage: userMessage,
             model: model.name,
-            contextLength: 0 // Will be updated when context is built
+            contextLength: conversationContext.count
         )
         
         isGenerating = true
@@ -379,9 +384,6 @@ class ChatViewModel: ObservableObject {
                 try await aiInferenceManager.loadModel(model)
             }
             
-            // Build conversation context from message history
-            let conversationContext = buildConversationContext(currentMessage: userMessage)
-            
             // Log the full context being sent to the model
             AIResponseLogger.shared.logFullContext(context: conversationContext)
             
@@ -390,10 +392,19 @@ class ChatViewModel: ObservableObject {
             var accumulatedResponse = ""
             
             let gen = GenerationSettings.shared
+            
+            // Adjust parameters for very small models
+            let modelName = selectedModel?.name.lowercased() ?? ""
+            let adjustedTemp = modelName.contains("smollm") ? min(gen.temperature, 0.3) : gen.temperature
+            let adjustedMaxTokens = modelName.contains("smollm") ? min(gen.maxOutputTokens, 100) : gen.maxOutputTokens
+            
+            print("🎛️ Generation settings: maxTokens=\(adjustedMaxTokens), temp=\(adjustedTemp), topP=\(gen.topP)")
+            print("🚀 Starting streaming generation with context length: \(conversationContext.count)")
+            
             for await response in aiInferenceManager.generateStreamingTextWithMetrics(
                 prompt: conversationContext,
-                maxTokens: gen.maxOutputTokens,
-                temperature: gen.temperature,
+                maxTokens: adjustedMaxTokens,
+                temperature: adjustedTemp,
                 topP: gen.topP
             ) {
                 // Log each streaming chunk with full details
@@ -409,20 +420,39 @@ class ChatViewModel: ObservableObject {
                 
                 var foundPattern = false
                 
-                // Check if accumulated response contains self-conversation patterns
-                // Look for patterns that indicate the model is creating a conversation
-                if accumulatedResponse.contains("\n\nUser:") || accumulatedResponse.contains("\nUser:") {
+                // Check for problematic patterns in the response
+                let hasMathPattern = accumulatedResponse.contains("$") || 
+                                   accumulatedResponse.contains("\\") ||
+                                   accumulatedResponse.contains("lim_") ||
+                                   accumulatedResponse.contains("sum_") ||
+                                   accumulatedResponse.contains("cos") ||
+                                   accumulatedResponse.contains("cdots")
+                
+                let hasSelfConversation = accumulatedResponse.contains("\n\nUser:") || accumulatedResponse.contains("\nUser:")
+                
+                // Stop generation if we detect mathematical gibberish or self-conversation
+                if hasMathPattern || hasSelfConversation {
                     foundPattern = true
                     shouldStopGeneration = true
                     
-                    // Extract text before the User: marker
-                    let patterns = ["\n\nUser:", "\nUser:"]
+                    print("🚨 Detected problematic pattern - stopping generation")
+                    print("   Math pattern: \(hasMathPattern)")
+                    print("   Self conversation: \(hasSelfConversation)")
+                    print("   Response so far: \(String(accumulatedResponse.prefix(200)))...")
+                    
                     var cleanedText = accumulatedResponse
                     
-                    for pattern in patterns {
-                        if let range = cleanedText.range(of: pattern) {
-                            cleanedText = String(cleanedText[..<range.lowerBound])
-                            break
+                    // If it's mathematical gibberish, provide a helpful response instead
+                    if hasMathPattern {
+                        cleanedText = "I apologize, but I seem to be having trouble generating a proper response. Could you please try rephrasing your question or try a different model?"
+                    } else {
+                        // Extract text before the User: marker for self-conversation
+                        let patterns = ["\n\nUser:", "\nUser:"]
+                        for pattern in patterns {
+                            if let range = cleanedText.range(of: pattern) {
+                                cleanedText = String(cleanedText[..<range.lowerBound])
+                                break
+                            }
                         }
                     }
                     
@@ -520,15 +550,16 @@ class ChatViewModel: ObservableObject {
     
     // MARK: - Conversation Context Building
     private func buildConversationContext(currentMessage: String) -> String {
-        // Build a token-aware context using full chat history when possible
-        // Strategy: include messages from newest to oldest until budget reached, then render with a model-friendly chat template
+        // Build a simple, reliable context that works across all models
+        // Strategy: Use a clean, universal format that doesn't trigger model-specific issues
+        
         let globalSystem = GenerationSettings.shared.systemPrompt
-        let systemPrompt = globalSystem.isEmpty ? "You are a helpful AI assistant. Respond naturally and conversationally." : globalSystem
+        let systemPrompt = globalSystem.isEmpty ? "You are a helpful AI assistant." : globalSystem
 
         // Determine token budget
         let modelMax = selectedModel?.maxContextTokens ?? 2048
-        let responseBuffer = 200 // leave room for model output
-        var availableTokens = max(256, modelMax - responseBuffer)
+        let responseBuffer = 300 // leave more room for model output
+        var availableTokens = max(200, modelMax - responseBuffer)
 
         // Respect custom context setting when not using max context
         if !useMaxContext {
@@ -540,183 +571,86 @@ class ChatViewModel: ObservableObject {
         var estimatedTokens = estimateTokenCount(systemPrompt)
         var includedMessages: [ChatMessage] = []
 
-        // Ensure the latest user message is present (it should be already appended before calling this method)
+        print("🔍 Total messages in history: \(messages.count)")
+        print("🔍 Available tokens for context: \(availableTokens)")
+        
         // Walk backwards through history to include as many messages as fit
         for message in messages.reversed() {
-            let rolePrefix = message.role == .user ? "User: " : "Assistant: "
-            let candidate = rolePrefix + message.content
-            let candidateTokens = estimateTokenCount(candidate) + 2 // margin per turn
+            let candidateTokens = estimateTokenCount(message.content) + 10 // margin per message
+            print("🔍 Considering message: \(message.role.rawValue) - \(String(message.content.prefix(50)))... (\(candidateTokens) tokens)")
+            
             if estimatedTokens + candidateTokens <= availableTokens {
                 includedMessages.insert(message, at: 0)
                 estimatedTokens += candidateTokens
+                print("✅ Included message in context")
             } else {
-                // Try to include at least a truncated version of the last user message if nothing fits
-                if includedMessages.isEmpty, message.role == .user {
-                    // Take a suffix of the user message
-                    let content = message.content
-                    if content.count > 0 {
-                        let approxChars = max(40, (availableTokens - estimatedTokens) * 3)
-                        let truncated = String(content.suffix(min(content.count, approxChars)))
-                        let truncatedMessage = ChatMessage(
-                            content: truncated,
-                            role: .user,
-                            timestamp: message.timestamp,
-                            modelUsed: message.modelUsed
-                        )
-                        includedMessages = [truncatedMessage]
-                        estimatedTokens = availableTokens // consume budget
-                    }
-                }
+                print("❌ Message would exceed token limit, stopping")
                 break
             }
         }
 
-        // Check if we're using a base model vs an instruction-tuned model
-        let modelName = selectedModel?.name.lowercased() ?? ""
-        let modelId = selectedModel?.id.lowercased() ?? ""
-        
-        // Detect models that need special prompt handling
-        let isOpenELM = modelName.contains("openelm") || modelId.contains("openelm")
-        let isQwen = modelName.contains("qwen") || modelId.contains("qwen")
-        let isSmolLM = modelName.contains("smollm") || modelId.contains("smollm")
-        let isGemma = modelName.contains("gemma") || modelId.contains("gemma")
-        let isPhi = modelName.contains("phi") || modelId.contains("phi")
-        
-        // Models that work better with simple prompting
-        let needsSimpleFormat = isOpenELM || isSmolLM
-        
-        let isInstructModel = (modelName.contains("instruct") || modelName.contains("chat") || 
-                              modelName.contains("alpaca") || modelName.contains("vicuna")) && 
-                              !needsSimpleFormat
-        
+        // Build context using a simple, universal format
         var context = ""
         
-        if needsSimpleFormat {
-            // Use very simple format for models like OpenELM that generate self-conversations
-            if !systemPrompt.isEmpty && includedMessages.count == 1 {
-                // Only include system prompt for the first message
-                context = systemPrompt + "\n\n"
-            }
-            
-            // Just include the current user message without role markers
+        // Check if this is a very small model that needs extra simple formatting
+        let modelName = selectedModel?.name.lowercased() ?? ""
+        let modelId = selectedModel?.id.lowercased() ?? ""
+        let isVerySmallModel = modelName.contains("smollm") || modelName.contains("135m") || modelName.contains("160m") || modelId.contains("smollm")
+        
+        print("🤖 Model info: name='\(modelName)', id='\(modelId)', isVerySmall=\(isVerySmallModel)")
+        
+        if isVerySmallModel {
+            // For very small models, use the most minimal format possible
+            // Just the user message without complex formatting
             if let lastMessage = includedMessages.last, lastMessage.role == .user {
-                context += lastMessage.content
-            }
-            
-            // No trailing markers that might trigger self-conversation
-        } else if isQwen {
-            // Qwen models prefer their specific format
-            if !systemPrompt.isEmpty {
-                context = systemPrompt + "\n\n"
-            }
-            
-            for message in includedMessages {
-                switch message.role {
-                case .user:
-                    context += "User: " + message.content + "\n"
-                case .assistant:
-                    context += "Assistant: " + message.content + "\n"
-                case .system:
-                    context += message.content + "\n"
-                }
-            }
-            context += "Assistant: "
-        } else if isGemma {
-            // Gemma format
-            for message in includedMessages {
-                switch message.role {
-                case .user:
-                    context += "<start_of_turn>user\n" + message.content + "<end_of_turn>\n"
-                case .assistant:
-                    context += "<start_of_turn>model\n" + message.content + "<end_of_turn>\n"
-                case .system:
-                    if !systemPrompt.isEmpty {
-                        context = systemPrompt + "\n\n" + context
-                    }
-                }
-            }
-            context += "<start_of_turn>model\n"
-        } else if isPhi {
-            // Phi-2 format
-            if !systemPrompt.isEmpty {
-                context = systemPrompt + "\n\n"
-            }
-            
-            for message in includedMessages {
-                switch message.role {
-                case .user:
-                    context += "Instruct: " + message.content + "\n"
-                case .assistant:
-                    context += "Output: " + message.content + "\n"
-                case .system:
-                    context += message.content + "\n"
-                }
-            }
-            context += "Output: "
-        } else if isInstructModel {
-            // Use instruction format for other instruction-tuned models
-            if !systemPrompt.isEmpty {
-                context += "### System:\n" + systemPrompt + "\n\n"
-            }
-            
-            // Only include conversation history if it's not too long
-            let includeHistory = includedMessages.count <= 4
-            
-            if includeHistory {
-                for message in includedMessages {
-                    switch message.role {
-                    case .user:
-                        context += "### Instruction:\n" + message.content + "\n\n"
-                    case .assistant:
-                        context += "### Response:\n" + message.content + "\n\n"
-                    case .system:
-                        context += "### System:\n" + message.content + "\n\n"
-                    }
-                }
+                context = lastMessage.content
             } else {
-                // For longer conversations, just include the last user message
-                if let lastMessage = includedMessages.last, lastMessage.role == .user {
-                    context += "### Instruction:\n" + lastMessage.content + "\n\n"
-                }
+                context = currentMessage
             }
-            
-            // Final assistant cue
-            context += "### Response:\n"
         } else {
-            // Use a simpler conversational format for base models
+            // Standard format for larger models
+            // Add system prompt if we have one
             if !systemPrompt.isEmpty {
-                context = systemPrompt + "\n\n"
+                context += systemPrompt + "\n\n"
             }
             
-            // Add conversation history in a natural format
-            for (index, message) in includedMessages.enumerated() {
+            // Add conversation history in a clean format
+            for message in includedMessages {
                 switch message.role {
                 case .user:
                     context += "Human: " + message.content + "\n"
                 case .assistant:
                     context += "Assistant: " + message.content + "\n"
                 case .system:
-                    context += message.content + "\n"
-                }
-                
-                // Add spacing between turns except for the last one
-                if index < includedMessages.count - 1 {
-                    context += "\n"
+                    // Skip additional system messages to avoid confusion
+                    continue
                 }
             }
             
-            // Add final prompt
-            context += "\nAssistant:"
+            // Add the final prompt cue
+            context += "Assistant:"
         }
 
-        print("📝 Built conversation context (model-aware format)")
-        let formatType = needsSimpleFormat ? "simple" : 
-                        isQwen ? "qwen" :
-                        isGemma ? "gemma" :
-                        isPhi ? "phi" :
-                        isInstructModel ? "instruction" : "conversational"
-        print("🤖 Using \(formatType) format for: \(selectedModel?.name ?? "unknown")")
+        // Ensure we have valid context
+        if context.isEmpty {
+            context = "Question: " + currentMessage + "\nAnswer:"
+            print("⚠️ Context was empty, using fallback format")
+        }
+        
+        // Additional safety check - ensure context is reasonable
+        if context.count < 10 {
+            context = "Human: " + currentMessage + "\nAssistant:"
+            print("⚠️ Context was too short, using safe fallback")
+        }
+        
+        print("📝 Built conversation context (universal format)")
         print("📏 Context length: \(context.count) characters, est tokens: \(estimatedTokens)/\(modelMax)")
+        print("💬 Messages included: \(includedMessages.count)")
+        print("🔍 Context preview: \(String(context.prefix(200)))...")
+        print("🔍 Full context being sent to model:")
+        print(String(repeating: "=", count: 50))
+        print(context)
+        print(String(repeating: "=", count: 50))
 
         return context
     }
