@@ -113,7 +113,22 @@ class MLXModelDownloader: NSObject, ObservableObject {
         
         // Create the destination directory
         let mlxDir = ModelFileManager.shared.getMLXModelDirectory(for: model.id)
-        try FileManager.default.createDirectory(at: mlxDir, withIntermediateDirectories: true)
+        print("📁 Creating MLX directory: \(mlxDir.path)")
+        
+        do {
+            try FileManager.default.createDirectory(at: mlxDir, withIntermediateDirectories: true)
+            print("✅ MLX directory created successfully")
+            
+            // Verify the directory exists
+            if FileManager.default.fileExists(atPath: mlxDir.path) {
+                print("✅ MLX directory verified to exist")
+            } else {
+                print("❌ MLX directory creation failed - directory doesn't exist after creation")
+            }
+        } catch {
+            print("❌ Failed to create MLX directory: \(error)")
+            throw error
+        }
         
         // Files to download for MLX models
         let requiredFiles = [
@@ -148,11 +163,14 @@ class MLXModelDownloader: NSObject, ObservableObject {
                 speedTracker.reset()
                 
             } catch {
+                print("❌ Error downloading \(filename): \(error)")
+                
                 // Some files are optional, only fail on critical files
                 if filename == "model.safetensors" || filename == "config.json" {
+                    print("💥 Critical file \(filename) failed, aborting download")
                     throw error
                 } else {
-                    print("⚠️ Optional file not found: \(filename)")
+                    print("⚠️ Optional file \(filename) not found, continuing...")
                     fileProgress[filename] = 1.0  // Mark as complete even if optional
                     updateOverallProgress()
                 }
@@ -208,41 +226,91 @@ class MLXModelDownloader: NSObject, ObservableObject {
         
         print("📊 Downloaded file size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
         
-        // Verify it's not an error page
-        if fileSize < 1000 && filename == "model.safetensors" {
-            // Read the content to check if it's an error
+        // Verify it's not an error page (only check very small files)
+        if fileSize < 100 {
+            // Only check files smaller than 100 bytes - config files can be 500-1000 bytes legitimately
             if let content = try? String(contentsOf: downloadedURL, encoding: .utf8) {
-                print("⚠️ Small file content: \(content.prefix(100))")
-                throw ModelError.networkError("Downloaded file too small - might be an error page")
+                print("⚠️ Very small file content: \(content.prefix(100))")
+                
+                // Check for common error messages
+                let lowercaseContent = content.lowercased()
+                if lowercaseContent.contains("entry not found") {
+                    throw ModelError.networkError("Model file not found on HuggingFace. The model might have been moved or deleted.")
+                } else if lowercaseContent.contains("invalid username or password") || lowercaseContent.contains("authentication") {
+                    throw ModelError.authenticationError("Model requires authentication or is gated. Please check if the model is publicly accessible.")
+                } else if lowercaseContent.contains("repository not found") {
+                    throw ModelError.networkError("Repository not found. The model repository might have been moved or deleted.")
+                } else {
+                    throw ModelError.networkError("Downloaded file too small (\(fileSize) bytes) - might be an error page")
+                }
+            }
+        } else if fileSize < 500 && filename == "model.safetensors" {
+            // Only check model.safetensors files if they're suspiciously small
+            // Config files and tokenizer files can legitimately be small
+            if let content = try? String(contentsOf: downloadedURL, encoding: .utf8) {
+                print("⚠️ Small model file content: \(content.prefix(100))")
+                let lowercaseContent = content.lowercased()
+                if lowercaseContent.contains("entry not found") || lowercaseContent.contains("invalid username") {
+                    throw ModelError.networkError("Model file appears to be an error page instead of actual model data")
+                }
             }
         }
         
         // Move to destination
+        print("📁 Moving file from: \(downloadedURL.path)")
+        print("📁 Moving file to: \(destPath.path)")
+        
+        // Verify source file exists
+        if !FileManager.default.fileExists(atPath: downloadedURL.path) {
+            throw ModelError.networkError("Downloaded file doesn't exist at: \(downloadedURL.path)")
+        }
+        
+        // Verify destination directory exists
+        let destDir = destPath.deletingLastPathComponent()
+        if !FileManager.default.fileExists(atPath: destDir.path) {
+            print("❌ Destination directory doesn't exist: \(destDir.path)")
+            print("🔧 Attempting to create destination directory...")
+            try FileManager.default.createDirectory(at: destDir, withIntermediateDirectories: true)
+            print("✅ Destination directory created")
+        }
+        
+        // Check if destination file already exists and remove it
+        if FileManager.default.fileExists(atPath: destPath.path) {
+            print("🗑️ Removing existing file at destination")
+            try FileManager.default.removeItem(at: destPath)
+        }
+        
         try FileManager.default.moveItem(at: downloadedURL, to: destPath)
         print("✅ Saved: \(filename)")
+        
+        // Clean up: the moveItem operation should have moved the file, but let's ensure cleanup
+        // Note: moveItem removes the source file, so this is just a safety check
+        if FileManager.default.fileExists(atPath: downloadedURL.path) {
+            try? FileManager.default.removeItem(at: downloadedURL)
+        }
     }
     
     /// Update overall download progress based on individual file progress
     private func updateOverallProgress() {
+        // Simple file-based progress calculation
         let completedFiles = fileProgress.values.filter { $0 >= 1.0 }.count
+        let totalProgress = fileProgress.values.reduce(0.0, +)
         
-        // Calculate the average progress of incomplete files
-        let incompleteFiles = fileProgress.filter { $0.value < 1.0 }
-        let incompleteProgress = incompleteFiles.isEmpty ? 0.0 : incompleteFiles.values.reduce(0, +) / Double(incompleteFiles.count)
-        
-        // Overall progress = completed files + average progress of current file(s)
-        let newProgress = (Double(completedFiles) + incompleteProgress) / Double(totalFiles)
+        // Calculate progress as: (completed files + sum of partial progress) / total files
+        let newProgress = min(1.0, max(0.0, totalProgress / Double(totalFiles)))
         
         // Only update and log if progress changed significantly (at least 1%)
         let oldProgressPercent = Int(downloadProgress * 100)
         let newProgressPercent = Int(newProgress * 100)
         
+        // Ensure progress never goes backwards or exceeds 100%
+        let clampedProgress = max(downloadProgress, min(1.0, newProgress))
+        
         // Only update published value if percentage changed
-        if newProgressPercent != oldProgressPercent {
-            downloadProgress = newProgress
-            print("📈 Progress update: \(completedFiles)/\(totalFiles) files complete, Overall: \(newProgressPercent)%")
+        if newProgressPercent != oldProgressPercent && newProgressPercent >= oldProgressPercent {
+            downloadProgress = clampedProgress
+            print("📈 Progress update: \(completedFiles)/\(totalFiles) files complete, Overall: \(Int(clampedProgress * 100))%")
         }
-        // Do NOT update downloadProgress if percentage hasn't changed to avoid UI spam
     }
     
     /// Cancel current download
@@ -300,8 +368,24 @@ extension MLXModelDownloader: URLSessionDownloadDelegate {
     }
     
     nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        // Resume the continuation with the downloaded file location
-        continuationStore.takeAndResume(returning: location)
+        // CRITICAL: URLSession will delete the temporary file after this method returns
+        // We must copy it to a safe location immediately
+        
+        do {
+            // Create a temporary file in our app's tmp directory
+            let tempDir = FileManager.default.temporaryDirectory
+            let tempFileName = "mlx_download_\(UUID().uuidString).tmp"
+            let safeTempLocation = tempDir.appendingPathComponent(tempFileName)
+            
+            // Copy the file immediately
+            try FileManager.default.copyItem(at: location, to: safeTempLocation)
+            
+            // Resume the continuation with the safe location
+            continuationStore.takeAndResume(returning: safeTempLocation)
+        } catch {
+            // If copy fails, resume with error
+            continuationStore.takeAndResume(throwing: error)
+        }
     }
     
     nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {

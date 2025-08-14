@@ -298,21 +298,7 @@ class SharedModelManager: NSObject, ObservableObject {
             ),
             
             // MARK: - Medium Models (500MB-1.5GB)
-            // 4. TinyLlama 1.1B - Popular lightweight model
-            AIModel(
-                id: "tinyllama-1.1b",
-                name: "TinyLlama 1.1B Chat",
-                description: "Ultra-compact 669MB Llama model optimized for iPhone. Excellent for conversational AI.",
-                huggingFaceRepo: "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
-                filename: "model.safetensors",
-                sizeInBytes: 669262336, // ~669MB
-                type: .llama,
-                tags: ["tiny", "llama", "mlx", "chat", "iphone-optimized", "4bit"],
-                isGated: false,
-                provider: .meta
-            ),
-            
-            // 5. SmolLM 1.7B - Larger SmolLM
+            // 4. SmolLM 1.7B - Larger SmolLM
             AIModel(
                 id: "smollm-1.7b",
                 name: "SmolLM 1.7B Instruct",
@@ -326,7 +312,7 @@ class SharedModelManager: NSObject, ObservableObject {
                 provider: .huggingFace
             ),
             
-            // 6. Qwen2.5 1.5B - Balanced performance
+            // 5. Qwen2.5 1.5B - Balanced performance
             AIModel(
                 id: "qwen2.5-1.5b",
                 name: "Qwen2.5 1.5B Instruct",
@@ -340,7 +326,7 @@ class SharedModelManager: NSObject, ObservableObject {
                 provider: .other
             ),
             
-            // 7. OpenELM 1.1B - Apple's model
+            // 6. OpenELM 1.1B - Apple's model
             AIModel(
                 id: "openelm-1.1b",
                 name: "OpenELM 1.1B Instruct",
@@ -355,35 +341,7 @@ class SharedModelManager: NSObject, ObservableObject {
             ),
             
             // MARK: - Large Models (1.5GB-3GB)
-            // 8. Gemma 2B - Google's efficient model
-            AIModel(
-                id: "gemma-2b",
-                name: "Gemma 2B Instruct",
-                description: "Google's efficient 1.5GB model with excellent instruction-following.",
-                huggingFaceRepo: "mlx-community/gemma-2b-it-4bit",
-                filename: "model.safetensors",
-                sizeInBytes: 1500000000, // ~1.5GB
-                type: .general,
-                tags: ["google", "gemma", "mlx", "2B", "instruction", "4bit"],
-                isGated: false,
-                provider: .google
-            ),
-            
-            // 9. Phi-2 - Microsoft's compact powerhouse
-            AIModel(
-                id: "phi-2",
-                name: "Phi-2",
-                description: "Microsoft's 1.6GB compact model with strong reasoning capabilities.",
-                huggingFaceRepo: "mlx-community/phi-2-4bit",
-                filename: "model.safetensors",
-                sizeInBytes: 1600000000, // ~1.6GB
-                type: .general,
-                tags: ["microsoft", "phi", "mlx", "reasoning", "4bit"],
-                isGated: false,
-                provider: .microsoft
-            ),
-            
-            // 10. Qwen2.5 3B - Larger multilingual
+            // 7. Qwen2.5 3B - Larger multilingual
             AIModel(
                 id: "qwen2.5-3b",
                 name: "Qwen2.5 3B Instruct",
@@ -397,7 +355,7 @@ class SharedModelManager: NSObject, ObservableObject {
                 provider: .other
             ),
             
-            // 11. Llama 3.2 1B - Meta's latest small model
+            // 8. Llama 3.2 1B - Meta's latest small model
             AIModel(
                 id: "llama-3.2-1b",
                 name: "Llama 3.2 1B Instruct",
@@ -410,6 +368,22 @@ class SharedModelManager: NSObject, ObservableObject {
                 isGated: false,
                 provider: .meta
             ),
+            
+            // 9. DeepSeek Coder 1.3B - Specialized coding model
+            AIModel(
+                id: "deepseek-coder-1.3b",
+                name: "DeepSeek Coder 1.3B",
+                description: "Specialized 750MB coding model with excellent programming capabilities.",
+                huggingFaceRepo: "mlx-community/deepseek-coder-1.3b-instruct-4bit",
+                filename: "model.safetensors",
+                sizeInBytes: 750000000, // ~750MB
+                type: .code,
+                tags: ["deepseek", "coding", "1.3B", "mlx", "programming", "4bit"],
+                isGated: false,
+                provider: .other
+            ),
+            
+
         ]
         
         print("📋 Loaded \(availableModels.count) curated MLX-COMPATIBLE models")
@@ -504,46 +478,70 @@ class SharedModelManager: NSObject, ObservableObject {
             print("   Model size: \(ByteCountFormatter.string(fromByteCount: model.sizeInBytes, countStyle: .file))")
             
             // Monitor MLX downloader progress
-            Task { @MainActor in
+            let monitoringTask = Task { @MainActor in
                 var lastLoggedProgress = 0
                 var lastProgressPercent = 0
+                var monitoringCycles = 0
+                
                 for await _ in Timer.publish(every: 0.1, on: .main, in: .common).autoconnect().values {
-                    if let download = activeDownloads[model.id] {
-                        let currentProgress = mlxDownloader.downloadProgress
-                        let currentSpeed = mlxDownloader.downloadSpeed
+                    monitoringCycles += 1
+                    
+                    // Check if download still exists and is active
+                    guard let download = activeDownloads[model.id] else {
+                        // Download was completed or cancelled, exit monitoring
+                        print("✅ SharedModelManager: \(model.name) download monitoring complete (download removed after \(monitoringCycles) cycles)")
+                        break
+                    }
+                    
+                    let currentProgress = mlxDownloader.downloadProgress
+                    let currentSpeed = mlxDownloader.downloadSpeed
+                    let isDownloading = mlxDownloader.isDownloading
+                    
+                    // Debug logging every 50 cycles (5 seconds) when not progressing
+                    if monitoringCycles % 50 == 0 {
+                        print("🔍 SharedModelManager: \(model.name) monitoring - Progress: \(Int(currentProgress * 100))%, IsDownloading: \(isDownloading), Speed: \(formatSpeed(currentSpeed))")
+                    }
+                    
+                    // Only update if progress percentage changed
+                    let progressPercent = Int(currentProgress * 100)
+                    if progressPercent != lastProgressPercent {
+                        let updatedDownload = ModelDownload(
+                            modelId: model.id,
+                            progress: currentProgress,
+                            totalBytes: model.sizeInBytes,
+                            downloadedBytes: Int64(Double(model.sizeInBytes) * currentProgress),
+                            speed: currentSpeed,
+                            task: download.task
+                        )
+                        var dict = activeDownloads
+                        dict[model.id] = updatedDownload
+                        activeDownloads = dict
+                        lastProgressPercent = progressPercent
                         
-                        // Only update if progress percentage changed
-                        let progressPercent = Int(currentProgress * 100)
-                        if progressPercent != lastProgressPercent {
-                            let updatedDownload = ModelDownload(
-                                modelId: model.id,
-                                progress: currentProgress,
-                                totalBytes: model.sizeInBytes,
-                                downloadedBytes: Int64(Double(model.sizeInBytes) * currentProgress),
-                                speed: currentSpeed,
-                                task: download.task
-                            )
-                            var dict = activeDownloads
-                            dict[model.id] = updatedDownload
-                            activeDownloads = dict
-                            lastProgressPercent = progressPercent
-                            
-                            // Log progress updates every 10%
-                            if progressPercent >= lastLoggedProgress + 10 {
-                                print("📊 SharedModelManager: \(model.name) download progress: \(progressPercent)%")
-                                let speedStr = formatSpeed(currentSpeed)
-                                print("   Speed: \(speedStr)")
-                                lastLoggedProgress = progressPercent
-                            }
+                        // Log progress updates every 10%
+                        if progressPercent >= lastLoggedProgress + 10 {
+                            print("📊 SharedModelManager: \(model.name) download progress: \(progressPercent)%")
+                            let speedStr = formatSpeed(currentSpeed)
+                            print("   Speed: \(speedStr)")
+                            lastLoggedProgress = progressPercent
+                        }
+                    }
+                    
+                    // Check if MLX downloader is no longer downloading
+                    if !isDownloading {
+                        // Wait a bit more to see if it's just between files
+                        if monitoringCycles % 10 == 0 { // Check every second when not downloading
+                            print("⏳ SharedModelManager: \(model.name) downloader not active, waiting... (progress: \(progressPercent)%)")
                         }
                         
-                        if !mlxDownloader.isDownloading {
-                            print("✅ SharedModelManager: \(model.name) download monitoring complete")
+                        // If we've been waiting too long and no progress, assume it's done
+                        if monitoringCycles > 100 && progressPercent < 100 { // 10 seconds of no activity
+                            print("⚠️ SharedModelManager: \(model.name) download appears stalled, stopping monitoring")
+                            break
+                        } else if progressPercent >= 100 {
+                            print("✅ SharedModelManager: \(model.name) download monitoring complete (100% progress)")
                             break
                         }
-                    } else {
-                        print("⚠️ SharedModelManager: Lost track of download for \(model.name)")
-                        break
                     }
                 }
             }
@@ -552,18 +550,27 @@ class SharedModelManager: NSObject, ObservableObject {
             do {
                 try await mlxDownloader.downloadMLXModel(model)
                 
-                // Remove from active downloads on success
+                // Remove from active downloads on success (this will signal monitoring task to stop)
                 var dict = activeDownloads
                 dict.removeValue(forKey: model.id)
                 activeDownloads = dict
+                
+                // Cancel monitoring task
+                monitoringTask.cancel()
                 
                 // Refresh downloaded models
                 fileManager.refreshDownloadedModels()
                 
                 print("✅ MLX model downloaded successfully: \(model.name)")
             } catch {
-                // Remove from active downloads on failure
-                activeDownloads.removeValue(forKey: model.id)
+                // Remove from active downloads on failure (this will signal monitoring task to stop)
+                var dict = activeDownloads
+                dict.removeValue(forKey: model.id)
+                activeDownloads = dict
+                
+                // Cancel monitoring task
+                monitoringTask.cancel()
+                
                 throw error
             }
             

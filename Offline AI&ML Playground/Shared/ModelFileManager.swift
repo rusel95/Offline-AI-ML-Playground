@@ -73,6 +73,7 @@ public class ModelFileManager: NSObject, ObservableObject {
         let repoMapping: [String: String] = [
             "qwen2.5-0.5b": "Qwen2.5-0.5B-Instruct-4bit",
             "qwen2.5-1.5b": "Qwen2.5-1.5B-Instruct-4bit",
+            "qwen2.5-3b": "Qwen2.5-3B-Instruct-4bit",
             "smollm-135m": "SmolLM-135M-Instruct-4bit",
             "smollm-360m": "SmolLM-360M-Instruct-4bit",
             "smollm-1.7b": "SmolLM-1.7B-Instruct-4bit",
@@ -82,6 +83,7 @@ public class ModelFileManager: NSObject, ObservableObject {
             "llama-3.2-1b": "Llama-3.2-1B-Instruct-4bit",
             "deepseek-r1-distill-qwen-1.5b": "DeepSeek-R1-Distill-Qwen-1.5B-4bit",
             "gemma-2b": "gemma-2b-it-4bit",
+
             "phi-3.5-mini": "Phi-3.5-mini-instruct-4bit",
             "openelm-270m": "OpenELM-270M-Instruct-4bit"
         ]
