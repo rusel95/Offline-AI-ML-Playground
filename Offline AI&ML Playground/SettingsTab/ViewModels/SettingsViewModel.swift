@@ -96,4 +96,8 @@ class SettingsViewModel: ObservableObject {
         // Clean up when settings view disappears
         performanceViewModel.cleanup()
     }
+    
+    deinit {
+        cancellables.removeAll()
+    }
 }

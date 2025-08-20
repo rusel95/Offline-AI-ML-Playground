@@ -127,4 +127,8 @@ class ModelPickerViewModel: ObservableObject {
         
         return info.joined(separator: " • ")
     }
+    
+    deinit {
+        cancellables.removeAll()
+    }
 }

@@ -55,4 +55,8 @@ class StorageHeaderViewModel: ObservableObject {
         freeStorage = sharedManager.freeStorage
         totalStorage = storageUsed + freeStorage
     }
+    
+    deinit {
+        cancellables.removeAll()
+    }
 }

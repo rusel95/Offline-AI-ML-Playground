@@ -147,7 +147,10 @@ class PerformanceSettingsViewModel: ObservableObject {
         // Bind performance monitor state to view model
         performanceMonitor.$isMonitoring
             .receive(on: RunLoop.main)
-            .assign(to: &$isMonitoring)
+            .sink { [weak self] isMonitoring in
+                self?.isMonitoring = isMonitoring
+            }
+            .store(in: &cancellables)
         
         // Bind performance stats
         performanceMonitor.$currentStats
@@ -186,5 +189,9 @@ class PerformanceSettingsViewModel: ObservableObject {
     
     func cleanup() {
         performanceMonitor.stopMonitoring()
+    }
+    
+    deinit {
+        cancellables.removeAll()
     }
 }

@@ -152,5 +152,9 @@ class DownloadViewModel: ObservableObject {
         DownloadResumeManager.shared.deleteResumeData(for: modelId)
         refreshResumeData()
     }
+    
+    deinit {
+        cancellables.removeAll()
+    }
 }
 

@@ -95,6 +95,9 @@ class ModelCardViewModel: ObservableObject {
         downloadViewModel.deleteModel(model)
     }
     
+    deinit {
+        cancellables.removeAll()
+    }
 }
 
 // MARK: - Download Status

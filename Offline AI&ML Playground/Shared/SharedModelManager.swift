@@ -73,21 +73,10 @@ class SharedModelManager: NSObject, ObservableObject {
         return 0
     }
     
-    // MARK: - Performance optimization properties
-    private var lastStorageUpdate: Date = Date()
-    private var storageUpdateThrottle: TimeInterval = 2.0 // Update storage every 2 seconds max
-    private let progressUpdateThrottle: TimeInterval = 0.1 // Update progress every 100ms max
+    // MARK: - Performance optimization with Combine
+    private let progressUpdateSubject = PassthroughSubject<(URLSessionTask, Double), Never>()
+    private let storageUpdateSubject = PassthroughSubject<Void, Never>()
     private var lastProgressUpdate: [URLSessionTask: Date] = [:]
-    
-    // Batch update mechanism
-    private var pendingUpdates: Set<UpdateType> = []
-    private var updateTimer: Timer?
-    
-    private enum UpdateType: Hashable {
-        case storage
-        case models
-        case downloads
-    }
     
     // MARK: - Private Properties
     private var urlSession: URLSession?
@@ -177,6 +166,12 @@ class SharedModelManager: NSObject, ObservableObject {
         print("📁 Using ModelFileManager for all file operations")
     }
     
+    deinit {
+        cancellables.removeAll()
+        urlSession?.invalidateAndCancel()
+        memoryCleanupTimer?.invalidate()
+    }
+    
     // MARK: - Network Monitoring
     private func setupNetworkMonitoring() {
         // Use Combine to monitor network changes
@@ -191,9 +186,59 @@ class SharedModelManager: NSObject, ObservableObject {
                 }
             }
             .store(in: &cancellables)
+        
+        // Setup throttled progress updates
+        progressUpdateSubject
+            .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
+            .sink { [weak self] task, progress in
+                self?.updateDownloadProgress(task: task, progress: progress)
+            }
+            .store(in: &cancellables)
+        
+        // Setup throttled storage updates
+        storageUpdateSubject
+            .throttle(for: .seconds(2), scheduler: RunLoop.main, latest: true)
+            .sink { [weak self] _ in
+                self?.fileManager.refreshDownloadedModels()
+            }
+            .store(in: &cancellables)
     }
     
     private var cancellables = Set<AnyCancellable>()
+    
+    @MainActor
+    private func updateDownloadProgress(task: URLSessionTask, progress: Double) {
+        // Find the model for this task
+        for (modelId, download) in activeDownloads {
+            if let downloadTask = download.task, downloadTask == task {
+                let totalBytes = lastBytesWritten[task] ?? 0
+                let averageSpeed = speedTrackers[task]?.getAverageSpeed() ?? 0
+                
+                let updatedDownload = ModelDownload(
+                    modelId: download.modelId,
+                    progress: progress,
+                    totalBytes: Int64(Double(totalBytes) / progress), // Estimate total from progress
+                    downloadedBytes: totalBytes,
+                    speed: averageSpeed,
+                    task: download.task
+                )
+                
+                var dict = activeDownloads
+                dict[modelId] = updatedDownload
+                activeDownloads = dict
+                
+                // Log progress to console for debugging
+                if let model = availableModels.first(where: { $0.id == modelId }) {
+                    let percentage = Int(progress * 100)
+                    let downloaded = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
+                    let speedStr = ByteCountFormatter.string(fromByteCount: Int64(averageSpeed), countStyle: .file)
+                    print("📊 Download Progress: \(model.name) - \(percentage)% (\(downloaded)) @ \(speedStr)/s")
+                }
+                
+                break
+            }
+        }
+    }
     
     @MainActor
     private func resumeInterruptedDownloads() async {
@@ -885,51 +930,18 @@ extension SharedModelManager: URLSessionDownloadDelegate {
     nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         
         Task { @MainActor in
-            // Throttle progress updates to prevent excessive UI refreshes
-            let now = Date()
-            if let lastUpdate = lastProgressUpdate[downloadTask],
-               now.timeIntervalSince(lastUpdate) < progressUpdateThrottle {
-                return
-            }
+            // Send progress update through Combine subject for throttling
+            let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+            progressUpdateSubject.send((downloadTask, progress))
             
-            lastProgressUpdate[downloadTask] = now
-            
-            for (modelId, download) in activeDownloads {
-                if let task = download.task, task == downloadTask {
-                    // Update speed tracking
-                    if speedTrackers[downloadTask] == nil {
-                        speedTrackers[downloadTask] = DownloadSpeedTracker()
-                    }
-                    speedTrackers[downloadTask]?.addSample(bytes: bytesWritten)
-                    
-                    let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-                    let averageSpeed = speedTrackers[downloadTask]?.getAverageSpeed() ?? 0
-                    
-                    let updatedDownload = ModelDownload(
-                        modelId: download.modelId,
-                        progress: progress,
-                        totalBytes: totalBytesExpectedToWrite,
-                        downloadedBytes: totalBytesWritten,
-                        speed: averageSpeed,
-                        task: download.task
-                    )
-                    
-                    var dict = activeDownloads
-                    dict[modelId] = updatedDownload
-                    activeDownloads = dict
-                    
-                    // Log progress to console for debugging
-                    if let model = availableModels.first(where: { $0.id == modelId }) {
-                        let percentage = Int(progress * 100)
-                        let downloaded = ByteCountFormatter.string(fromByteCount: totalBytesWritten, countStyle: .file)
-                        let total = ByteCountFormatter.string(fromByteCount: totalBytesExpectedToWrite, countStyle: .file)
-                        let speedStr = ByteCountFormatter.string(fromByteCount: Int64(averageSpeed), countStyle: .file)
-                        print("📊 Download Progress: \(model.name) - \(percentage)% (\(downloaded)/\(total)) @ \(speedStr)/s")
-                    }
-                    
-                    break
-                }
+            // Update speed tracking
+            if speedTrackers[downloadTask] == nil {
+                speedTrackers[downloadTask] = DownloadSpeedTracker()
             }
+            speedTrackers[downloadTask]?.addSample(bytes: bytesWritten)
+            
+            // Store bytes written for progress calculation
+            lastBytesWritten[downloadTask] = totalBytesWritten
         }
     }
     

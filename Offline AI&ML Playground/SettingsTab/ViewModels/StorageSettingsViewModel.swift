@@ -188,4 +188,8 @@ class StorageSettingsViewModel: ObservableObject {
             throw error
         }
     }
+    
+    deinit {
+        cancellables.removeAll()
+    }
 }
