@@ -40,7 +40,16 @@ class ChatViewModel: ObservableObject {
     
     // MARK: - Dependencies
     private let sharedManager = SharedModelManager.shared
-    private let aiInferenceManager = AIInferenceManager()
+    
+    // Support for multiple inference backends
+    enum InferenceBackend {
+        case mlx
+        case transformers
+    }
+    
+    @Published var currentBackend: InferenceBackend = .mlx
+    private var inferenceService: AIInferenceService = AIInferenceManager()
+    
     private var historyManager: ChatHistoryManager?
     
     // MARK: - Computed Properties
@@ -145,8 +154,8 @@ class ChatViewModel: ObservableObject {
         print("🔄 Loading model for inference: \(model.name)")
         
         do {
-            // Use AIInferenceManager for actual loading with progress
-            try await aiInferenceManager.loadModel(model)
+            // Use inference service for actual loading with progress
+            try await inferenceService.loadModel(model)
             
             await MainActor.run {
                 isModelLoading = false
@@ -378,10 +387,10 @@ class ChatViewModel: ObservableObject {
         let messageIndex = messages.count - 1
         
         do {
-            // Check if the inference manager has the model loaded
-            if !aiInferenceManager.isModelLoaded {
+            // Check if the inference service has the model loaded
+            if !inferenceService.isModelLoaded {
                 print("📥 Model not loaded, loading now...")
-                try await aiInferenceManager.loadModel(model)
+                try await inferenceService.loadModel(model)
             }
             
             // Log the full context being sent to the model
@@ -401,7 +410,7 @@ class ChatViewModel: ObservableObject {
             print("🎛️ Generation settings: maxTokens=\(adjustedMaxTokens), temp=\(adjustedTemp), topP=\(gen.topP)")
             print("🚀 Starting streaming generation with context length: \(conversationContext.count)")
             
-            for await response in aiInferenceManager.generateStreamingTextWithMetrics(
+            for await response in inferenceService.generateStreamingTextWithMetrics(
                 prompt: conversationContext,
                 maxTokens: adjustedMaxTokens,
                 temperature: adjustedTemp,
@@ -418,72 +427,10 @@ class ChatViewModel: ObservableObject {
                 // Accumulate the full response to check for patterns
                 accumulatedResponse += response.text
                 
-                var foundPattern = false
+                // Fallback pattern detection removed: now returns full model output, even if math or conversational tokens are present.
+                // (Removed logic that detected math/self-conversation patterns and replaced the response with a fallback message.)
                 
-                // Check for problematic patterns in the response
-                let hasMathPattern = accumulatedResponse.contains("$") || 
-                                   accumulatedResponse.contains("\\") ||
-                                   accumulatedResponse.contains("lim_") ||
-                                   accumulatedResponse.contains("sum_") ||
-                                   accumulatedResponse.contains("cos") ||
-                                   accumulatedResponse.contains("cdots")
-                
-                let hasSelfConversation = accumulatedResponse.contains("\n\nUser:") || accumulatedResponse.contains("\nUser:")
-                
-                // Stop generation if we detect mathematical gibberish or self-conversation
-                if hasMathPattern || hasSelfConversation {
-                    foundPattern = true
-                    shouldStopGeneration = true
-                    
-                    print("🚨 Detected problematic pattern - stopping generation")
-                    print("   Math pattern: \(hasMathPattern)")
-                    print("   Self conversation: \(hasSelfConversation)")
-                    print("   Response so far: \(String(accumulatedResponse.prefix(200)))...")
-                    
-                    var cleanedText = accumulatedResponse
-                    
-                    // If it's mathematical gibberish, provide a helpful response instead
-                    if hasMathPattern {
-                        cleanedText = "I apologize, but I seem to be having trouble generating a proper response. Could you please try rephrasing your question or try a different model?"
-                    } else {
-                        // Extract text before the User: marker for self-conversation
-                        let patterns = ["\n\nUser:", "\nUser:"]
-                        for pattern in patterns {
-                            if let range = cleanedText.range(of: pattern) {
-                                cleanedText = String(cleanedText[..<range.lowerBound])
-                                break
-                            }
-                        }
-                    }
-                    
-                    // Remove any leading "\n\nAssistant:" or similar patterns from the response
-                    let prefixPatterns = ["\n\nAssistant:", "\nAssistant:", "Assistant:"]
-                    for prefix in prefixPatterns {
-                        if cleanedText.hasPrefix(prefix) {
-                            cleanedText = String(cleanedText.dropFirst(prefix.count))
-                            break
-                        }
-                    }
-                    
-                    cleanedText = cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    
-                    await MainActor.run {
-                        if messageIndex < messages.count {
-                            if !cleanedText.isEmpty {
-                                messages[messageIndex].content = cleanedText
-                            } else {
-                                messages[messageIndex].content = "I'm having trouble generating a proper response. Please try again with a different model."
-                            }
-                            messages[messageIndex].tokenMetrics = response.metrics
-                        }
-                    }
-                }
-                
-                if shouldStopGeneration || foundPattern {
-                    break
-                }
-                
-                // For normal streaming (no self-conversation detected)
+                // For normal streaming (no pattern overrides)
                 // Update the message with the new chunk of text
                 await MainActor.run {
                     if messageIndex < messages.count && !shouldStopGeneration {
@@ -660,5 +607,31 @@ class ChatViewModel: ObservableObject {
         // This is a rough estimate - actual tokenization varies by model
         // Most models average around 3-4 characters per token
         return max(1, text.count / 4)
+    }
+    }
+    
+    // MARK: - Backend Switching
+    func switchBackend(to backend: InferenceBackend) {
+        guard backend != currentBackend else { return }
+        
+        Task {
+            // Unload current model
+            await inferenceService.unloadModel()
+            
+            // Switch service
+            switch backend {
+            case .mlx:
+                inferenceService = AIInferenceManager()
+                print("twisted: Switched to MLX backend")
+            case .transformers:
+                inferenceService = TransformersInferenceManager()
+                print("twisted: Switched to Transformers backend")
+            }
+            
+            await MainActor.run {
+                currentBackend = backend
+                selectedModel = nil // Reset selection as models might not be compatible
+            }
+        }
     }
 }

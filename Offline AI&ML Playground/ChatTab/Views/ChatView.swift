@@ -342,6 +342,20 @@ struct ChatView: View {
                     
                     Divider()
                     
+                    Menu {
+                        Picker("Engine", selection: Binding(
+                            get: { viewModel.currentBackend },
+                            set: { viewModel.switchBackend(to: $0) }
+                        )) {
+                            Text("MLX (Default)").tag(ChatViewModel.InferenceBackend.mlx)
+                            Text("Transformers (CoreML)").tag(ChatViewModel.InferenceBackend.transformers)
+                        }
+                    } label: {
+                        Label("Inference Engine", systemImage: "cpu.fill")
+                    }
+                    
+                    Divider()
+                    
                     Button {
                         HapticFeedback.light()
                         viewModel.refreshDownloadedModels()

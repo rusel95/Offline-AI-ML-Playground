@@ -57,7 +57,7 @@ final class MLXInferenceTests: XCTestCase {
         print("🧹 Tearing down MLX Inference Tests")
         Task { @MainActor in
             if aiInferenceManager.isModelLoaded {
-                aiInferenceManager.unloadModel()
+                await aiInferenceManager.unloadModel()
             }
         }
         aiInferenceManager = nil
@@ -419,5 +419,44 @@ final class PerformanceMonitorTests: XCTestCase {
         }
         
         print("✅ Basic performance monitoring test passed")
+    }
+}
+
+@MainActor
+final class ModelChatTests: XCTestCase {
+    func testModelChat_JokeResponse() async throws {
+        print("\n🧪 MODEL CHAT TEST: Loading model and asking 'tell a joke'\n")
+        let inferenceManager = AIInferenceManager()
+        let downloadManager = ModelDownloadManager()
+        
+        // Pick a downloaded or available language/chat model
+        let allModels = downloadManager.availableModels
+        let languageModels = allModels.filter {
+            !$0.tags.contains("vision") &&
+            !$0.tags.contains("embedding") &&
+            !$0.tags.contains("sentence-transformers") &&
+            !$0.isGated
+        }
+        guard let model = languageModels.first else {
+            XCTFail("No suitable non-gated language model found for test")
+            return
+        }
+        print("🔍 Using model: \(model.name) [\(model.id)]")
+        
+        // Simulate model loading
+        print("⏳ Loading model ...")
+        let loadResult = await inferenceManager.load(model: model)
+        XCTAssert(loadResult, "Model should load successfully")
+        print("✅ Model loaded!")
+        
+        // Ask the model a question
+        let question = "tell a joke"
+        print("🤖 Asking: \(question)")
+        let response = await inferenceManager.infer(text: question)
+        print("📝 Model response: \(response)")
+        
+        // Assert the response is not empty
+        XCTAssertFalse(response.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "Response should not be empty")
+        print("🎉 Model chat test PASSED!")
     }
 }

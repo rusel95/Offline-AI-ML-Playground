@@ -39,7 +39,7 @@ actor MetricsActor {
 
 /// Manager for handling real on-device AI inference using MLX Swift
 @MainActor
-class AIInferenceManager: ObservableObject {
+class AIInferenceManager: AIInferenceService {
     @Published var isModelLoaded = false
     @Published var loadingProgress: Float = 0.0
     @Published var loadingStatus = "Ready"
@@ -649,14 +649,14 @@ class AIInferenceManager: ObservableObject {
     }
     
     /// Unload the current model (synchronous version)
-    func unloadModel() {
+    func unloadModelSync() {
         Task {
-            await unloadModelAsync()
+            await unloadModel()
         }
     }
     
     /// Unload the current model asynchronously with proper cleanup
-    func unloadModelAsync() async {
+    func unloadModel() async {
         print("🗑️ Starting async model unload process")
         let initialMemory = getMemoryUsage()
         
